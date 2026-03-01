@@ -1,0 +1,44 @@
+ The mic IS connected and sending audio, but ElevenLabs is receiving it 
+  garbled/distorted. This is an audio encoding mismatch. Here's the proof:
+
+  Read the transcript. Alyssa hears SOMETHING from the user. She reports "slow
+  motion," "echoing," "garbled," "heavy interference," "distorted." She can even
+  partially make out words ("no rush," "yeah, that's"). This means:
+  - Mic permission: working
+  - WebSocket: connected and sending audio
+  - Audio IS reaching ElevenLabs
+  - But the audio format is wrong
+
+  This is almost certainly a sample rate mismatch. The ElevenLabs agent is
+  configured to accept PCM 16000 Hz input audio. The browser's getUserMedia captures
+   audio at the device's native sample rate, usually 44100 Hz or 48000 Hz. If you're
+   sending those raw samples to ElevenLabs without downsampling to 16000 Hz,
+  ElevenLabs tries to play 48000 Hz audio as if it were 16000 Hz. That makes
+  everything sound exactly like what Alyssa described: slow motion, distorted,
+  garbled.
+
+  The fix: You need to downsample the microphone audio from the browser's native
+  sample rate (probably 48000 Hz) to 16000 Hz before sending it over the WebSocket.
+  The standard approach:
+
+  1. Create an AudioContext at the browser's native sample rate
+  2. Connect the mic stream to a ScriptProcessorNode or AudioWorkletNode
+  3. In the processing callback, downsample from native rate to 16000 Hz (take every
+   Nth sample where N = nativeSampleRate / 16000)
+  4. Convert the downsampled float32 samples to PCM Int16 (multiply by 32767 and
+  clamp)
+  5. Send those PCM Int16 bytes over the WebSocket
+
+  OR: Create the AudioContext with { sampleRate: 16000 } to force the browser to
+  downsample automatically. This is simpler but not supported in all browsers. Check
+   if it works in Chrome first.
+
+  Also check: Are you sending the audio as raw PCM bytes, or are you accidentally
+  wrapping it in a MediaRecorder format (webm/opus)? ElevenLabs Conversational AI
+  expects raw PCM Int16 Little Endian at 16000 Hz. Not webm. Not opus. Not wav with
+  headers. Just raw samples.
+
+  How to verify the fix: Have a voice conversation. When the user speaks normally,
+  Alyssa should understand complete sentences and respond to the actual content. No
+  "slow motion," no "garbled," no "echo." Test 3-4 turns minimum. Read the
+  transcript to confirm Alyssa is responding to what was actually said.

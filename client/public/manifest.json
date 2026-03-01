@@ -1,0 +1,22 @@
+{
+  "name": "Electric Thinking Assessment",
+  "short_name": "ET Assessment",
+  "description": "AI Fluency Assessment & Personalized Learning",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#FF2F86",
+  "background_color": "#F0E4CE",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

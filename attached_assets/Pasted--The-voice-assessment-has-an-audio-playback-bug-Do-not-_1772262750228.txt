@@ -1,0 +1,35 @@
+ The voice assessment has an audio playback bug. Do not mark this as solved until 
+  you can reproduce and fix it.                                                     
+   
+  What's happening: When Alyssa speaks, the audio sounds garbled, overlapping, and  
+  fragmented. Like multiple audio chunks are playing simultaneously instead of
+  sequentially. She starts a sentence, then another sentence starts before the first
+   finishes, and they pile on top of each other. The transcript looks correct (the
+  text is fine), but the actual spoken audio is broken.
+
+  This is an audio playback/buffering issue, not a conversation logic issue. The
+  transcript proves the LLM responses are correct. Something in how the app receives
+   and plays the audio stream from the ElevenLabs WebSocket is wrong.
+
+  Likely causes to investigate:
+  1. Audio chunks from the WebSocket are being played immediately as they arrive
+  instead of being queued and played sequentially. You need an audio queue/buffer
+  that plays chunks in order, waiting for each to finish before starting the next.
+  2. Multiple audio elements or AudioContext sources might be getting created per
+  response instead of one. Each new chunk creates a new playback instead of
+  appending to the current one.
+  3. The ElevenLabs WebSocket sends audio in small chunks. If your code does
+  audioElement.play() on every chunk without waiting for the previous chunk to
+  finish, you get exactly this overlapping garbled effect.
+
+  The fix is an audio playback queue: Receive chunks from WebSocket, buffer them in
+  order, play them sequentially (wait for one chunk's onended event before playing
+  the next). OR concatenate chunks into a single audio buffer per response before
+  playing.
+
+  How to verify it's fixed: Have an actual voice conversation with the agent. Alyssa
+   should speak in clear, complete sentences with no overlap or garbling. Test at
+  least 3-4 back-and-forth turns.
+
+  Do not close this until you have actually listened to the audio output and
+  confirmed it sounds like a normal conversation.
