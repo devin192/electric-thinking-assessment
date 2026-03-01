@@ -8,7 +8,7 @@ import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Assessment, Level, Skill, Nudge } from "@shared/schema";
+import type { Assessment, Level, Skill, Nudge, UserSkillStatus } from "@shared/schema";
 import {
   ArrowRight, Star, CheckCircle2, Sparkles, Zap,
   Link as LinkIcon, Users, ChevronRight, Loader2, Target, Flame,
@@ -99,6 +99,33 @@ function PulseRing({ color, delay = 0 }: { color: string; delay?: number }) {
   );
 }
 
+/** Rotating ring behind the loading orb, adds organic "gears turning" feel */
+function RotatingRing({ color }: { color: string }) {
+  return (
+    <motion.div
+      className="absolute inset-[-12px] rounded-full pointer-events-none"
+      style={{
+        border: `2px dashed ${color}40`,
+      }}
+      animate={{ rotate: 360 }}
+      transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+    />
+  );
+}
+
+/** One-shot impact flash for the level reveal moment */
+function ImpactFlash({ color }: { color: string }) {
+  return (
+    <motion.div
+      className="absolute inset-0 rounded-full pointer-events-none"
+      style={{ backgroundColor: color }}
+      initial={{ scale: 0.8, opacity: 0.6 }}
+      animate={{ scale: 3, opacity: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+    />
+  );
+}
+
 export default function ResultsPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
@@ -111,6 +138,7 @@ export default function ResultsPage() {
   const [journeyDay, setJourneyDay] = useState("Monday");
   const [journeySaving, setJourneySaving] = useState(false);
   const [expandedChallenge, setExpandedChallenge] = useState(false);
+  const [levelRevealed, setLevelRevealed] = useState(false);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
@@ -198,7 +226,11 @@ export default function ResultsPage() {
     }
 
     scheduleTimeout(() => setPhase("countup"), 3000 + buildDuration + 500);
-    scheduleTimeout(() => setPhase("level"), 3000 + buildDuration + 3500);
+    scheduleTimeout(() => {
+      setPhase("level");
+      // Trigger the impact flash after a short delay
+      scheduleTimeout(() => setLevelRevealed(true), 200);
+    }, 3000 + buildDuration + 3500);
     scheduleTimeout(() => setPhase("signature"), 3000 + buildDuration + 6500);
     scheduleTimeout(() => setPhase("brightspots"), 3000 + buildDuration + 9000);
     scheduleTimeout(() => setPhase("futureself"), 3000 + buildDuration + 11500);
@@ -220,6 +252,7 @@ export default function ResultsPage() {
     setPhase("share");
     setSkillsRevealed(totalSkills);
     setMasteredCount(totalMastered);
+    setLevelRevealed(true);
   };
 
   const handleGenerateNext = async () => {
@@ -314,6 +347,8 @@ export default function ResultsPage() {
         >
           <Wordmark className="text-xl mb-12 block" />
           <div className="relative w-32 h-32 mx-auto mb-10">
+            {/* Rotating dashed ring behind the orb */}
+            <RotatingRing color={levelColor} />
             <motion.div
               className="absolute inset-0 rounded-full"
               style={{ backgroundColor: `${levelColor}10` }}
@@ -379,7 +414,7 @@ export default function ResultsPage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
-        {/* ── SKILL MAP BUILD ── */}
+        {/* -- SKILL MAP BUILD -- */}
         <AnimatePresence>
           {isPast("building") && (
             <motion.section
@@ -526,6 +561,16 @@ export default function ResultsPage() {
                                       )}
                                       {isYellow && <Target className="w-3 h-3" />}
                                       {skill.name}
+                                      {/* Glow burst on green skills during reveal */}
+                                      {isGreen && phase !== "share" && (
+                                        <motion.div
+                                          className="absolute inset-0 rounded-xl"
+                                          style={{ backgroundColor: "#38A169" }}
+                                          initial={{ opacity: 0.5, scale: 1 }}
+                                          animate={{ opacity: 0, scale: 1.3 }}
+                                          transition={{ duration: 0.6, ease: "easeOut" }}
+                                        />
+                                      )}
                                       {isGreen && (
                                         <motion.div
                                           className="absolute inset-0 rounded-xl border border-emerald-400/30"
@@ -549,7 +594,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── COUNT-UP MOMENT ── */}
+        {/* -- COUNT-UP MOMENT -- */}
         <AnimatePresence>
           {isPast("countup") && !isPast("level") && (
             <motion.section
@@ -575,7 +620,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── LEVEL REVEAL ── */}
+        {/* -- LEVEL REVEAL -- */}
         <AnimatePresence>
           {isPast("level") && (
             <motion.section
@@ -595,6 +640,9 @@ export default function ResultsPage() {
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ type: "spring", stiffness: 150, damping: 15, delay: 0.2 }}
                 >
+                  {/* Impact flash on first appearance */}
+                  {levelRevealed && <ImpactFlash color={levelColor} />}
+
                   <div
                     className="absolute inset-0 rounded-full flex items-center justify-center"
                     style={{
@@ -638,7 +686,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── SIGNATURE SKILL BADGE ── */}
+        {/* -- SIGNATURE SKILL BADGE -- */}
         <AnimatePresence>
           {isPast("signature") && signatureSkill && (
             <motion.section
@@ -682,7 +730,7 @@ export default function ResultsPage() {
                         Rare Strength
                       </div>
                       <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                        {signatureSkillRationale || "You showed real depth here — it's rare and worth building on."}
+                        {signatureSkillRationale || "You showed real depth here -- it's rare and worth building on."}
                       </p>
                     </motion.div>
                   </div>
@@ -692,7 +740,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── BRIGHT SPOTS NARRATIVE ── */}
+        {/* -- BRIGHT SPOTS NARRATIVE -- */}
         <AnimatePresence>
           {isPast("brightspots") && brightSpotsText && (
             <motion.section
@@ -734,7 +782,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── FUTURE SELF PARAGRAPH ── */}
+        {/* -- FUTURE SELF PARAGRAPH -- */}
         <AnimatePresence>
           {isPast("futureself") && futureSelfText && (
             <motion.section
@@ -776,7 +824,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── FIRST CHALLENGE CTA ── */}
+        {/* -- FIRST CHALLENGE CTA -- */}
         <AnimatePresence>
           {isPast("firstmove") && (
             <motion.section
@@ -824,7 +872,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── TEAM SNAPSHOT ── */}
+        {/* -- TEAM SNAPSHOT -- */}
         <AnimatePresence>
           {isPast("team") && teamSnapshot && (
             <motion.section
@@ -924,7 +972,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── JOURNEY / COMMITMENT LEVEL ── */}
+        {/* -- JOURNEY / COMMITMENT LEVEL -- */}
         <AnimatePresence>
           {isPast("journey") && (
             <motion.section
@@ -1032,7 +1080,7 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* ── SHAREABLE RESULTS CARD ── */}
+        {/* -- SHAREABLE RESULTS CARD -- */}
         <AnimatePresence>
           {isPast("share") && (
             <motion.section
@@ -1258,7 +1306,7 @@ function ChallengeCard({
                         data-testid="button-keep-going"
                       >
                         {generating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Flame className="w-4 h-4 mr-1" />}
-                        Keep Going — Next Challenge
+                        Keep Going, Next Challenge
                       </Button>
                     </div>
                   </motion.div>

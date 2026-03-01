@@ -207,7 +207,7 @@ function MembersTab() {
     try {
       await apiRequest("PATCH", `/api/manager/team/${memberId}/nudges`, { nudgesActive: !current });
       queryClient.invalidateQueries({ queryKey: ["/api/manager/team"] });
-      toast({ title: `Nudges ${!current ? "enabled" : "disabled"}` });
+      toast({ title: `Challenges ${!current ? "enabled" : "disabled"}` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -253,7 +253,7 @@ function MembersTab() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Nudges</span>
+                    <span className="text-xs text-muted-foreground">Challenges</span>
                     <Switch
                       checked={member.nudgesActive}
                       onCheckedChange={() => toggleNudges(member.id, member.nudgesActive)}
@@ -366,11 +366,11 @@ function ActivityTab() {
       case "skill_completed":
         return `completed skill "${data.skillName || "unknown"}"`;
       case "level_up":
-        return `leveled up to Level ${data.newLevel ?? "?"}`;
+        return `leveled up to ${LEVEL_NAMES[data.newLevel] || "Level " + (data.newLevel ?? "?")}`;
       case "assessment_completed":
-        return `completed assessment (Level ${data.level ?? "?"})`;
+        return `completed skill discovery (${LEVEL_NAMES[data.level] || "Level " + (data.level ?? "?")})`;
       case "nudge_read":
-        return `read a nudge`;
+        return `read a challenge`;
       default:
         return item.eventType.replace(/_/g, " ");
     }

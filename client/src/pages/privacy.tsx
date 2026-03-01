@@ -58,7 +58,7 @@ export default function PrivacyPage() {
         <ul className="text-muted-foreground space-y-2">
           <li>Download a copy of all your data at any time</li>
           <li>Request complete deletion of your account and data</li>
-          <li>Pause or stop learning nudges at any time</li>
+          <li>Pause or stop skill challenges at any time</li>
         </ul>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Enterprise Note</h2>

@@ -277,7 +277,7 @@ export default function DashboardPage() {
                 Take a 10-minute conversation with an AI that evaluates your skills across 5 levels.
               </p>
               <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/assessment/warmup")} data-testid="button-start-assessment">
-                Start Assessment <ArrowRight className="w-5 h-5 ml-2" />
+                Start Your Conversation <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
 
               <div className="mt-12 max-w-sm mx-auto">
@@ -323,7 +323,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="font-heading font-semibold">My Learning</p>
                   <p className="text-xs text-muted-foreground">
-                    {unreadNudges.length > 0 ? `${unreadNudges.length} unread nudge${unreadNudges.length > 1 ? "s" : ""}` : "No new nudges"}
+                    {unreadNudges.length > 0 ? `${unreadNudges.length} new challenge${unreadNudges.length > 1 ? "s" : ""}` : "All caught up"}
                   </p>
                 </CardContent>
               </Card>
@@ -416,7 +416,7 @@ export default function DashboardPage() {
             )}
 
             <div id="nudges-section" className="mb-8">
-              <h2 className="font-heading text-xl font-bold mb-4">Latest Nudge</h2>
+              <h2 className="font-heading text-xl font-bold mb-4">Latest Challenge</h2>
               {latestNudge ? (
                 <Card className="rounded-2xl border border-border">
                   <CardContent className="pt-6 pb-6">
@@ -466,9 +466,9 @@ export default function DashboardPage() {
                     <div className="w-12 h-12 rounded-xl bg-et-gold/10 flex items-center justify-center mx-auto mb-4">
                       <Bell className="w-6 h-6 text-et-orange" />
                     </div>
-                    <p className="font-heading font-semibold mb-1">No nudges yet</p>
+                    <p className="font-heading font-semibold mb-1">Your first challenge is on its way</p>
                     <p className="text-sm text-muted-foreground">
-                      Your first learning nudge arrives on {user.nudgeDay || "Monday"}
+                      Check back soon. It's being built just for you.
                     </p>
                   </CardContent>
                 </Card>
@@ -543,7 +543,7 @@ export default function DashboardPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="font-heading">
-              {quizResult ? (quizResult.passed ? "Skill Verified!" : "Not Quite") : `Verify: ${verifyingSkill?.name}`}
+              {quizResult ? (quizResult.passed ? "Skill Mastered!" : "Not Quite") : `Quick Check: ${verifyingSkill?.name}`}
             </DialogTitle>
           </DialogHeader>
 
@@ -616,7 +616,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="font-heading text-lg font-bold mb-2">{quizResult.message}</p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {quizResult.correctCount}/3 correct — you need 2 to pass
+                    {quizResult.correctCount}/3 correct. You need 2 to pass.
                   </p>
                   <Button variant="outline" className="rounded-xl" onClick={() => { setVerifyingSkill(null); setQuizResult(null); }} data-testid="button-close-quiz">
                     Got it
@@ -632,15 +632,40 @@ export default function DashboardPage() {
         <DialogContent className="max-w-sm text-center">
           <div className="py-8">
             <div className="relative mb-6">
-              <div className={`w-24 h-24 rounded-full ${LEVEL_COLORS[levelUpInfo?.level ?? 0]} flex items-center justify-center mx-auto level-up-glow`}>
+              {/* Impact flash behind the level circle */}
+              {showLevelUp && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div
+                    className="rpg-impact-flash rounded-full"
+                    style={{
+                      width: 96,
+                      height: 96,
+                      backgroundColor: LEVEL_COLORS[levelUpInfo?.level ?? 0] === 'bg-et-cyan' ? '#2DD6FF' : '#FF2F86',
+                    }}
+                  />
+                </div>
+              )}
+              <div className={`w-24 h-24 rounded-full ${LEVEL_COLORS[levelUpInfo?.level ?? 0]} flex items-center justify-center mx-auto level-up-glow relative`}>
                 <span className="text-white font-heading text-4xl font-bold">{levelUpInfo?.level}</span>
               </div>
             </div>
-            <h2 className="font-heading text-2xl font-bold mb-2">Level Up!</h2>
-            <p className="text-lg text-muted-foreground mb-2">
+            {/* Brief pause, then text scales up */}
+            <h2
+              className="font-heading text-2xl font-bold mb-2"
+              style={{ animation: 'score-reveal 0.5s ease-out 0.8s both' }}
+            >
+              Level Up!
+            </h2>
+            <p
+              className="text-lg text-muted-foreground mb-2"
+              style={{ animation: 'fade-up 0.5s ease-out 1.1s both' }}
+            >
               You're now a <span className="font-semibold text-foreground">{levelUpInfo?.name}</span>
             </p>
-            <p className="text-sm text-muted-foreground mb-6">
+            <p
+              className="text-sm text-muted-foreground mb-6"
+              style={{ animation: 'fade-up 0.5s ease-out 1.4s both' }}
+            >
               All Level {levelUpInfo?.level} skills complete. That's a real milestone.
             </p>
             <Button className="rounded-2xl px-8" onClick={() => setShowLevelUp(false)} data-testid="button-close-levelup">

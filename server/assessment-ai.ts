@@ -75,18 +75,27 @@ SKILL FRAMEWORK:
 ${frameworkDescription}
 
 SCORING RULES:
-- Each skill gets: "green" (demonstrated), "yellow" (emerging/partial), or "red" (not demonstrated)
-- For each skill, write a one-sentence explanation of WHY it got that score
+- Green: The user described this skill as a regular, habitual part of their workflow AND gave at least one specific example. They do this consistently, not occasionally.
+- Yellow: The user mentioned trying this, described inconsistent use, or showed awareness without clear evidence of regular practice. "I've done that a few times" or "I know I should" both land here.
+- Red: The user never mentioned this skill, explicitly said they don't do it, or the transcript contains no evidence. When in doubt between red and yellow, choose red. Do not give yellow for vague mentions.
+- For each skill, write a one-sentence explanation of WHY it got that score, referencing specific evidence from the transcript.
 - Assessment Level: The highest level where the user has 3+ green skills
 - Active Level: The lowest level where they have any non-green skills
-- Generate a context summary of the user: their role, work description, AI platform, specific examples mentioned, communication style, what excites/frustrates them
+- contextSummary: Write a rich, specific profile of this person. Include: their exact role and what they do day to day, which AI platform they use and how, specific examples they gave during the conversation, what excites them about AI, what frustrates them, and any communication style notes. This summary powers all future personalization, so generic summaries are a failure. If they said something specific, capture it.
 - Generate a "first move" suggestion for their first active skill (the first yellow or red skill at their active level)
+
+WRITING STYLE FOR GENERATED TEXT (brightSpotsText, futureSelfText, signatureSkillRationale):
+- Never use em dashes. Use periods or commas instead.
+- Never use the words: delve, tapestry, landscape, testament, multifaceted, nuanced, comprehensive, robust, leverage, foster, pivotal, groundbreaking, transformative, synergy, streamline, cutting-edge, game-changer, paradigm, holistic.
+- Never open with "Great job!" or "Amazing progress!" or similar. Be warm but not patronizing. The user is an adult professional.
+- Be specific. Reference things the user actually said. "You've figured out voice-first drafting" is better than "You show strong AI skills."
+- Emphasize what they've already accomplished, not what's left to do.
 
 ADDITIONAL ANALYSIS (generate these carefully):
 - signatureSkillName: Identify the SINGLE skill where this user demonstrated the most depth, sophistication, or unique insight during the conversation. This is their standout strength. Use the exact skill name from the framework.
-- signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here — your approach to prompt iteration is more sophisticated than most people at your level."
-- brightSpotsText: 2-3 sentences about what this user is already doing well, framed as strengths and advantages, NOT as checkboxes. Lead with what's impressive. Be specific to things they mentioned. Example: "You've built strong habits around first drafts and output editing. Most people at your level haven't figured out voice-first capture yet — that's your unlock."
-- futureSelfText: 2-3 sentences painting a vivid, personalized picture of what the NEXT level looks and feels like for someone in their specific role. Make it aspirational and concrete. Example: "As a Level 3 user, you won't just use AI for drafts — you'll have specialized AI teammates handling research, analysis, and first passes on strategy docs while you focus on the thinking only you can do."
+- signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here. Your approach to prompt iteration is more sophisticated than most people at your level."
+- brightSpotsText: 2-3 sentences about what this user is already doing well, framed as strengths and advantages, NOT as checkboxes. Lead with what's impressive. Be specific to things they mentioned. Example: "You've built strong habits around first drafts and output editing. Most people at your level haven't figured out voice-first capture yet. That's your unlock."
+- futureSelfText: 2-3 sentences painting a vivid, personalized picture of what the NEXT level looks and feels like for someone in their specific role. Make it aspirational and concrete. Example: "As a Level 3 user, you won't just use AI for drafts. You'll have specialized AI teammates handling research, analysis, and first passes on strategy docs while you focus on the thinking only you can do."
 - triggerMoment: If the user mentioned WHEN or WHERE they typically reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep"), capture that here. If not mentioned, return an empty string.
 
 TRANSCRIPT:

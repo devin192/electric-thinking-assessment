@@ -52,6 +52,17 @@ export default function AssessmentPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const connectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
+  // MOBILE FIX: Use a ref for isMuted so the ScriptProcessor callback reads
+  // the current value instead of capturing a stale closure value.
+  const isMutedRef = useRef<boolean>(false);
+  // MOBILE FIX: Reconnection state for cellular network resilience.
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 3;
+
+  // Keep the muted ref in sync with state
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   const { data: activeAssessment } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/active"],
@@ -92,7 +103,7 @@ export default function AssessmentPage() {
         }
       }
     } catch (err: any) {
-      toast({ title: "Error starting assessment", description: err.message, variant: "destructive" });
+      toast({ title: "Error starting conversation", description: err.message, variant: "destructive" });
     }
   };
 
@@ -118,14 +129,29 @@ export default function AssessmentPage() {
       } else {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioCtx) throw new Error("AudioContext not supported");
+        // MOBILE FIX: Create AudioContext synchronously in the gesture chain.
+        // Call resume() immediately (not deferred) for iOS autoplay compliance.
         audioContextRef.current = new AudioCtx();
-        await audioContextRef.current.resume();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContextRef.current.resume();
+        // MOBILE FIX: Request mic with echo cancellation and noise suppression
+        // for better quality on mobile devices with built-in speakers.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
         mediaStreamRef.current = stream;
       }
 
       const stream = mediaStreamRef.current!;
-      await audioContextRef.current!.resume();
+
+      // MOBILE FIX: Re-check AudioContext state. iOS may suspend it if there
+      // was a delay between creation and use (e.g., network request above).
+      if (audioContextRef.current!.state === "suspended") {
+        await audioContextRef.current!.resume();
+      }
 
       const tokenRes = await apiRequest("GET", "/api/assessment/voice-token");
       const tokenData = await tokenRes.json();
@@ -143,6 +169,8 @@ export default function AssessmentPage() {
         setVoiceConnecting(false);
         setVoiceConnected(true);
         setIsListening(true);
+        // Reset reconnection counter on successful connect
+        reconnectAttemptsRef.current = 0;
 
         const ctx = audioContextRef.current!;
         const nativeSampleRate = ctx.sampleRate;
@@ -155,7 +183,10 @@ export default function AssessmentPage() {
         processor.connect(ctx.destination);
 
         processor.onaudioprocess = (e) => {
-          if (isMuted || ws.readyState !== WebSocket.OPEN) return;
+          // MOBILE FIX: Read from ref instead of closure to avoid stale mute state.
+          // The original code captured `isMuted` from the useCallback closure,
+          // which never updated when the user toggled mute.
+          if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
           const outputLength = Math.floor(inputData.length / ratio);
@@ -224,11 +255,33 @@ export default function AssessmentPage() {
         } catch {}
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setVoiceConnected(false);
         setIsListening(false);
         setIsSpeaking(false);
+
+        // MOBILE FIX: Automatic reconnection with exponential backoff for cellular.
+        // Mobile networks drop idle WebSocket connections aggressively. Codes 1000
+        // and 1001 are normal closures and should not trigger reconnection.
+        const isAbnormalClose = event.code !== 1000 && event.code !== 1001;
+        if (isAbnormalClose && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current += 1;
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 8000);
+          console.log(`WebSocket closed unexpectedly (code ${event.code}). Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          setTimeout(() => {
+            connectVoice();
+          }, delay);
+          return;
+        }
+
         saveTranscript();
+        // MOBILE FIX: Clean up mic stream when WebSocket closes.
+        // Without this, the mic stays open (red indicator on iOS) after the
+        // conversation ends, which is confusing and drains battery.
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(t => t.stop());
+          mediaStreamRef.current = null;
+        }
       };
 
       ws.onerror = () => {
@@ -266,7 +319,7 @@ export default function AssessmentPage() {
 
       const msg = err.message || "Failed to connect voice";
       if (msg.includes("not configured") || msg.includes("agent ID")) {
-        toast({ title: "Voice isn't set up yet — continuing in text" });
+        toast({ title: "Voice isn't set up yet, continuing in text" });
         setVoiceMode("text-only");
         if (assessmentId) {
           setIsTyping(true);
@@ -283,7 +336,7 @@ export default function AssessmentPage() {
         setVoiceError(msg);
       }
     }
-  }, [assessmentId, isMuted]);
+  }, [assessmentId]);
 
   useEffect(() => {
     if (voiceMode === "full-duplex" && assessmentId && !voiceConnected && !voiceConnecting && !voiceError) {
@@ -295,6 +348,13 @@ export default function AssessmentPage() {
     if (!base64Audio || !audioContextRef.current) return;
     try {
       const ctx = audioContextRef.current;
+
+      // MOBILE FIX: Resume AudioContext if iOS suspended it (e.g., phone call
+      // interruption, app backgrounding, or control center interaction).
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
+
       const binary = atob(base64Audio);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -339,6 +399,9 @@ export default function AssessmentPage() {
   };
 
   const disconnectVoice = () => {
+    // Prevent reconnection after intentional disconnect
+    reconnectAttemptsRef.current = maxReconnectAttempts;
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -494,13 +557,14 @@ export default function AssessmentPage() {
   if (voiceMode === "full-duplex") {
     return (
       <div className="h-screen flex flex-col bg-background">
+        {/* MOBILE FIX: min-h-[44px] on all interactive elements for touch targets */}
         <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
           <Wordmark className="text-lg" />
           <Button
             variant="ghost"
             size="sm"
             onClick={handleEndConversation}
-            className="text-muted-foreground"
+            className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -518,20 +582,20 @@ export default function AssessmentPage() {
                 </div>
                 <p className="font-heading text-lg font-semibold mb-2">
                   {connectSeconds < 5
-                    ? "Connecting to your assessment guide..."
+                    ? "Connecting to your conversation guide..."
                     : connectSeconds < 15
                     ? "Still connecting..."
                     : "Taking longer than expected..."}
                 </p>
                 {connectSeconds >= 15 && (
-                  <div className="flex flex-col gap-2 mt-4">
-                    <Button variant="outline" size="sm" onClick={() => { disconnectVoice(); connectVoice(); }} data-testid="button-try-again">
+                  <div className="flex flex-col gap-3 mt-4">
+                    <Button variant="outline" size="sm" className="min-h-[44px]" onClick={() => { disconnectVoice(); reconnectAttemptsRef.current = 0; connectVoice(); }} data-testid="button-try-again">
                       <RefreshCw className="w-4 h-4 mr-1" /> Try Again
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => switchToMode("voice-to-text")} data-testid="button-fallback-vtt">
+                    <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={() => switchToMode("voice-to-text")} data-testid="button-fallback-vtt">
                       Switch to Voice-to-Text
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => switchToMode("text-only")} data-testid="button-fallback-text">
+                    <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={() => switchToMode("text-only")} data-testid="button-fallback-text">
                       Continue in Text
                     </Button>
                   </div>
@@ -544,14 +608,14 @@ export default function AssessmentPage() {
                 <AlertCircle className="w-12 h-12 text-et-orange mx-auto mb-4" />
                 <p className="font-heading text-lg font-semibold mb-2">Having trouble with the voice connection</p>
                 <p className="text-sm text-muted-foreground mb-6">We've saved your progress.</p>
-                <div className="flex flex-col gap-2">
-                  <Button onClick={() => { setVoiceError(null); connectVoice(); }} data-testid="button-retry-voice">
+                <div className="flex flex-col gap-3">
+                  <Button className="min-h-[44px]" onClick={() => { setVoiceError(null); reconnectAttemptsRef.current = 0; connectVoice(); }} data-testid="button-retry-voice">
                     <RefreshCw className="w-4 h-4 mr-1" /> Try Again
                   </Button>
-                  <Button variant="outline" onClick={() => switchToMode("voice-to-text")} data-testid="button-switch-vtt">
+                  <Button variant="outline" className="min-h-[44px]" onClick={() => switchToMode("voice-to-text")} data-testid="button-switch-vtt">
                     <Mic className="w-4 h-4 mr-1" /> Switch to Voice-to-Text
                   </Button>
-                  <Button variant="ghost" onClick={() => switchToMode("text-only")} data-testid="button-switch-text">
+                  <Button variant="ghost" className="min-h-[44px]" onClick={() => switchToMode("text-only")} data-testid="button-switch-text">
                     <MessageSquare className="w-4 h-4 mr-1" /> Continue in Text
                   </Button>
                 </div>
@@ -568,7 +632,8 @@ export default function AssessmentPage() {
                 <p className="font-heading text-sm text-muted-foreground mb-1">
                   {isSpeaking ? "AI is speaking..." : isListening ? "Listening..." : "Connected"}
                 </p>
-                <div className="flex items-center gap-3 justify-center mt-6">
+                {/* MOBILE FIX: gap-4 instead of gap-3 for 8px+ spacing between touch targets */}
+                <div className="flex items-center gap-4 justify-center mt-6">
                   <Button
                     variant={isMuted ? "destructive" : "outline"}
                     size="icon"
@@ -592,7 +657,8 @@ export default function AssessmentPage() {
             )}
           </div>
 
-          <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto p-4 max-h-[40vh] lg:max-h-none">
+          {/* MOBILE FIX: overflow-y-auto with -webkit-overflow-scrolling for smooth scrolling */}
+          <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto p-4 max-h-[40vh] lg:max-h-none" style={{ WebkitOverflowScrolling: "touch" }}>
             <p className="font-heading text-xs uppercase tracking-widest text-muted-foreground mb-3">Transcript</p>
             <div className="space-y-3">
               {messages
@@ -612,8 +678,9 @@ export default function AssessmentPage() {
         </div>
 
         <div className="border-t border-border/50 px-4 py-2 text-center shrink-0">
+          {/* MOBILE FIX: min-h-[44px] for touch target on text link */}
           <button
-            className="text-xs text-muted-foreground hover:text-foreground underline"
+            className="text-xs text-muted-foreground hover:text-foreground underline min-h-[44px] px-4 inline-flex items-center"
             onClick={() => switchToMode("voice-to-text")}
             data-testid="link-trouble-voice"
           >
@@ -633,7 +700,7 @@ export default function AssessmentPage() {
             variant="ghost"
             size="sm"
             onClick={handleEndConversation}
-            className="text-muted-foreground"
+            className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
             <LogOut className="w-4 h-4 mr-2" />
@@ -641,7 +708,7 @@ export default function AssessmentPage() {
           </Button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-6" style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="max-w-2xl mx-auto space-y-6">
             {messages
               .filter(m => !(m.role === "user" && m.content === "Hi, I'm ready to start my assessment."))
@@ -695,7 +762,7 @@ export default function AssessmentPage() {
                 size="icon"
                 onClick={sendMessage}
                 disabled={!input.trim() || isTyping}
-                className="rounded-xl shrink-0"
+                className="rounded-xl shrink-0 min-h-[44px] min-w-[44px]"
                 data-testid="button-send"
               >
                 {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -703,7 +770,7 @@ export default function AssessmentPage() {
             </div>
             <div className="text-center mt-2">
               <button
-                className="text-xs text-muted-foreground hover:text-foreground underline"
+                className="text-xs text-muted-foreground hover:text-foreground underline min-h-[44px] px-4 inline-flex items-center"
                 onClick={() => setShowFallbackConfirm(true)}
                 data-testid="link-no-audio"
               >
@@ -713,8 +780,9 @@ export default function AssessmentPage() {
           </div>
         </div>
 
+        {/* MOBILE FIX: max-h-[90vh] overflow-y-auto on dialog for small screen scrollability */}
         <Dialog open={showFallbackConfirm} onOpenChange={setShowFallbackConfirm}>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-heading">Switch to text-only?</DialogTitle>
             </DialogHeader>
@@ -722,10 +790,10 @@ export default function AssessmentPage() {
               We strongly recommend voice for this experience. Voice-to-text builds a critical AI skill. If your device truly doesn't support audio, you can continue in text.
             </p>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setShowFallbackConfirm(false)}>
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowFallbackConfirm(false)}>
                 Stay in Voice Mode
               </Button>
-              <Button className="flex-1" onClick={() => { setShowFallbackConfirm(false); switchToMode("text-only"); }}>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowFallbackConfirm(false); switchToMode("text-only"); }}>
                 Continue in Text
               </Button>
             </div>
@@ -743,7 +811,7 @@ export default function AssessmentPage() {
           variant="ghost"
           size="sm"
           onClick={handleEndConversation}
-          className="text-muted-foreground"
+          className="text-muted-foreground min-h-[44px] min-w-[44px]"
           data-testid="button-end-conversation"
         >
           <LogOut className="w-4 h-4 mr-2" />
@@ -751,7 +819,7 @@ export default function AssessmentPage() {
         </Button>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-6" style={{ WebkitOverflowScrolling: "touch" }}>
         <div className="max-w-2xl mx-auto space-y-6">
           {messages
             .filter(m => !(m.role === "user" && m.content === "Hi, I'm ready to start my assessment."))
@@ -806,7 +874,7 @@ export default function AssessmentPage() {
             size="icon"
             onClick={sendMessage}
             disabled={!input.trim() || isTyping}
-            className="rounded-xl shrink-0"
+            className="rounded-xl shrink-0 min-h-[44px] min-w-[44px]"
             data-testid="button-send"
           >
             {isTyping ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

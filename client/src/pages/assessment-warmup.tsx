@@ -60,14 +60,14 @@ export default function AssessmentWarmup() {
               Here's what's about to happen
             </h1>
             <p className="text-muted-foreground text-center mb-8">
-              You'll have a conversation with an AI that wants to learn how you work. There are no wrong answers — just be yourself.
+              You'll have a conversation with an AI that wants to learn how you work. No wrong answers, just be yourself.
             </p>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <MessageSquare className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">Chat-based assessment</div>
+                  <div className="font-medium text-sm">Chat-based conversation</div>
                   <div className="text-sm text-muted-foreground">
                     You'll type your responses in a chat with an AI guide who wants to understand how you use AI.
                   </div>
@@ -101,7 +101,7 @@ export default function AssessmentWarmup() {
               data-testid="button-start-text"
             >
               <MessageSquare className="w-5 h-5 mr-2" />
-              Start Assessment <ArrowRight className="w-5 h-5 ml-2" />
+              Start Conversation <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
 
             {voiceAvailable && (

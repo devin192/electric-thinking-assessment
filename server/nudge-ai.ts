@@ -46,14 +46,21 @@ Name: ${skill.name}
 Description: ${skill.description}
 ${previousNudgeText}
 
-Generate a nudge with these components (respond in JSON):
-1. "opener": A pattern-breaking stat, observation, or question that creates a knowledge gap. Never "This week we're covering [skill name]."
+Generate a challenge with these components (respond in JSON):
+1. "opener": A pattern-breaking stat, observation, or question that creates a knowledge gap. Never "This week we're covering [skill name]." Never open with a compliment like "Great job" or "You're doing amazing."
 2. "idea": ONE core idea tied to this skill
-3. "use_case": ONE use case personalized to their actual role and work context
-4. "action": ONE specific action they can try in under 10 minutes. NOT a copy-paste prompt. Describe what to do, what to say to their AI in their own words, and what to look for in the response. Give the SHAPE of the action, not the exact words.
+3. "use_case": ONE use case personalized to their actual role and work context. Reference something specific from their assessment context (their job, their tools, their examples). If the use case could apply to anyone, rewrite it.
+4. "action": ONE specific action they can try in under 10 minutes. NOT a copy-paste prompt. Describe what to do, what to say to their AI in their own words, and what to look for in the response. Give the SHAPE of the action, not the exact words. If it requires setup or multiple tools, it's too big.
 5. "reflection": ONE reflection question to deepen the skill
-6. "story": A two-sentence story of someone in a similar role using this skill (concrete, specific)
-7. "subject_line": An email subject line pulled from the opener or the user's specific context. NOT "Your weekly nudge." Something like "That thing you do every Monday morning? There's a faster way."
+6. "story": A two-sentence story of someone in a similar role using this skill. Be concrete: include a specific role, a specific situation, and a specific outcome. "A content lead at a streaming service" not "A marketing manager."
+7. "subject_line": An email subject line pulled from the opener or the user's specific context. NOT "Your weekly challenge." Something like "That thing you do every Monday morning? There's a faster way."
+
+WRITING RULES (apply to ALL text you generate):
+- Never use em dashes. Use periods or commas.
+- Never use: delve, tapestry, landscape, testament, multifaceted, nuanced, comprehensive, robust, leverage, foster, pivotal, groundbreaking, transformative, synergy, streamline, cutting-edge, game-changer, paradigm, holistic.
+- No "It's not just X, it's Y" constructions.
+- No Rule of Three patterns ("innovation, collaboration, and excellence"). Use the natural number of items.
+- Vary sentence length. Short sentences hit. Then something longer. Then short again.
 
 ${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different opener, different use case, different action, different story." : ""}
 
@@ -99,7 +106,7 @@ export async function generateVerificationQuestions(
   const latestAssessment = (await storage.getCompletedAssessments(user.id))[0];
   const contextSummary = latestAssessment?.contextSummary || "";
 
-  const prompt = `Generate 3 multiple-choice verification questions for this AI fluency skill. The questions should REAFFIRM understanding, not trick the user. "Confirm you get this" not "gotcha."
+  const prompt = `Generate 3 multiple-choice skill check questions for this AI fluency skill. These confirm understanding, they don't trick people. The tone is encouraging, like a coach checking in, not a professor giving a test.
 
 SKILL:
 Name: ${skill.name}
@@ -111,7 +118,13 @@ Role: ${user.roleTitle || "Unknown"}
 AI Platform: ${user.aiPlatform || "Unknown"}
 ${contextSummary ? `Assessment context: ${contextSummary}` : ""}
 
-Personalize the questions to the user's role and context where possible.
+QUESTION RULES:
+- Personalize scenarios to the user's role and context. A question for a marketing manager should use marketing examples.
+- Use "Which of these would work best for..." framing, not "Which of the following is correct?"
+- Wrong answers should be plausible but clearly inferior if you understand the skill. No trick options.
+- Never use "All of the above" or "None of the above."
+- Each question tests whether they understand the skill in practice, not whether they can define it.
+- The explanation should be encouraging and teach something. "This works because..." not "The correct answer is A because..."
 
 Each question should have 4 options with one correct answer.
 
@@ -121,7 +134,7 @@ Respond with ONLY valid JSON array, no markdown:
     "question": "question text",
     "options": ["A", "B", "C", "D"],
     "correctIndex": 0,
-    "explanation": "Brief explanation of why this is correct"
+    "explanation": "Brief, encouraging explanation"
   }
 ]`;
 

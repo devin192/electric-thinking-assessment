@@ -58,7 +58,7 @@ export default function OnboardingPage() {
                 Welcome, {user.name}!
               </h1>
               <p className="text-muted-foreground text-center mb-8">
-                Let's set up your profile before your assessment.
+                Let's set up your profile before your conversation.
               </p>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -120,7 +120,7 @@ export default function OnboardingPage() {
                 data-testid="button-complete-onboarding"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Start Assessment <ArrowRight className="w-4 h-4 ml-2" />
+                Start Conversation <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
           </Card>

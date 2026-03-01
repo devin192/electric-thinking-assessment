@@ -39,7 +39,7 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-et-pink/10 text-et-pink text-sm font-medium mb-8">
             <Zap className="w-4 h-4" />
-            AI Fluency Assessment
+            AI Skill Discovery
           </div>
           <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-tight">
             Find out where you are on your{" "}
@@ -100,7 +100,7 @@ export default function LandingPage() {
             </div>
             <h3 className="font-heading text-lg font-semibold mb-3">Level Up</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Get personalized learning nudges tailored to your role, your tools,
+              Get personalized skill challenges tailored to your role, your tools,
               and your specific workflow. Progress at your own pace.
             </p>
           </Card>
@@ -184,7 +184,7 @@ export default function LandingPage() {
             Ready to discover your AI fluency?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            It takes about 10 minutes. Just a natural conversation — no trick questions.
+            It takes about 10 minutes. Just a natural conversation, no trick questions.
           </p>
           <Button
             size="lg"
@@ -192,7 +192,7 @@ export default function LandingPage() {
             onClick={() => navigate("/register")}
             data-testid="button-cta-bottom"
           >
-            Take the Assessment
+            Start Your Conversation
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
         </Card>

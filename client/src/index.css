@@ -338,6 +338,133 @@
   .voice-speaking .voice-bar:nth-child(6) { animation-delay: 0.25s; }
   .voice-speaking .voice-bar:nth-child(7) { animation-delay: 0.3s; }
 
+  /* ── RPG Map: Fog drift (two layers, opposite directions) ── */
+  @keyframes rpg-fog-drift {
+    0% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(30px) translateY(-8px); }
+    100% { transform: translateX(0) translateY(0); }
+  }
+
+  @keyframes rpg-fog-drift-reverse {
+    0% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(-25px) translateY(6px); }
+    100% { transform: translateX(0) translateY(0); }
+  }
+
+  .rpg-fog-layer-1 {
+    animation: rpg-fog-drift 20s ease-in-out infinite;
+  }
+
+  .rpg-fog-layer-2 {
+    animation: rpg-fog-drift-reverse 25s ease-in-out infinite;
+  }
+
+  /* ── RPG Map: Shimmer on locked node borders ── */
+  @keyframes rpg-shimmer {
+    0% { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -40; }
+  }
+
+  .rpg-shimmer {
+    animation: rpg-shimmer 6s linear infinite;
+  }
+
+  /* ── RPG Map: Flowing energy along completed paths ── */
+  @keyframes rpg-path-flow {
+    0% { stroke-dashoffset: 24; }
+    100% { stroke-dashoffset: 0; }
+  }
+
+  .rpg-path-flow {
+    animation: rpg-path-flow 3s linear infinite;
+  }
+
+  /* ── RPG Map: Beacon pulse for "you are here" ── */
+  @keyframes rpg-beacon {
+    0% { r: 22; opacity: 0.6; }
+    100% { r: 44; opacity: 0; }
+  }
+
+  .rpg-beacon {
+    animation: rpg-beacon 2.5s ease-out infinite;
+  }
+
+  .rpg-beacon-delayed {
+    animation: rpg-beacon 2.5s ease-out 1.25s infinite;
+  }
+
+  /* ── RPG Map: Slow breathing glow on mastered nodes ── */
+  @keyframes rpg-glow-breathe {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.35; }
+  }
+
+  .rpg-glow-breathe {
+    animation: rpg-glow-breathe 4s ease-in-out infinite;
+  }
+
+  /* ── RPG Map: "You are here" marker pulse ── */
+  @keyframes rpg-marker-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.15); opacity: 1; }
+  }
+
+  .rpg-marker-pulse {
+    animation: rpg-marker-pulse 2.5s ease-in-out infinite;
+  }
+
+  /* ── Results Reveal: Impact flash on level reveal ── */
+  @keyframes rpg-impact-flash {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    50% { transform: scale(2); opacity: 0.3; }
+    100% { transform: scale(3); opacity: 0; }
+  }
+
+  .rpg-impact-flash {
+    animation: rpg-impact-flash 0.8s ease-out forwards;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     MOBILE-SPECIFIC FIXES (Medic agent)
+     Touch targets, tap delay elimination, viewport safety,
+     and iOS-specific overrides.
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Eliminate 300ms tap delay on all interactive elements.
+     Modern browsers handle this via the viewport meta tag, but
+     touch-action: manipulation is a belt-and-suspenders fix
+     that also prevents accidental double-tap zoom on buttons. */
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  /* Prevent horizontal overflow on mobile. Content should never
+     extend beyond the viewport width. */
+  html, body {
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Ensure body text is at least 16px on mobile to prevent iOS
+     from auto-zooming on input focus. The base font is already
+     15px in the design, so we bump it to 16px on small screens. */
+  @media (max-width: 768px) {
+    body {
+      font-size: 16px;
+    }
+
+    /* Ensure inputs are 16px+ to prevent iOS auto-zoom on focus */
+    input, textarea, select {
+      font-size: 16px;
+    }
+  }
+
+  /* ── Reduced motion: disable all animations ── */
   @media (prefers-reduced-motion: reduce) {
     .voice-bar,
     .voice-speaking .voice-bar,
@@ -346,6 +473,21 @@
     }
     .animate-pulse-glow {
       animation: none;
+    }
+    .rpg-fog-layer-1,
+    .rpg-fog-layer-2,
+    .rpg-shimmer,
+    .rpg-path-flow,
+    .rpg-beacon,
+    .rpg-beacon-delayed,
+    .rpg-glow-breathe,
+    .rpg-marker-pulse,
+    .rpg-impact-flash {
+      animation: none;
+    }
+    .rpg-fog-layer-1,
+    .rpg-fog-layer-2 {
+      opacity: 0.7;
     }
   }
 }
