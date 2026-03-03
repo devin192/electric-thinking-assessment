@@ -4,6 +4,8 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+// Trust proxy so secure cookies work behind Railway/load balancers
+app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 declare module "http" {

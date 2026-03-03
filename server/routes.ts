@@ -26,11 +26,7 @@ function requireManager(req: Request, res: Response, next: NextFunction) {
   });
 }
 
-const APP_URL = process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-    : "http://localhost:5000";
+const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
 export async function registerRoutes(
   httpServer: Server,

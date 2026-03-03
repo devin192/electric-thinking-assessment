@@ -8,11 +8,7 @@ import {
   sendAbandonedAssessmentEmail,
 } from "./email";
 
-const APP_URL = process.env.REPLIT_DEV_DOMAIN
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-  : process.env.REPLIT_DOMAINS
-    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
-    : "http://localhost:5000";
+const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
 export function startCronJobs() {
   console.log(`${new Date().toLocaleTimeString()} [cron] Starting scheduled jobs. App URL: ${APP_URL}`);
