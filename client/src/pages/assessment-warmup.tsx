@@ -60,16 +60,16 @@ export default function AssessmentWarmup() {
               Here's what's about to happen
             </h1>
             <p className="text-muted-foreground text-center mb-8">
-              You'll have a conversation with an AI that wants to learn how you work. No wrong answers, just be yourself.
+              You'll talk with Alyssa, your AI conversation guide. She'll ask about how you use AI at work. Just speak naturally.
             </p>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
-                <MessageSquare className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
+                <Mic className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">Chat-based conversation</div>
+                  <div className="font-medium text-sm">Voice conversation</div>
                   <div className="text-sm text-muted-foreground">
-                    You'll type your responses in a chat with an AI guide who wants to understand how you use AI.
+                    You'll talk with Alyssa, your AI conversation guide. She'll ask about how you use AI at work. Just speak naturally.
                   </div>
                 </div>
               </div>
@@ -95,25 +95,33 @@ export default function AssessmentWarmup() {
               </div>
             </div>
 
-            <Button
-              className="w-full rounded-2xl py-6 text-base"
-              onClick={handleStartText}
-              data-testid="button-start-text"
-            >
-              <MessageSquare className="w-5 h-5 mr-2" />
-              Start Conversation <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-
-            {voiceAvailable && (
+            {voiceAvailable ? (
+              <>
+                <Button
+                  className="w-full rounded-2xl py-6 text-base"
+                  onClick={handleStartVoice}
+                  disabled={checking}
+                  data-testid="button-start-voice"
+                >
+                  {checking ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Mic className="w-5 h-5 mr-2" />}
+                  Start with Voice <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <button
+                  className="w-full text-center text-sm text-muted-foreground mt-4 hover:text-foreground transition-colors"
+                  onClick={handleStartText}
+                  data-testid="button-start-text"
+                >
+                  Having trouble with audio? Use text instead
+                </button>
+              </>
+            ) : (
               <Button
-                variant="outline"
-                className="w-full rounded-2xl py-5 text-sm mt-3"
-                onClick={handleStartVoice}
-                disabled={checking}
-                data-testid="button-start-voice"
+                className="w-full rounded-2xl py-6 text-base"
+                onClick={handleStartText}
+                data-testid="button-start-text"
               >
-                {checking ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mic className="w-4 h-4 mr-2" />}
-                Or start with voice instead
+                <MessageSquare className="w-5 h-5 mr-2" />
+                Start Conversation <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             )}
           </CardContent>
