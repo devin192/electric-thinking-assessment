@@ -56,6 +56,9 @@ export async function registerRoutes(
       });
       req.session.userId = user.id;
       const { password: _, ...userWithoutPassword } = user;
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => (err ? reject(err) : resolve()));
+      });
       return res.json(userWithoutPassword);
     } catch (e: any) {
       return res.status(400).json({ message: e.message || "Invalid input" });
@@ -75,6 +78,9 @@ export async function registerRoutes(
       }
       req.session.userId = user.id;
       const { password: _, ...userWithoutPassword } = user;
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => (err ? reject(err) : resolve()));
+      });
       return res.json(userWithoutPassword);
     } catch (e: any) {
       return res.status(400).json({ message: e.message || "Invalid input" });
