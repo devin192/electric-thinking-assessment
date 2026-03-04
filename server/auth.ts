@@ -15,24 +15,29 @@ declare module "express-session" {
 }
 
 export function setupAuth(app: any) {
-  app.use(
-    session({
-      store: new PgSession({
-        pool: pool,
-        tableName: "session",
-        createTableIfMissing: true,
-      }),
-      secret: process.env.SESSION_SECRET || "electric-thinking-secret-key",
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-      },
-    })
-  );
+  const sessionConfig: any = {
+    store: new PgSession({
+      pool: pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || "electric-thinking-secret-key",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: "lax",
+    },
+  };
+
+  if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", true);
+    sessionConfig.proxy = true;
+    sessionConfig.cookie.secure = true;
+  }
+
+  app.use(session(sessionConfig));
 }
 
 export async function hashPassword(password: string): Promise<string> {
