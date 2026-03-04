@@ -172,7 +172,7 @@ function OverviewTab() {
                 <div key={level} className="flex items-center gap-3" data-testid={`bar-level-${level}`}>
                   <div className="flex items-center gap-2 w-32 shrink-0">
                     <div className={`w-6 h-6 rounded-md ${LEVEL_COLORS[level]} flex items-center justify-center text-white font-heading font-bold text-xs`}>
-                      {level}
+                      {level + 1}
                     </div>
                     <span className="text-sm truncate">{LEVEL_NAMES[level]}</span>
                   </div>
@@ -236,7 +236,7 @@ function MembersTab() {
                 <div className="flex items-center gap-3 min-w-0">
                   {member.assessmentLevel !== null && (
                     <div className={`w-8 h-8 rounded-md ${LEVEL_COLORS[member.assessmentLevel] || "bg-muted"} flex items-center justify-center text-white font-heading font-bold text-xs shrink-0`}>
-                      {member.assessmentLevel}
+                      {member.assessmentLevel + 1}
                     </div>
                   )}
                   <div className="min-w-0">
@@ -366,9 +366,9 @@ function ActivityTab() {
       case "skill_completed":
         return `completed skill "${data.skillName || "unknown"}"`;
       case "level_up":
-        return `leveled up to ${LEVEL_NAMES[data.newLevel] || "Level " + (data.newLevel ?? "?")}`;
+        return `leveled up to ${LEVEL_NAMES[data.newLevel] || "Level " + ((data.newLevel ?? -1) + 1)}`;
       case "assessment_completed":
-        return `completed skill discovery (${LEVEL_NAMES[data.level] || "Level " + (data.level ?? "?")})`;
+        return `completed skill discovery (${LEVEL_NAMES[data.level] || "Level " + ((data.level ?? -1) + 1)})`;
       case "nudge_read":
         return `read a challenge`;
       default:

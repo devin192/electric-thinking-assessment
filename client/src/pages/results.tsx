@@ -242,7 +242,17 @@ export default function ResultsPage() {
 
   useEffect(() => {
     if (assessment && allSkills && levels && phase === "loading") {
-      runRevealSequence();
+      const animKey = `results-animated-${assessment.id}`;
+      const alreadySeen = sessionStorage.getItem(animKey) === "true";
+
+      if (alreadySeen) {
+        // User already saw the animation for this assessment (e.g., back button)
+        skipToEnd();
+      } else {
+        runRevealSequence();
+        // Mark the animation as seen once the sequence starts
+        sessionStorage.setItem(animKey, "true");
+      }
     }
     return () => clearAllTimeouts();
   }, [assessment, allSkills, levels]);
@@ -283,7 +293,7 @@ export default function ResultsPage() {
   };
 
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/results` : "";
-  const shareText = `I just completed my AI Fluency assessment on Electric Thinking! I'm a Level ${assessmentLevel} ${currentLevelInfo?.displayName || ""}. ${totalMastered} of ${totalSkills} skills mastered.`;
+  const shareText = `I just completed my AI Fluency assessment on Electric Thinking! I'm a Level ${assessmentLevel + 1} ${currentLevelInfo?.displayName || ""}. ${totalMastered} of ${totalSkills} skills mastered.`;
 
   const handleShareLinkedIn = () => {
     window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}&summary=${encodeURIComponent(shareText)}`, "_blank");
@@ -489,7 +499,7 @@ export default function ResultsPage() {
                                 style={{ backgroundColor: LEVEL_COLORS[level.sortOrder] }}
                                 whileHover={{ scale: 1.1 }}
                               >
-                                {level.sortOrder}
+                                {level.sortOrder + 1}
                                 {isCurrentLevel && (
                                   <motion.div
                                     className="absolute inset-0 rounded-xl"
@@ -650,7 +660,7 @@ export default function ResultsPage() {
                       boxShadow: LEVEL_GLOW[assessmentLevel],
                     }}
                   >
-                    <span className="text-white font-heading text-6xl font-bold">{assessmentLevel}</span>
+                    <span className="text-white font-heading text-6xl font-bold">{assessmentLevel + 1}</span>
                   </div>
                   <PulseRing color={levelColor} delay={0} />
                   <PulseRing color={levelColor} delay={1} />
@@ -674,7 +684,7 @@ export default function ResultsPage() {
                 >
                   <p className="text-xs font-medium uppercase tracking-[0.25em] text-muted-foreground mb-3">Your AI Fluency Level</p>
                   <h1 className="font-heading text-4xl md:text-5xl font-bold mb-2" data-testid="text-level-title">
-                    Level {assessmentLevel}{" "}
+                    Level {assessmentLevel + 1}{" "}
                     <span style={{ color: levelColor }}>{currentLevelInfo?.displayName}</span>
                   </h1>
                   <p className="text-muted-foreground text-sm max-w-md mx-auto mt-3">
@@ -918,8 +928,8 @@ export default function ResultsPage() {
                     <div className="space-y-4">
                       <p className="text-sm leading-relaxed">
                         You're <span className="font-bold">#{teamSnapshot.userRank}</span> on {teamSnapshot.teamName}.
-                        Team average: Level <span className="font-bold">{teamSnapshot.averageLevel}</span>.
-                        You: Level <span className="font-bold" style={{ color: levelColor }}>{assessmentLevel}</span>.
+                        Team average: Level <span className="font-bold">{teamSnapshot.averageLevel + 1}</span>.
+                        You: Level <span className="font-bold" style={{ color: levelColor }}>{assessmentLevel + 1}</span>.
                       </p>
 
                       <div className="flex items-end gap-2 h-16">
@@ -945,7 +955,7 @@ export default function ResultsPage() {
                                   opacity: lvl === assessmentLevel ? 1 : 0.5,
                                 }}
                               />
-                              <span className="text-[10px] text-muted-foreground">L{lvl}</span>
+                              <span className="text-[10px] text-muted-foreground">L{lvl + 1}</span>
                             </motion.div>
                           );
                         })}
@@ -958,7 +968,7 @@ export default function ResultsPage() {
                             {teamSnapshot.recentCompletions.slice(0, 3).map((c, i) => (
                               <div key={i} className="flex items-center justify-between text-xs">
                                 <span className="text-foreground">{c.name}</span>
-                                <span className="font-mono" style={{ color: LEVEL_COLORS[c.level] }}>Level {c.level}</span>
+                                <span className="font-mono" style={{ color: LEVEL_COLORS[c.level] }}>Level {c.level + 1}</span>
                               </div>
                             ))}
                           </div>
@@ -1111,7 +1121,7 @@ export default function ResultsPage() {
                       animate={{ scale: 1 }}
                       transition={{ type: "spring", delay: 0.3 }}
                     >
-                      <span className="text-white font-heading text-4xl font-bold">{assessmentLevel}</span>
+                      <span className="text-white font-heading text-4xl font-bold">{assessmentLevel + 1}</span>
                     </motion.div>
 
                     <motion.div
@@ -1120,7 +1130,7 @@ export default function ResultsPage() {
                       transition={{ delay: 0.5 }}
                     >
                       <p className="font-heading text-2xl font-bold mb-1" data-testid="text-share-level">
-                        Level {assessmentLevel}: {currentLevelInfo?.displayName}
+                        Level {assessmentLevel + 1}: {currentLevelInfo?.displayName}
                       </p>
                       {signatureSkill && (
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium mt-2"

@@ -296,7 +296,7 @@ export default function DashboardPage() {
               <Card className="rounded-2xl border border-border">
                 <CardContent className="pt-6 pb-6 text-center">
                   <div className={`w-14 h-14 rounded-full ${LEVEL_COLORS[assessmentLevel ?? 0]} flex items-center justify-center mx-auto mb-3`}>
-                    <span className="text-white font-heading text-xl font-bold">{assessmentLevel}</span>
+                    <span className="text-white font-heading text-xl font-bold">{(assessmentLevel ?? 0) + 1}</span>
                   </div>
                   <p className="font-heading font-semibold">{currentLevelInfo?.displayName || "Unknown"}</p>
                   <p className="text-xs text-muted-foreground">Your Level</p>
@@ -498,7 +498,7 @@ export default function DashboardPage() {
                           >
                             <Sparkles className="w-4 h-4 text-et-orange" />
                             <span className="text-xs font-medium">
-                              {b.badgeType === "skill_complete" ? data?.skillName : b.badgeType === "level_up" ? `Level ${data?.level}` : b.badgeType === "streak" ? `${data?.weeks}w Streak` : b.badgeType}
+                              {b.badgeType === "skill_complete" ? data?.skillName : b.badgeType === "level_up" ? `Level ${(data?.level ?? 0) + 1}` : b.badgeType === "streak" ? `${data?.weeks}w Streak` : b.badgeType}
                             </span>
                             <Share2 className="w-3 h-3 text-muted-foreground" />
                           </button>
@@ -646,7 +646,7 @@ export default function DashboardPage() {
                 </div>
               )}
               <div className={`w-24 h-24 rounded-full ${LEVEL_COLORS[levelUpInfo?.level ?? 0]} flex items-center justify-center mx-auto level-up-glow relative`}>
-                <span className="text-white font-heading text-4xl font-bold">{levelUpInfo?.level}</span>
+                <span className="text-white font-heading text-4xl font-bold">{(levelUpInfo?.level ?? 0) + 1}</span>
               </div>
             </div>
             {/* Brief pause, then text scales up */}
@@ -666,7 +666,7 @@ export default function DashboardPage() {
               className="text-sm text-muted-foreground mb-6"
               style={{ animation: 'fade-up 0.5s ease-out 1.4s both' }}
             >
-              All Level {levelUpInfo?.level} skills complete. That's a real milestone.
+              All Level {(levelUpInfo?.level ?? 0) + 1} skills complete. That's a real milestone.
             </p>
             <Button className="rounded-2xl px-8" onClick={() => setShowLevelUp(false)} data-testid="button-close-levelup">
               Continue

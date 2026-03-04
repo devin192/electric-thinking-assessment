@@ -20,6 +20,14 @@ interface ChatMessage {
   content: string;
 }
 
+/** Strip stage directions like [excited], [empathetic] from the start of AI messages */
+function stripStageDirections(msg: ChatMessage): string {
+  if (msg.role === "assistant") {
+    return msg.content.replace(/^\[.*?\]\s*/g, "");
+  }
+  return msg.content;
+}
+
 type VoiceMode = "full-duplex" | "voice-to-text" | "text-only";
 
 export default function AssessmentPage() {
@@ -46,6 +54,7 @@ export default function AssessmentPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showFallbackConfirm, setShowFallbackConfirm] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(requestedMode !== "voice");
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -657,24 +666,45 @@ export default function AssessmentPage() {
             )}
           </div>
 
-          {/* MOBILE FIX: overflow-y-auto with -webkit-overflow-scrolling for smooth scrolling */}
-          <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto p-4 max-h-[40vh] lg:max-h-none" style={{ WebkitOverflowScrolling: "touch" }}>
-            <p className="font-heading text-xs uppercase tracking-widest text-muted-foreground mb-3">Transcript</p>
-            <div className="space-y-3">
-              {messages
-                .filter(m => !(m.role === "user" && m.content === "Hi, I'm ready to start my assessment."))
-                .map((msg, i) => (
-                <div key={i} className={`text-sm ${msg.role === "user" ? "text-right" : "text-left"}`}>
-                  <span className={`inline-block rounded-xl px-3 py-2 ${
-                    msg.role === "user" ? "bg-et-pink/10 text-foreground" : "bg-accent/50"
-                  }`}>
-                    {msg.content}
-                  </span>
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
+          {/* Transcript panel: collapsed by default in voice mode */}
+          {showTranscript ? (
+            <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto p-4 max-h-[40vh] lg:max-h-none" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-heading text-xs uppercase tracking-widest text-muted-foreground">Transcript</p>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground underline"
+                  onClick={() => setShowTranscript(false)}
+                >
+                  Hide
+                </button>
+              </div>
+              <div className="space-y-3">
+                {messages
+                  .filter(m => !(m.role === "user" && m.content === "Hi, I'm ready to start my assessment."))
+                  .map((msg, i) => (
+                  <div key={i} className={`text-sm ${msg.role === "user" ? "text-right" : "text-left"}`}>
+                    <span className={`inline-block rounded-xl px-3 py-2 ${
+                      msg.role === "user" ? "bg-et-pink/10 text-foreground" : "bg-accent/50"
+                    }`}>
+                      {stripStageDirections(msg)}
+                    </span>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="absolute bottom-20 right-4 lg:static lg:flex lg:items-start lg:border-l lg:border-border/50 lg:p-2">
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground bg-card border border-border/50 rounded-lg px-3 py-2 shadow-sm"
+                onClick={() => setShowTranscript(true)}
+                data-testid="button-show-transcript"
+              >
+                <MessageSquare className="w-3 h-3 inline mr-1" />
+                Show transcript
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-border/50 px-4 py-2 text-center shrink-0">
@@ -725,7 +755,7 @@ export default function AssessmentPage() {
                       : "bg-card border border-border rounded-bl-md"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{stripStageDirections(msg)}</p>
                 </div>
               </div>
             ))}
@@ -836,7 +866,7 @@ export default function AssessmentPage() {
                     : "bg-card border border-border rounded-bl-md"
                 }`}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{stripStageDirections(msg)}</p>
               </div>
             </div>
           ))}

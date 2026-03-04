@@ -124,7 +124,7 @@ function AnalyticsTab() {
                 const pct = Math.round(((count as number) / total) * 100);
                 return (
                   <div key={level} className="flex items-center gap-3">
-                    <span className="text-sm w-28 shrink-0">L{level} {LEVEL_NAMES[Number(level)] || ""}</span>
+                    <span className="text-sm w-28 shrink-0">L{Number(level) + 1} {LEVEL_NAMES[Number(level)] || ""}</span>
                     <div className="flex-1 h-6 bg-muted rounded-md overflow-hidden">
                       <div className="h-full bg-et-pink rounded-md" style={{ width: `${pct}%` }} />
                     </div>
@@ -511,7 +511,7 @@ function SkillsTab() {
         <Card key={level.id} className="rounded-2xl border border-border">
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
-              <span className="font-heading font-semibold">Level {level.sortOrder}: {level.displayName}</span>
+              <span className="font-heading font-semibold">Level {level.sortOrder + 1}: {level.displayName}</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -673,7 +673,7 @@ function AssessmentsTab() {
                 <Badge variant={a.status === "completed" ? "default" : "secondary"} className="text-xs">
                   {a.status}
                 </Badge>
-                {a.assessmentLevel !== null && <span>Level {a.assessmentLevel}</span>}
+                {a.assessmentLevel !== null && <span>Level {a.assessmentLevel + 1}</span>}
                 <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{new Date(a.startedAt).toLocaleDateString()}</span>
               </div>
             </div>
@@ -1036,7 +1036,7 @@ function SessionsTab() {
                 </SelectTrigger>
                 <SelectContent>
                   {(levels || []).map(l => (
-                    <SelectItem key={l.id} value={String(l.id)}>L{l.sortOrder}: {l.displayName}</SelectItem>
+                    <SelectItem key={l.id} value={String(l.id)}>L{l.sortOrder + 1}: {l.displayName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
