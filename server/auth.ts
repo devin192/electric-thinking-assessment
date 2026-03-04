@@ -14,12 +14,22 @@ declare module "express-session" {
   }
 }
 
-export function setupAuth(app: any) {
+export async function setupAuth(app: any) {
+  // Create session table if it doesn't exist (avoid connect-pg-simple's file-based approach)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "session" (
+      "sid" varchar NOT NULL COLLATE "default",
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL,
+      CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
+    ) WITH (OIDS=FALSE);
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+  `);
+
   const sessionConfig: any = {
     store: new PgSession({
       pool: pool,
       tableName: "session",
-      createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET || "electric-thinking-secret-key",
     resave: false,
