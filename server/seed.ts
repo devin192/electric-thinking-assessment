@@ -207,6 +207,13 @@ async function ensureSystemConfig() {
       await storage.setSystemConfig("elevenlabs_agent_id", "agent_7501kjhd67qbeg19cb684bcj1ey2");
       log("Set default ElevenLabs agent ID", "seed");
     }
+
+    // Update conversation guide to V3 if it's still the old version
+    const currentGuide = await storage.getSystemConfig("assessment_conversation_guide");
+    if (currentGuide && !currentGuide.includes("3-5 minutes")) {
+      await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
+      log("Updated assessment conversation guide to V3", "seed");
+    }
   } catch (error) {
     log(`Config sync error: ${error}`, "seed");
   }
