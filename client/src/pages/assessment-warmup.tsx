@@ -60,7 +60,7 @@ export default function AssessmentWarmup() {
               Here's what's about to happen
             </h1>
             <p className="text-muted-foreground text-center mb-8">
-              You'll talk with Alyssa, your AI conversation guide. She'll ask about how you use AI at work. Just speak naturally.
+              You'll talk with Lex, your AI conversation guide. He'll ask about how you use AI at work. Just speak naturally.
             </p>
 
             <div className="space-y-4 mb-8">
@@ -69,14 +69,14 @@ export default function AssessmentWarmup() {
                 <div>
                   <div className="font-medium text-sm">Voice conversation</div>
                   <div className="text-sm text-muted-foreground">
-                    You'll talk with Alyssa, your AI conversation guide. She'll ask about how you use AI at work. Just speak naturally.
+                    You'll talk with Lex, your AI conversation guide. He'll ask about how you use AI at work. Just speak naturally.
                   </div>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Clock className="w-5 h-5 text-et-cyan mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">About 10 minutes</div>
+                  <div className="font-medium text-sm">About 5 minutes</div>
                   <div className="text-sm text-muted-foreground">
                     Shorter if you're just getting started, a bit longer if you're advanced.
                   </div>
