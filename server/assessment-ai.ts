@@ -49,10 +49,12 @@ export async function scoreAssessment(
   activeLevel: number;
   contextSummary: string;
   firstMove: { skillName: string; suggestion: string };
+  outcomeOptions: Array<{ outcomeHeadline: string; timeEstimate: string; skillName: string; action: string; whatYoullSee: string }>;
   signatureSkillName: string;
   signatureSkillRationale: string;
-  brightSpotsText: string;
+  brightSpots: string[];
   futureSelfText: string;
+  nextLevelIdentity: string;
   triggerMoment: string;
 }> {
   const allLevels = await storage.getLevels();
@@ -94,9 +96,24 @@ WRITING STYLE FOR GENERATED TEXT (brightSpotsText, futureSelfText, signatureSkil
 ADDITIONAL ANALYSIS (generate these carefully):
 - signatureSkillName: Identify the SINGLE skill where this user demonstrated the most depth, sophistication, or unique insight during the conversation. This is their standout strength. Use the exact skill name from the framework.
 - signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here. Your approach to prompt iteration is more sophisticated than most people at your level."
-- brightSpotsText: 2-3 sentences about what this user is already doing well, framed as strengths and advantages, NOT as checkboxes. Lead with what's impressive. Be specific to things they mentioned. Example: "You've built strong habits around first drafts and output editing. Most people at your level haven't figured out voice-first capture yet. That's your unlock."
-- futureSelfText: 2-3 sentences painting a vivid, personalized picture of what the NEXT level looks and feels like for someone in their specific role. Make it aspirational and concrete. Example: "As a Level 3 user, you won't just use AI for drafts. You'll have specialized AI teammates handling research, analysis, and first passes on strategy docs while you focus on the thinking only you can do."
+- brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned. Frame as strengths. Example: ["You've figured out voice-first drafting, which most people at your level skip entirely", "Your instinct to iterate on AI output instead of accepting the first response puts you ahead"]
+- futureSelfText: ONE sentence painting the next level identity. Make it aspirational and tied to their role. Example: "At Level 3, your AI stops being a tool you use and starts being a teammate that handles entire workflows for you."
+- nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 4 (Agentic Workflow), return "You've reached the top level."
+- outcomeOptions: An array of exactly 2 outcome-framed challenge options. Each should be tied to something the user said during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
+  Each option has:
+  - outcomeHeadline: A tantalizing outcome in one sentence. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
+  - timeEstimate: How long to try it. Usually "~90 seconds" or "~2 minutes". Keep it short.
+  - skillName: The actual skill name from the framework (shown only after they complete it).
+  - action: ONE specific thing to do right now. Not a generic tip. Example: "Open your last meeting notes, paste them into ${userContext.aiPlatform || "your AI tool"}, and ask it to write a one-paragraph recap highlighting decisions made and next steps."
+  - whatYoullSee: ONE sentence describing the expected result. Example: "You'll get a clean recap in about 10 seconds. Compare it to what you'd normally write."
 - triggerMoment: If the user mentioned WHEN or WHERE they typically reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep"), capture that here. If not mentioned, return an empty string.
+
+IMPORTANT FOR outcomeOptions:
+- Both options must be doable in under 2 minutes.
+- Both must reference something specific the user said about their work.
+- Frame as the OUTCOME they get, not the skill they practice.
+- The action should describe what to do in their own words, not a copy-paste prompt.
+- Make both options genuinely appealing. The user should have a hard time choosing.
 
 TRANSCRIPT:
 ${transcript}
@@ -115,10 +132,15 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "activeLevel": 0,
   "contextSummary": "paragraph about the user",
   "firstMove": { "skillName": "name", "suggestion": "actionable suggestion" },
+  "outcomeOptions": [
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action", "whatYoullSee": "expected result" },
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action", "whatYoullSee": "expected result" }
+  ],
   "signatureSkillName": "exact skill name from framework",
   "signatureSkillRationale": "one sentence compliment",
-  "brightSpotsText": "2-3 sentences about strengths",
-  "futureSelfText": "2-3 sentences about next level",
+  "brightSpots": ["bullet 1", "bullet 2"],
+  "futureSelfText": "one sentence about next level identity",
+  "nextLevelIdentity": "display name of next level",
   "triggerMoment": "when they reach for AI, or empty string"
 }`;
 
@@ -145,10 +167,12 @@ Respond in this exact JSON format (no markdown, just raw JSON):
       activeLevel: Math.max(0, Math.min(4, activeLevel)),
       contextSummary: parsed.contextSummary || "",
       firstMove: parsed.firstMove || { skillName: "", suggestion: "" },
+      outcomeOptions: parsed.outcomeOptions || [],
       signatureSkillName: parsed.signatureSkillName || "",
       signatureSkillRationale: parsed.signatureSkillRationale || "",
-      brightSpotsText: parsed.brightSpotsText || "",
+      brightSpots: parsed.brightSpots || [],
       futureSelfText: parsed.futureSelfText || "",
+      nextLevelIdentity: parsed.nextLevelIdentity || "",
       triggerMoment: parsed.triggerMoment || "",
     };
   } catch (e) {
@@ -163,10 +187,12 @@ Respond in this exact JSON format (no markdown, just raw JSON):
       activeLevel: 0,
       contextSummary: "Assessment scoring encountered an error.",
       firstMove: { skillName: allSkills[0]?.name || "", suggestion: "Try opening an AI tool and having your first conversation." },
+      outcomeOptions: [],
       signatureSkillName: "",
       signatureSkillRationale: "",
-      brightSpotsText: "",
+      brightSpots: [],
       futureSelfText: "",
+      nextLevelIdentity: "",
       triggerMoment: "",
     };
   }

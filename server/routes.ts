@@ -239,10 +239,12 @@ export async function registerRoutes(
         activeLevel: result.activeLevel,
         contextSummary: result.contextSummary,
         firstMoveJson: result.firstMove,
+        outcomeOptionsJson: result.outcomeOptions,
         signatureSkillId: signatureSkill?.id || null,
         signatureSkillRationale: result.signatureSkillRationale || null,
-        brightSpotsText: result.brightSpotsText || null,
+        brightSpotsText: JSON.stringify(result.brightSpots),
         futureSelfText: result.futureSelfText || null,
+        nextLevelIdentity: result.nextLevelIdentity || null,
         triggerMoment: result.triggerMoment || null,
       });
 
@@ -291,10 +293,12 @@ export async function registerRoutes(
         scores: result.scores,
         contextSummary: result.contextSummary,
         firstMove: result.firstMove,
+        outcomeOptions: result.outcomeOptions,
         signatureSkillId: signatureSkill?.id || null,
         signatureSkillRationale: result.signatureSkillRationale || "",
-        brightSpotsText: result.brightSpotsText || "",
+        brightSpots: result.brightSpots || [],
         futureSelfText: result.futureSelfText || "",
+        nextLevelIdentity: result.nextLevelIdentity || "",
         triggerMoment: result.triggerMoment || "",
       });
     } catch (e: any) {
@@ -444,7 +448,7 @@ export async function registerRoutes(
     if (!user) return res.status(401).json({ message: "Not authenticated" });
     const nudgeId = parseInt(req.params.id);
     const nudge = await storage.getNudge(nudgeId);
-    if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Nudge not found" });
+    if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Challenge not found" });
     await storage.updateNudge(nudgeId, { inAppRead: true });
     return res.json({ message: "Marked as read" });
   });
@@ -616,7 +620,7 @@ export async function registerRoutes(
         return res.json({
           passed: false,
           correctCount,
-          message: "Not quite. Revisit this week's nudge and try again when you're ready.",
+          message: "Not quite. Revisit this week's challenge and try again when you're ready.",
         });
       }
     } catch (e: any) {
@@ -1562,7 +1566,7 @@ export async function registerRoutes(
       let title = "Electric Thinking Badge";
       let description = `${userName} earned a badge on Electric Thinking`;
       if (badge.badgeType === "skill_complete") {
-        title = `${data.skillName || "Skill"} — Mastered`;
+        title = `${data.skillName || "Skill"}: Mastered`;
         description = `${userName} mastered ${data.skillName || "a skill"} on Electric Thinking`;
       } else if (badge.badgeType === "level_up") {
         title = `Level ${data.level}: ${data.levelName || ""}`;
@@ -1592,6 +1596,140 @@ export async function registerRoutes(
       return res.send(html);
     } catch (e: any) {
       return res.status(500).send("Error");
+    }
+  });
+
+  // ========== CHALLENGE COACH ==========
+  app.post("/api/challenge/:nudgeId/coach", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const { message } = req.body;
+      if (!message || typeof message !== "string" || !message.trim()) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      const nudgeId = parseInt(req.params.nudgeId);
+      const nudge = await storage.getNudge(nudgeId);
+      if (!nudge || nudge.userId !== user.id) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+
+      // Look up or create conversation
+      let conversation = await storage.getCoachConversation(user.id, nudgeId);
+      if (!conversation) {
+        conversation = await storage.createCoachConversation({
+          userId: user.id,
+          nudgeId,
+          messagesJson: [],
+        });
+      }
+
+      const existingMessages = (conversation.messagesJson || []) as Array<{ role: string; content: string }>;
+
+      const contentJson = nudge.contentJson as any;
+      const challengeContext = contentJson
+        ? `Opener: ${contentJson.opener || ""}\nIdea: ${contentJson.idea || ""}\nAction: ${contentJson.action || ""}\nReflection: ${contentJson.reflection || ""}\nUse Case: ${contentJson.use_case || ""}\nStory: ${contentJson.story || ""}`
+        : "No challenge content available.";
+
+      const systemPrompt = `You are a helpful AI coach embedded inside a learning challenge. The user is trying to complete a specific challenge and needs help.
+
+CHALLENGE CONTEXT:
+${challengeContext}
+
+USER CONTEXT:
+Name: ${user.name || "Unknown"}
+Role: ${user.roleTitle || "Unknown"}
+AI Platform: ${user.aiPlatform || "Unknown"}
+
+YOUR ROLE:
+- Help them work through the challenge step by step
+- If they're stuck, ask what specifically isn't working
+- Give specific, actionable advice for their AI platform
+- Don't do the work for them. Guide them.
+- Keep responses to 2-3 sentences max. Be direct and helpful.
+- If they share a screenshot description or error, diagnose the issue
+- Celebrate when they succeed. Be genuine, not over the top.
+
+IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the problem and ask for help." Model this behavior.`;
+
+      const apiMessages = [
+        ...existingMessages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
+        { role: "user" as const, content: message.trim() },
+      ];
+
+      const Anthropic = (await import("@anthropic-ai/sdk")).default;
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: apiMessages,
+      });
+
+      const textBlock = response.content.find(b => b.type === "text");
+      const assistantMessage = textBlock?.text || "I'm having trouble responding right now. Try again in a moment.";
+
+      const updatedMessages = [
+        ...existingMessages,
+        { role: "user", content: message.trim() },
+        { role: "assistant", content: assistantMessage },
+      ];
+
+      await storage.updateCoachConversation(conversation.id, updatedMessages);
+
+      return res.json({ response: assistantMessage, conversationId: conversation.id });
+    } catch (e: any) {
+      console.error("Coach conversation error:", e);
+      return res.status(500).json({ message: "Failed to get coaching response" });
+    }
+  });
+
+  app.get("/api/challenge/:nudgeId/coach", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const nudgeId = parseInt(req.params.nudgeId);
+      const conversation = await storage.getCoachConversation(user.id, nudgeId);
+
+      return res.json({ messages: conversation?.messagesJson || [] });
+    } catch (e: any) {
+      console.error("Get coach conversation error:", e);
+      return res.status(500).json({ message: "Failed to load conversation" });
+    }
+  });
+
+  app.post("/api/challenge/:nudgeId/reflect", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const { note } = req.body;
+      if (!note || typeof note !== "string" || !note.trim()) {
+        return res.status(400).json({ message: "Reflection note is required" });
+      }
+
+      const nudgeId = parseInt(req.params.nudgeId);
+      const nudge = await storage.getNudge(nudgeId);
+      if (!nudge || nudge.userId !== user.id) {
+        return res.status(404).json({ message: "Challenge not found" });
+      }
+
+      await storage.createChallengeReflection({
+        userId: user.id,
+        nudgeId,
+        note: note.trim(),
+      });
+
+      await storage.updateNudge(nudgeId, { inAppRead: true });
+
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error("Challenge reflection error:", e);
+      return res.status(500).json({ message: "Failed to save reflection" });
     }
   });
 

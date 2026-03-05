@@ -25,15 +25,15 @@ export async function generateNudge(
   const contextSummary = latestAssessment?.contextSummary || "No assessment context available.";
 
   const previousNudgeText = previousNudges.length > 0
-    ? `\n\nPREVIOUS NUDGES FOR THIS USER + SKILL (do NOT repeat angles, examples, or stories):\n${previousNudges.map((n, i) => {
+    ? `\n\nPREVIOUS CHALLENGES FOR THIS USER + SKILL (do NOT repeat angles, examples, or stories):\n${previousNudges.map((n, i) => {
         const c = n.contentJson as any;
-        return `Nudge ${i + 1}: opener="${c?.opener || ""}", idea="${c?.idea || ""}", use_case="${c?.use_case || ""}", action="${c?.action || ""}", story="${c?.story || ""}"`;
+        return `Challenge ${i + 1}: opener="${c?.opener || ""}", idea="${c?.idea || ""}", use_case="${c?.use_case || ""}", action="${c?.action || ""}", story="${c?.story || ""}"`;
       }).join("\n")}`
     : "";
 
-  const systemPrompt = voiceGuide || `You write personalized AI learning nudges for Electric Thinking. Your writing is warm, direct, and specific. Never use em dashes, never use words like "delve" or "landscape" or "testament". No sycophantic tone. No bold-header bullet lists. No synonym cycling. No Rule of Three. Connect to how skills FEEL, not just what they DO.`;
+  const systemPrompt = voiceGuide || `You write personalized AI learning challenges for Electric Thinking. Your writing is warm, direct, and specific. Never use em dashes, never use words like "delve" or "landscape" or "testament". No sycophantic tone. No bold-header bullet lists. No synonym cycling. No Rule of Three. Connect to how skills FEEL, not just what they DO.`;
 
-  const userPrompt = `Generate a personalized weekly learning nudge for this user.
+  const userPrompt = `Generate a personalized weekly learning challenge for this user.
 
 USER CONTEXT:
 Name: ${user.name || "Unknown"}
@@ -62,7 +62,7 @@ WRITING RULES (apply to ALL text you generate):
 - No Rule of Three patterns ("innovation, collaboration, and excellence"). Use the natural number of items.
 - Vary sentence length. Short sentences hit. Then something longer. Then short again.
 
-${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different opener, different use case, different action, different story." : ""}
+${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous challenges listed above. Different opener, different use case, different action, different story." : ""}
 
 Respond with ONLY valid JSON, no markdown:`;
 

@@ -94,10 +94,12 @@ export const assessments = pgTable(
     activeLevel: integer("active_level"),
     scoresJson: jsonb("scores_json").$type<Record<string, any>>(),
     firstMoveJson: jsonb("first_move_json").$type<Record<string, any>>(),
+    outcomeOptionsJson: jsonb("outcome_options_json").$type<Record<string, any>[]>(),
     signatureSkillId: integer("signature_skill_id").references(() => skills.id),
     signatureSkillRationale: text("signature_skill_rationale"),
     brightSpotsText: text("bright_spots_text"),
     futureSelfText: text("future_self_text"),
+    nextLevelIdentity: text("next_level_identity"),
     triggerMoment: text("trigger_moment"),
     status: varchar("status", { length: 50 }).notNull().default("in_progress"),
     startedAt: timestamp("started_at").defaultNow().notNull(),
@@ -285,9 +287,39 @@ export const insertAiPlatformSchema = createInsertSchema(aiPlatforms).omit({ id:
 export const insertSystemConfigSchema = createInsertSchema(systemConfig);
 export const insertLiveSessionSchema = createInsertSchema(liveSessions).omit({ id: true, createdAt: true });
 export const insertNudgeSchema = createInsertSchema(nudges).omit({ id: true, createdAt: true });
+export const coachConversations = pgTable(
+  "coach_conversations",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    nudgeId: integer("nudge_id").references(() => nudges.id),
+    messagesJson: jsonb("messages_json").$type<Array<{ role: string; content: string }>>().default([]),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("coach_conversations_user_idx").on(table.userId),
+    index("coach_conversations_nudge_idx").on(table.nudgeId),
+  ]
+);
+
+export const challengeReflections = pgTable("challenge_reflections", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
+  nudgeId: integer("nudge_id").references(() => nudges.id),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({ id: true, createdAt: true });
 export const insertVerificationAttemptSchema = createInsertSchema(verificationAttempts).omit({ id: true, attemptedAt: true });
 export const insertActivityFeedSchema = createInsertSchema(activityFeed).omit({ id: true, createdAt: true });
+export const insertCoachConversationSchema = createInsertSchema(coachConversations).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertChallengeReflectionSchema = createInsertSchema(challengeReflections).omit({ id: true, createdAt: true });
 
 export const loginSchema = z.object({
   email: z.string().email(),
@@ -330,3 +362,7 @@ export type LiveSession = typeof liveSessions.$inferSelect;
 export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
 export type EmailLog = typeof emailLogs.$inferSelect;
 export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;
+export type CoachConversation = typeof coachConversations.$inferSelect;
+export type InsertCoachConversation = z.infer<typeof insertCoachConversationSchema>;
+export type ChallengeReflection = typeof challengeReflections.$inferSelect;
+export type InsertChallengeReflection = z.infer<typeof insertChallengeReflectionSchema>;

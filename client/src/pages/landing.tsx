@@ -46,7 +46,7 @@ export default function LandingPage() {
             <span className="text-et-pink">AI journey</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-            Take a 10-minute conversation with an AI that evaluates your fluency across 25 skills and 5 levels.
+            Have a quick conversation with an AI that evaluates your fluency across 25 skills and 5 levels.
             Get a personalized learning path to level up.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -90,7 +90,7 @@ export default function LandingPage() {
             </div>
             <h3 className="font-heading text-lg font-semibold mb-3">Discover Your Level</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Get placed across 5 levels from Foundations to Agentic Workflow.
+              Get placed across 5 levels from Explorer to Agentic Workflow.
               See exactly which skills you've mastered and where to grow next.
             </p>
           </Card>
@@ -114,7 +114,7 @@ export default function LandingPage() {
           </h2>
           <div className="space-y-4">
             {[
-              { level: 0, name: "Foundations", color: "bg-et-cyan", desc: "Getting started with AI tools" },
+              { level: 0, name: "Explorer", color: "bg-et-cyan", desc: "Starting your AI journey" },
               { level: 1, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
               { level: 2, name: "Thought Partner", color: "bg-et-pink", desc: "AI as a collaborative thinking partner" },
               { level: 3, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building reusable AI tools" },
@@ -122,7 +122,7 @@ export default function LandingPage() {
             ].map(item => (
               <div key={item.level} className="flex items-center gap-4 p-4 rounded-xl bg-card">
                 <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center text-white font-heading font-bold text-sm shrink-0`}>
-                  {item.level}
+                  {item.level + 1}
                 </div>
                 <div className="min-w-0">
                   <div className="font-heading font-semibold">{item.name}</div>

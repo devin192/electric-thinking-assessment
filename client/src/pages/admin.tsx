@@ -56,7 +56,7 @@ export default function AdminPage() {
             <TabsTrigger value="skills" data-testid="tab-skills"><Layers className="w-4 h-4 mr-1" /> Skills</TabsTrigger>
             <TabsTrigger value="questions" data-testid="tab-questions"><MessageSquare className="w-4 h-4 mr-1" /> Questions</TabsTrigger>
             <TabsTrigger value="assessments" data-testid="tab-assessments"><FileText className="w-4 h-4 mr-1" /> Assessments</TabsTrigger>
-            <TabsTrigger value="nudges" data-testid="tab-nudges"><Mail className="w-4 h-4 mr-1" /> Nudges</TabsTrigger>
+            <TabsTrigger value="nudges" data-testid="tab-nudges"><Mail className="w-4 h-4 mr-1" /> Challenges</TabsTrigger>
             <TabsTrigger value="system" data-testid="tab-system"><Activity className="w-4 h-4 mr-1" /> System</TabsTrigger>
             <TabsTrigger value="sessions" data-testid="tab-sessions"><Video className="w-4 h-4 mr-1" /> Sessions</TabsTrigger>
             <TabsTrigger value="config" data-testid="tab-config"><Settings className="w-4 h-4 mr-1" /> Config</TabsTrigger>
@@ -88,7 +88,7 @@ function AnalyticsTab() {
   const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
 
   const LEVEL_NAMES: Record<number, string> = {
-    0: "Foundations", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic"
+    0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic"
   };
 
   return (
@@ -141,7 +141,7 @@ function AnalyticsTab() {
         <Card className="rounded-2xl border border-border">
           <CardContent className="pt-6 pb-6 text-center">
             <p className="font-heading text-2xl font-bold text-et-orange" data-testid="text-nudges-total">{analytics?.nudgeStats?.total ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Total Nudges</p>
+            <p className="text-xs text-muted-foreground">Total Challenges</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border border-border">
@@ -210,7 +210,7 @@ function NudgesTab() {
       const res = await apiRequest("POST", "/api/admin/nudge/generate", body);
       const data = await res.json();
       setGenResult(data);
-      toast({ title: "Nudge generation complete" });
+      toast({ title: "Challenge generation complete" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -225,7 +225,7 @@ function NudgesTab() {
       const res = await apiRequest("POST", "/api/admin/nudge/deliver");
       const data = await res.json();
       setDeliverResult(data);
-      toast({ title: "Nudge delivery complete" });
+      toast({ title: "Challenge delivery complete" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -236,10 +236,10 @@ function NudgesTab() {
   return (
     <div className="space-y-6">
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Generate Nudges</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Generate Challenges</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Generate AI-powered learning nudges for users with active yellow skills.
+            Generate AI-powered learning challenges for users with active yellow skills.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <Input
@@ -270,7 +270,7 @@ function NudgesTab() {
                   )}
                 </>
               ) : (
-                <p>Nudge created for user {targetUserId}</p>
+                <p>Challenge created for user {targetUserId}</p>
               )}
             </div>
           )}
@@ -278,14 +278,14 @@ function NudgesTab() {
       </Card>
 
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Deliver Nudges</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Deliver Challenges</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Send all unsent nudges via email to users.
+            Send all unsent challenges via email to users.
           </p>
           <Button onClick={handleDeliver} disabled={delivering} data-testid="button-deliver-nudges">
             {delivering ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
-            Deliver Unsent Nudges
+            Deliver Unsent Challenges
           </Button>
           {deliverResult && (
             <div className="p-4 rounded-xl bg-accent/30 text-sm space-y-1" data-testid="nudge-deliver-result">
@@ -324,8 +324,8 @@ function SystemHealthTab() {
         <CardContent>
           <div className="space-y-3">
             {[
-              { name: "Nudge Generation", data: health?.cronJobs?.nudgeGeneration },
-              { name: "Nudge Delivery", data: health?.cronJobs?.nudgeDelivery },
+              { name: "Challenge Generation", data: health?.cronJobs?.nudgeGeneration },
+              { name: "Challenge Delivery", data: health?.cronJobs?.nudgeDelivery },
               { name: "Daily Checks", data: health?.cronJobs?.dailyChecks },
               { name: "Re-Assessment Reminders", data: health?.cronJobs?.reassessmentReminders },
             ].map(job => (
@@ -796,7 +796,7 @@ function ConfigTab() {
     setSaving("nudge");
     try {
       await apiRequest("PUT", "/api/admin/nudge-guide", { text: nudgeText || nudgeGuide?.text });
-      toast({ title: "Nudge guide saved" });
+      toast({ title: "Challenge guide saved" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -860,7 +860,7 @@ function ConfigTab() {
       </Card>
 
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Nudge Voice Guide</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Challenge Voice Guide</h3></CardHeader>
         <CardContent className="space-y-3">
           <Textarea
             value={nudgeText || nudgeGuide?.text || ""}

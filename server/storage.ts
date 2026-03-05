@@ -4,7 +4,7 @@ import {
   users, organizations, assessments, levels, skills, assessmentQuestions,
   userSkillStatus, nudges, nudgeVoiceGuide, invites, aiPlatforms,
   systemConfig, activityFeed, badges, verificationAttempts, emailLogs,
-  liveSessions,
+  liveSessions, coachConversations, challengeReflections,
   type User, type InsertUser, type Organization, type InsertOrganization,
   type Assessment, type InsertAssessment, type Level, type InsertLevel,
   type Skill, type InsertSkill, type AssessmentQuestion, type InsertAssessmentQuestion,
@@ -13,6 +13,8 @@ import {
   type Nudge, type InsertNudge, type VerificationAttempt, type InsertVerificationAttempt,
   type ActivityFeedEntry, type InsertActivityFeed, type EmailLog, type InsertEmailLog,
   type LiveSession, type InsertLiveSession,
+  type CoachConversation, type InsertCoachConversation,
+  type ChallengeReflection, type InsertChallengeReflection,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -122,6 +124,11 @@ export interface IStorage {
   deleteLiveSession(id: number): Promise<void>;
 
   getBadge(id: number): Promise<Badge | undefined>;
+
+  getCoachConversation(userId: number, nudgeId: number): Promise<CoachConversation | undefined>;
+  createCoachConversation(data: InsertCoachConversation): Promise<CoachConversation>;
+  updateCoachConversation(id: number, messagesJson: Array<{ role: string; content: string }>): Promise<void>;
+  createChallengeReflection(data: InsertChallengeReflection): Promise<ChallengeReflection>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -629,6 +636,32 @@ export class DatabaseStorage implements IStorage {
   async getBadge(id: number): Promise<Badge | undefined> {
     const [badge] = await db.select().from(badges).where(eq(badges.id, id));
     return badge;
+  }
+
+  async getCoachConversation(userId: number, nudgeId: number): Promise<CoachConversation | undefined> {
+    const [conversation] = await db.select().from(coachConversations)
+      .where(and(eq(coachConversations.userId, userId), eq(coachConversations.nudgeId, nudgeId)));
+    return conversation;
+  }
+
+  async createCoachConversation(data: InsertCoachConversation): Promise<CoachConversation> {
+    const [created] = await db.insert(coachConversations).values({
+      userId: data.userId,
+      nudgeId: data.nudgeId,
+      messagesJson: (data.messagesJson || []) as { role: string; content: string }[],
+    }).returning();
+    return created;
+  }
+
+  async updateCoachConversation(id: number, messagesJson: Array<{ role: string; content: string }>): Promise<void> {
+    await db.update(coachConversations)
+      .set({ messagesJson, updatedAt: new Date() })
+      .where(eq(coachConversations.id, id));
+  }
+
+  async createChallengeReflection(data: InsertChallengeReflection): Promise<ChallengeReflection> {
+    const [created] = await db.insert(challengeReflections).values(data).returning();
+    return created;
   }
 }
 

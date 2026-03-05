@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Wordmark } from "@/components/wordmark";
 import { RPGMap } from "@/components/rpg-map";
+import { ChallengeCoach } from "@/components/challenge-coach";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +20,8 @@ import {
   ArrowRight, CheckCircle2, AlertCircle, Settings,
   LogOut, BarChart3, User as UserIcon, Bell, Lightbulb,
   Users, BookCheck, Sparkles, Mail, Loader2,
-  Share2, Download, Copy, Calendar, Video, ExternalLink, Flame
+  Share2, Download, Copy, Calendar, Video, ExternalLink, Flame,
+  MessageCircle, Trophy
 } from "lucide-react";
 import { SiLinkedin } from "react-icons/si";
 
@@ -76,6 +78,11 @@ export default function DashboardPage() {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [levelUpInfo, setLevelUpInfo] = useState<any>(null);
   const [showPastSessions, setShowPastSessions] = useState(false);
+  const [coachOpen, setCoachOpen] = useState(false);
+  const [reflectionOpen, setReflectionOpen] = useState(false);
+  const [reflectionNote, setReflectionNote] = useState("");
+  const [reflectionSubmitting, setReflectionSubmitting] = useState(false);
+  const [reflectionDone, setReflectionDone] = useState(false);
 
   const { data: assessment } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
@@ -216,6 +223,22 @@ export default function DashboardPage() {
     }
   };
 
+  const submitReflection = async (nudgeId: number) => {
+    if (!reflectionNote.trim()) return;
+    setReflectionSubmitting(true);
+    try {
+      await apiRequest("POST", `/api/challenge/${nudgeId}/reflect`, { note: reflectionNote.trim() });
+      setReflectionDone(true);
+      setReflectionNote("");
+      queryClient.invalidateQueries({ queryKey: ["/api/user/nudges"] });
+      fireConfetti();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setReflectionSubmitting(false);
+    }
+  };
+
   const copyBadgeLink = async (badgeId: number) => {
     try {
       await navigator.clipboard.writeText(`${shareUrl}/api/badge/${badgeId}/share`);
@@ -274,10 +297,10 @@ export default function DashboardPage() {
                 Ready to discover your AI fluency?
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Take a 10-minute conversation with an AI that evaluates your skills across 5 levels.
+                Have a quick conversation with an AI that evaluates your skills across 5 levels.
               </p>
               <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/assessment/warmup")} data-testid="button-start-assessment">
-                Start Your Conversation <ArrowRight className="w-5 h-5 ml-2" />
+                Have a Conversation <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
 
               <div className="mt-12 max-w-sm mx-auto">
@@ -444,17 +467,78 @@ export default function DashboardPage() {
                               <p className="text-sm leading-relaxed text-muted-foreground">{content?.story}</p>
                             </div>
                           )}
-                          {!latestNudge.inAppRead && (
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {!latestNudge.inAppRead && !reflectionDone && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => setReflectionOpen(!reflectionOpen)}
+                                data-testid="button-i-did-it"
+                              >
+                                <Trophy className="w-4 h-4 mr-1" /> I Did It
+                              </Button>
+                            )}
+                            {!latestNudge.inAppRead && !reflectionDone && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => markNudgeRead(latestNudge.id)}
+                                data-testid="button-mark-read"
+                              >
+                                <CheckCircle2 className="w-4 h-4 mr-1" /> Mark as Read
+                              </Button>
+                            )}
                             <Button
-                              variant="outline"
+                              variant={coachOpen ? "default" : "outline"}
                               size="sm"
                               className="rounded-xl"
-                              onClick={() => markNudgeRead(latestNudge.id)}
-                              data-testid="button-mark-read"
+                              onClick={() => setCoachOpen(!coachOpen)}
+                              data-testid="button-coach"
                             >
-                              <CheckCircle2 className="w-4 h-4 mr-1" /> Mark as Read
+                              <MessageCircle className="w-4 h-4 mr-1" /> {coachOpen ? "Hide Coach" : "Need Help?"}
                             </Button>
+                          </div>
+
+                          {reflectionDone && (
+                            <div className="flex items-center gap-2 text-sm text-et-green pt-1">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span>Challenge complete. Nice work.</span>
+                            </div>
                           )}
+
+                          {reflectionOpen && !reflectionDone && (
+                            <div className="mt-3 border border-border rounded-xl p-4 space-y-3" data-testid="reflection-panel">
+                              <p className="text-sm text-muted-foreground">
+                                Quick note on how it went. What did you try? What did you notice?
+                              </p>
+                              <textarea
+                                value={reflectionNote}
+                                onChange={e => setReflectionNote(e.target.value)}
+                                placeholder="I tried..."
+                                className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                data-testid="reflection-input"
+                              />
+                              <Button
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => submitReflection(latestNudge.id)}
+                                disabled={!reflectionNote.trim() || reflectionSubmitting}
+                                data-testid="reflection-submit"
+                              >
+                                {reflectionSubmitting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+                                Submit
+                              </Button>
+                            </div>
+                          )}
+
+                          <ChallengeCoach
+                            nudgeId={latestNudge.id}
+                            challengeContent={content}
+                            isOpen={coachOpen}
+                            onClose={() => setCoachOpen(false)}
+                          />
                         </div>
                       );
                     })()}
@@ -466,9 +550,9 @@ export default function DashboardPage() {
                     <div className="w-12 h-12 rounded-xl bg-et-gold/10 flex items-center justify-center mx-auto mb-4">
                       <Bell className="w-6 h-6 text-et-orange" />
                     </div>
-                    <p className="font-heading font-semibold mb-1">Your first challenge is on its way</p>
+                    <p className="font-heading font-semibold mb-1">Your first challenge is being created</p>
                     <p className="text-sm text-muted-foreground">
-                      Check back soon. It's being built just for you.
+                      One challenge away from your first skill badge. Refresh in a moment.
                     </p>
                   </CardContent>
                 </Card>
@@ -524,17 +608,118 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <h2 className="font-heading text-xl font-bold mb-4">Skill Progression</h2>
-            {levels && allSkills && (
-              <RPGMap
-                levels={levels}
-                skills={allSkills}
-                userSkills={userSkills || []}
-                scores={scores}
-                assessmentLevel={assessmentLevel}
-                onVerifySkill={startVerification}
-              />
-            )}
+            <h2 className="font-heading text-xl font-bold mb-4">Your Skills</h2>
+            {levels && allSkills && (() => {
+              const sortedLevels = [...levels].sort((a, b) => a.sortOrder - b.sortOrder);
+              const currentLevelSkills = allSkills.filter(s => {
+                const lvl = levels.find(l => l.id === s.levelId);
+                return lvl?.sortOrder === assessmentLevel;
+              });
+              const belowLevelSkills = allSkills.filter(s => {
+                const lvl = levels.find(l => l.id === s.levelId);
+                return lvl && lvl.sortOrder < (assessmentLevel ?? 0);
+              });
+              const belowGreen = belowLevelSkills.filter(s => getSkillStatus(s.id, s.name) === "green").length;
+
+              return (
+                <div className="space-y-4 mb-8">
+                  {/* Completed levels (collapsed) */}
+                  {sortedLevels.filter(l => l.sortOrder < (assessmentLevel ?? 0)).length > 0 && (
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 px-1">
+                      <CheckCircle2 className="w-4 h-4 text-et-green" />
+                      <span>{belowGreen} skills completed in earlier levels</span>
+                    </div>
+                  )}
+
+                  {/* Current level - full detail */}
+                  {sortedLevels.filter(l => l.sortOrder === (assessmentLevel ?? 0)).map(level => {
+                    const lvlSkills = currentLevelSkills;
+                    const greenCount = lvlSkills.filter(s => getSkillStatus(s.id, s.name) === "green").length;
+                    return (
+                      <Card key={level.id} className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${Object.values(LEVEL_COLORS)[level.sortOrder] || ''}40` }}>
+                        <CardContent className="pt-6 pb-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h3 className="font-heading font-semibold">Level {level.sortOrder + 1}: {level.displayName}</h3>
+                              <p className="text-xs text-muted-foreground">{greenCount}/{lvlSkills.length} mastered</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-bold text-sm" style={{ backgroundColor: Object.values(LEVEL_COLORS)[level.sortOrder] || '#888' }}>
+                              {level.sortOrder + 1}
+                            </div>
+                          </div>
+                          <div className="w-full h-2 bg-muted rounded-full mb-4 overflow-hidden">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(greenCount / lvlSkills.length) * 100}%`, backgroundColor: Object.values(LEVEL_COLORS)[level.sortOrder] || '#888' }} />
+                          </div>
+                          <div className="space-y-2">
+                            {lvlSkills.map(skill => {
+                              const status = getSkillStatus(skill.id, skill.name);
+                              return (
+                                <div key={skill.id} className="flex items-center justify-between py-2 px-3 rounded-xl hover:bg-accent/50 transition-colors">
+                                  <div className="flex items-center gap-3">
+                                    {status === "green" ? (
+                                      <CheckCircle2 className="w-5 h-5 text-et-green" />
+                                    ) : status === "yellow" ? (
+                                      <AlertCircle className="w-5 h-5 text-et-yellow" />
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />
+                                    )}
+                                    <div>
+                                      <p className="text-sm font-medium">{skill.name}</p>
+                                      <p className="text-xs text-muted-foreground">{skill.description}</p>
+                                    </div>
+                                  </div>
+                                  {status !== "green" && (
+                                    <Button variant="ghost" size="sm" className="text-xs rounded-lg shrink-0" onClick={() => startVerification(skill)}>
+                                      Verify
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                  {/* Next level - teaser */}
+                  {sortedLevels.filter(l => l.sortOrder === (assessmentLevel ?? 0) + 1).map(level => {
+                    const lvlSkills = allSkills.filter(s => s.levelId === level.id);
+                    return (
+                      <Card key={level.id} className="rounded-2xl border border-border/50 opacity-60">
+                        <CardContent className="pt-6 pb-6">
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <h3 className="font-heading font-semibold text-muted-foreground">Level {level.sortOrder + 1}: {level.displayName}</h3>
+                              <p className="text-xs text-muted-foreground">Complete your current level to unlock</p>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-heading font-bold text-sm text-muted-foreground">
+                              {level.sortOrder + 1}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {lvlSkills.map(skill => (
+                              <span key={skill.id} className="text-xs px-3 py-1.5 rounded-lg bg-muted/50 text-muted-foreground">
+                                {skill.name}
+                              </span>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                  {/* Higher levels - locked */}
+                  {sortedLevels.filter(l => l.sortOrder > (assessmentLevel ?? 0) + 1).length > 0 && (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-muted-foreground">
+                        {sortedLevels.filter(l => l.sortOrder > (assessmentLevel ?? 0) + 1).length} more level{sortedLevels.filter(l => l.sortOrder > (assessmentLevel ?? 0) + 1).length > 1 ? "s" : ""} to discover
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </>
         )}
       </div>

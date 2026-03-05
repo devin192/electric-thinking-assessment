@@ -7,7 +7,7 @@ const LEVEL_COLORS: Record<number, string> = {
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Foundations",
+  0: "Explorer",
   1: "Accelerator",
   2: "Thought Partner",
   3: "Specialized",
