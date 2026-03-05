@@ -60,7 +60,7 @@ export default function AssessmentWarmup() {
               Here's what's about to happen
             </h1>
             <p className="text-muted-foreground text-center mb-8">
-              You'll talk with Lex, your AI conversation guide. He'll ask about how you use AI at work. Just speak naturally.
+              You're about to have a quick voice conversation. No trick questions, no wrong answers.
             </p>
 
             <div className="space-y-4 mb-8">

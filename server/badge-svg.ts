@@ -1,9 +1,9 @@
 const LEVEL_COLORS: Record<number, string> = {
   0: "#2DD6FF",
-  1: "#1C4BFF",
+  1: "#FFD236",
   2: "#FF2F86",
   3: "#FF6A2B",
-  4: "#FFD236",
+  4: "#1C4BFF",
 };
 
 const LEVEL_NAMES: Record<number, string> = {
@@ -89,7 +89,7 @@ function levelBadgeSVG(level: number, levelName: string, userName: string, date:
   return svgWrapper(`
     <circle cx="300" cy="105" r="55" fill="${color}" opacity="0.15"/>
     <circle cx="300" cy="105" r="40" fill="${color}" filter="url(#glow)"/>
-    <text x="300" y="118" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="700" font-size="28" fill="white">${level}</text>
+    <text x="300" y="118" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="700" font-size="28" fill="white">${level + 1}</text>
     <text x="300" y="185" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="600" font-size="13" fill="${color}" letter-spacing="3">LEVEL UP</text>
     <text x="300" y="215" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="700" font-size="24" fill="#2B2B2B">${escapeXml(levelName)}</text>
     <text x="300" y="270" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="16" fill="#666">${escapeXml(userName)}</text>

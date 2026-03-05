@@ -229,7 +229,8 @@ export async function registerRoutes(
 
       const allSkills = await storage.getSkills();
 
-      const signatureSkill = allSkills.find(s => s.name === result.signatureSkillName);
+      const signatureSkill = allSkills.find(s => s.name === result.signatureSkillName)
+        || allSkills.find(s => s.name.toLowerCase() === result.signatureSkillName?.toLowerCase());
 
       await storage.updateAssessment(assessmentId, {
         status: "completed",
@@ -267,7 +268,8 @@ export async function registerRoutes(
       (async () => {
         try {
           const firstSkillName = result.firstMove?.skillName;
-          const firstSkill = allSkills.find(s => s.name === firstSkillName);
+          const firstSkill = allSkills.find(s => s.name === firstSkillName)
+            || allSkills.find(s => s.name.toLowerCase() === firstSkillName?.toLowerCase());
           if (firstSkill && user) {
             const previousNudges = await storage.getNudgesByUserAndSkill(user.id, firstSkill.id);
             const nudgeContent = await generateNudge(user, firstSkill, previousNudges);

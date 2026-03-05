@@ -184,7 +184,7 @@ export default function LandingPage() {
             Ready to discover your AI fluency?
           </h2>
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            It takes about 10 minutes. Just a natural conversation, no trick questions.
+            It takes about 5 minutes. Just a natural conversation, no trick questions.
           </p>
           <Button
             size="lg"

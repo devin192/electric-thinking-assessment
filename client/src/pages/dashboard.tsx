@@ -9,7 +9,6 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem
 } from "@/components/ui/dropdown-menu";
 import { Wordmark } from "@/components/wordmark";
-import { RPGMap } from "@/components/rpg-map";
 import { ChallengeCoach } from "@/components/challenge-coach";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -27,6 +26,9 @@ import { SiLinkedin } from "react-icons/si";
 
 const LEVEL_COLORS: Record<number, string> = {
   0: "bg-et-cyan", 1: "bg-et-gold", 2: "bg-et-pink", 3: "bg-et-orange", 4: "bg-et-blue",
+};
+const LEVEL_HEX: Record<number, string> = {
+  0: "#2DD6FF", 1: "#FFD236", 2: "#FF2F86", 3: "#FF6A2B", 4: "#1C4BFF",
 };
 
 function StatusIcon({ status }: { status: string }) {
@@ -636,19 +638,19 @@ export default function DashboardPage() {
                     const lvlSkills = currentLevelSkills;
                     const greenCount = lvlSkills.filter(s => getSkillStatus(s.id, s.name) === "green").length;
                     return (
-                      <Card key={level.id} className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${Object.values(LEVEL_COLORS)[level.sortOrder] || ''}40` }}>
+                      <Card key={level.id} className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${LEVEL_HEX[level.sortOrder] || '#888'}40` }}>
                         <CardContent className="pt-6 pb-6">
                           <div className="flex items-center justify-between mb-4">
                             <div>
                               <h3 className="font-heading font-semibold">Level {level.sortOrder + 1}: {level.displayName}</h3>
                               <p className="text-xs text-muted-foreground">{greenCount}/{lvlSkills.length} mastered</p>
                             </div>
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-bold text-sm" style={{ backgroundColor: Object.values(LEVEL_COLORS)[level.sortOrder] || '#888' }}>
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-bold text-sm" style={{ backgroundColor: LEVEL_HEX[level.sortOrder] || '#888' }}>
                               {level.sortOrder + 1}
                             </div>
                           </div>
                           <div className="w-full h-2 bg-muted rounded-full mb-4 overflow-hidden">
-                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(greenCount / lvlSkills.length) * 100}%`, backgroundColor: Object.values(LEVEL_COLORS)[level.sortOrder] || '#888' }} />
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(greenCount / (lvlSkills.length || 1)) * 100}%`, backgroundColor: LEVEL_HEX[level.sortOrder] || '#888' }} />
                           </div>
                           <div className="space-y-2">
                             {lvlSkills.map(skill => {
@@ -825,7 +827,7 @@ export default function DashboardPage() {
                     style={{
                       width: 96,
                       height: 96,
-                      backgroundColor: LEVEL_COLORS[levelUpInfo?.level ?? 0] === 'bg-et-cyan' ? '#2DD6FF' : '#FF2F86',
+                      backgroundColor: LEVEL_HEX[levelUpInfo?.level ?? 0] || '#FF2F86',
                     }}
                   />
                 </div>

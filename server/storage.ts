@@ -153,6 +153,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
+    await db.delete(coachConversations).where(eq(coachConversations.userId, id));
+    await db.delete(challengeReflections).where(eq(challengeReflections.userId, id));
     await db.delete(userSkillStatus).where(eq(userSkillStatus.userId, id));
     await db.delete(assessments).where(eq(assessments.userId, id));
     await db.delete(badges).where(eq(badges.userId, id));
@@ -314,6 +316,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetUserProgress(userId: number): Promise<void> {
+    await db.delete(coachConversations).where(eq(coachConversations.userId, userId));
+    await db.delete(challengeReflections).where(eq(challengeReflections.userId, userId));
     await db.delete(userSkillStatus).where(eq(userSkillStatus.userId, userId));
     await db.delete(assessments).where(eq(assessments.userId, userId));
     await db.delete(badges).where(eq(badges.userId, userId));

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,7 +54,6 @@ export default function ResultsPage() {
   const [completingChallenge, setCompletingChallenge] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [scheduleDay, setScheduleDay] = useState("Monday");
-  const [scheduleTime, setScheduleTime] = useState("09:00");
   const [showShareCard, setShowShareCard] = useState(false);
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
@@ -191,7 +190,7 @@ export default function ResultsPage() {
         challengeFrequency: "weekly",
         nudgeDay: scheduleDay,
       });
-      toast({ title: `Scheduled for ${scheduleDay} at ${scheduleTime}` });
+      toast({ title: `Challenges will arrive on ${scheduleDay}s` });
       navigate("/dashboard");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -485,7 +484,7 @@ export default function ResultsPage() {
               transition={{ duration: 0.5 }}
               className="space-y-4"
             >
-              {hasOutcomeOptions && outcomeOptions[selectedOption] && (
+              {hasOutcomeOptions && outcomeOptions[selectedOption] ? (
                 <Card className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${levelColor}40` }}>
                   <div className="h-1" style={{ backgroundColor: levelColor }} />
                   <CardContent className="pt-6 pb-6 space-y-5">
@@ -516,7 +515,6 @@ export default function ResultsPage() {
                       </p>
                     </div>
 
-                    {/* Need help? coach */}
                     {firstChallenge && (
                       <button
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-2"
@@ -525,6 +523,14 @@ export default function ResultsPage() {
                         <MessageCircle className="w-3.5 h-3.5" /> Need help? Open the coach on your dashboard
                       </button>
                     )}
+                  </CardContent>
+                </Card>
+              ) : firstMove.skillName && (
+                <Card className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${levelColor}40` }}>
+                  <div className="h-1" style={{ backgroundColor: levelColor }} />
+                  <CardContent className="pt-6 pb-6 space-y-3">
+                    <p className="font-heading text-xl font-bold">{firstMove.skillName}</p>
+                    <p className="text-sm leading-relaxed">{firstMove.suggestion}</p>
                   </CardContent>
                 </Card>
               )}
@@ -563,7 +569,7 @@ export default function ResultsPage() {
                             <CardContent className="pt-4 pb-4">
                               <div className="flex gap-3 items-end">
                                 <div className="flex-1">
-                                  <label className="text-xs text-muted-foreground block mb-1">Day</label>
+                                  <label className="text-xs text-muted-foreground block mb-1">Preferred day</label>
                                   <select
                                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
                                     value={scheduleDay}
@@ -571,18 +577,6 @@ export default function ResultsPage() {
                                   >
                                     {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(d => (
                                       <option key={d} value={d}>{d}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="flex-1">
-                                  <label className="text-xs text-muted-foreground block mb-1">Time</label>
-                                  <select
-                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                                    value={scheduleTime}
-                                    onChange={(e) => setScheduleTime(e.target.value)}
-                                  >
-                                    {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"].map(t => (
-                                      <option key={t} value={t}>{t}</option>
                                     ))}
                                   </select>
                                 </div>
