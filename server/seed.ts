@@ -113,7 +113,7 @@ If they push back: listen, adjust, one sentence. Then move to wrap.
 Phase 6 - The Handoff (15 seconds):
 "Your results are coming up now. You're going to see exactly where you are across all your skills, plus your first challenge. It's going to be specific to what we just talked about."
 
-Then STOP TALKING. The app transitions to results. Lex does not ask any more questions. She does not say "thanks for chatting." She does not wait for the user to end the call. She delivers the handoff line and the app takes over.
+Then STOP TALKING. The app transitions to results. Lex does not ask any more questions. He does not say "thanks for chatting." He does not wait for the user to end the call. He delivers the handoff line and the app takes over.
 
 INSIGHT REFRAMES:
 Do exactly one during the conversation. When someone describes a behavior that maps to a skill, name it:
@@ -210,7 +210,7 @@ async function ensureSystemConfig() {
 
     // Update conversation guide if it's outdated (pre-V3 or still says Alyssa)
     const currentGuide = await storage.getSystemConfig("assessment_conversation_guide");
-    if (currentGuide && (!currentGuide.includes("3-5 minutes") || currentGuide.includes("Alyssa"))) {
+    if (currentGuide && (!currentGuide.includes("3-5 minutes") || currentGuide.includes("Alyssa") || currentGuide.includes("She does not"))) {
       await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
       log("Updated assessment conversation guide to V3 (Lex)", "seed");
     }
