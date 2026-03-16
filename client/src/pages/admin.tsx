@@ -19,7 +19,7 @@ import {
   ArrowLeft, Users, BarChart3, Settings, MessageSquare, Layers,
   Save, Trash2, Plus, Eye, FileText, Clock, Loader2,
   Mail, Activity, Zap, Send, AlertTriangle, CheckCircle2,
-  Video, Calendar, Link as LinkIcon
+  Video, Calendar, Link as LinkIcon, FlaskConical, RotateCcw, Play
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -60,6 +60,7 @@ export default function AdminPage() {
             <TabsTrigger value="system" data-testid="tab-system"><Activity className="w-4 h-4 mr-1" /> System</TabsTrigger>
             <TabsTrigger value="sessions" data-testid="tab-sessions"><Video className="w-4 h-4 mr-1" /> Sessions</TabsTrigger>
             <TabsTrigger value="config" data-testid="tab-config"><Settings className="w-4 h-4 mr-1" /> Config</TabsTrigger>
+            <TabsTrigger value="testing" data-testid="tab-testing"><FlaskConical className="w-4 h-4 mr-1" /> Testing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
@@ -71,6 +72,7 @@ export default function AdminPage() {
           <TabsContent value="system"><SystemHealthTab /></TabsContent>
           <TabsContent value="sessions"><SessionsTab /></TabsContent>
           <TabsContent value="config"><ConfigTab /></TabsContent>
+          <TabsContent value="testing"><TestingTab /></TabsContent>
         </Tabs>
       </div>
     </div>
@@ -1093,6 +1095,404 @@ function SessionsTab() {
           <p className="text-muted-foreground text-center py-8">No live sessions yet</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function TestingTab() {
+  const { toast } = useToast();
+  const { data: users } = useQuery<any[]>({ queryKey: ["/api/admin/users"] });
+  const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
+  const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/admin/levels"] });
+
+  // State for each test action
+  const [genChallengeUserId, setGenChallengeUserId] = useState("");
+  const [genChallengeLoading, setGenChallengeLoading] = useState(false);
+  const [genChallengeResult, setGenChallengeResult] = useState<any>(null);
+
+  const [simSkillUserId, setSimSkillUserId] = useState("");
+  const [simSkillId, setSimSkillId] = useState("");
+  const [simSkillLoading, setSimSkillLoading] = useState(false);
+  const [simSkillResult, setSimSkillResult] = useState<any>(null);
+
+  const [levelUpUserId, setLevelUpUserId] = useState("");
+  const [levelUpLevelId, setLevelUpLevelId] = useState("");
+  const [levelUpLoading, setLevelUpLoading] = useState(false);
+  const [levelUpResult, setLevelUpResult] = useState<any>(null);
+
+  const [previewUserId, setPreviewUserId] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewResult, setPreviewResult] = useState<any>(null);
+
+  const [resetUserId, setResetUserId] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetResult, setResetResult] = useState<any>(null);
+
+  const [emailUserId, setEmailUserId] = useState("");
+  const [emailType, setEmailType] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailResult, setEmailResult] = useState<any>(null);
+
+  const handleGenerateChallenge = async () => {
+    if (!genChallengeUserId) {
+      toast({ title: "Select a user", variant: "destructive" });
+      return;
+    }
+    setGenChallengeLoading(true);
+    setGenChallengeResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/generate-challenge", { userId: parseInt(genChallengeUserId) });
+      const data = await res.json();
+      setGenChallengeResult(data);
+      toast({ title: "Challenge generated", description: data.skillName ? `For skill: ${data.skillName}` : undefined });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setGenChallengeResult({ error: err.message });
+    } finally {
+      setGenChallengeLoading(false);
+    }
+  };
+
+  const handleSimulateSkill = async () => {
+    if (!simSkillUserId || !simSkillId) {
+      toast({ title: "Select a user and skill", variant: "destructive" });
+      return;
+    }
+    setSimSkillLoading(true);
+    setSimSkillResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/simulate-skill-completion", {
+        userId: parseInt(simSkillUserId),
+        skillId: parseInt(simSkillId),
+      });
+      const data = await res.json();
+      setSimSkillResult(data);
+      toast({ title: "Skill completed", description: `${data.skillName}${data.leveledUp ? " (Level up!)" : ""}` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setSimSkillResult({ error: err.message });
+    } finally {
+      setSimSkillLoading(false);
+    }
+  };
+
+  const handleTriggerLevelUp = async () => {
+    if (!levelUpUserId || !levelUpLevelId) {
+      toast({ title: "Select a user and level", variant: "destructive" });
+      return;
+    }
+    setLevelUpLoading(true);
+    setLevelUpResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/trigger-level-up", {
+        userId: parseInt(levelUpUserId),
+        levelId: parseInt(levelUpLevelId),
+      });
+      const data = await res.json();
+      setLevelUpResult(data);
+      toast({ title: "Level-up triggered", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setLevelUpResult({ error: err.message });
+    } finally {
+      setLevelUpLoading(false);
+    }
+  };
+
+  const handlePreviewEmail = async () => {
+    if (!previewUserId) {
+      toast({ title: "Select a user", variant: "destructive" });
+      return;
+    }
+    setPreviewLoading(true);
+    setPreviewResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/preview-challenge-email", { userId: parseInt(previewUserId) });
+      const data = await res.json();
+      setPreviewResult(data);
+      toast({ title: "Email preview loaded" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setPreviewResult({ error: err.message });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleResetUser = async () => {
+    if (!resetUserId) {
+      toast({ title: "Select a user", variant: "destructive" });
+      return;
+    }
+    if (!confirm("This will wipe all assessment data, skills, nudges, and badges for this user. Continue?")) return;
+    setResetLoading(true);
+    setResetResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/reset-user", { userId: parseInt(resetUserId) });
+      const data = await res.json();
+      setResetResult(data);
+      toast({ title: "User reset", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setResetResult({ error: err.message });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!emailUserId || !emailType) {
+      toast({ title: "Select a user and email type", variant: "destructive" });
+      return;
+    }
+    setEmailLoading(true);
+    setEmailResult(null);
+    try {
+      const res = await apiRequest("POST", "/api/admin/test/send-test-email", {
+        userId: parseInt(emailUserId),
+        emailType,
+      });
+      const data = await res.json();
+      setEmailResult(data);
+      toast({ title: "Email sent", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setEmailResult({ error: err.message });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const UserSelect = ({ value, onChange, testId }: { value: string; onChange: (v: string) => void; testId: string }) => (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-64 rounded-xl" data-testid={testId}>
+        <SelectValue placeholder="Select user" />
+      </SelectTrigger>
+      <SelectContent>
+        {(users || []).map(u => (
+          <SelectItem key={u.id} value={String(u.id)}>
+            {u.name || u.email} (ID: {u.id})
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        Test the full user journey by triggering actions manually. These endpoints run real logic (emails, badges, etc).
+      </p>
+
+      {/* 1. Generate Challenge */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">Generate Challenge</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Generates a challenge immediately for a user. The user must have at least one active (yellow) skill.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={genChallengeUserId} onChange={setGenChallengeUserId} testId="select-test-gen-challenge-user" />
+            <Button onClick={handleGenerateChallenge} disabled={genChallengeLoading} data-testid="button-test-gen-challenge">
+              {genChallengeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
+              Generate Challenge
+            </Button>
+          </div>
+          {genChallengeResult && (
+            <div className={`p-4 rounded-xl text-sm ${genChallengeResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-gen-challenge-result">
+              {genChallengeResult.error ? (
+                <p className="text-destructive">{genChallengeResult.error}</p>
+              ) : (
+                <>
+                  <p>{genChallengeResult.message}</p>
+                  {genChallengeResult.skillName && <p className="text-xs text-muted-foreground mt-1">Skill: {genChallengeResult.skillName}</p>}
+                </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 2. Simulate Skill Completion */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">Simulate Skill Completion</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Marks a skill as green (completed) for a user. Triggers downstream effects: badges, activity feed, level-up check, and emails.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={simSkillUserId} onChange={setSimSkillUserId} testId="select-test-sim-skill-user" />
+            <Select value={simSkillId} onValueChange={setSimSkillId}>
+              <SelectTrigger className="w-64 rounded-xl" data-testid="select-test-sim-skill-id">
+                <SelectValue placeholder="Select skill" />
+              </SelectTrigger>
+              <SelectContent>
+                {(skills || []).map(s => (
+                  <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleSimulateSkill} disabled={simSkillLoading} data-testid="button-test-sim-skill">
+              {simSkillLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
+              Complete Skill
+            </Button>
+          </div>
+          {simSkillResult && (
+            <div className={`p-4 rounded-xl text-sm ${simSkillResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-sim-skill-result">
+              {simSkillResult.error ? (
+                <p className="text-destructive">{simSkillResult.error}</p>
+              ) : (
+                <>
+                  <p>{simSkillResult.message}: <strong>{simSkillResult.skillName}</strong></p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Progress: {simSkillResult.greenInLevel}/{simSkillResult.totalInLevel} in level
+                    {simSkillResult.leveledUp && <Badge className="ml-2 bg-et-green text-white">Level Up!</Badge>}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 3. Trigger Level Up */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">Trigger Level Up</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Completes all skills in a level for a user. Sends level-up email and creates badges.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={levelUpUserId} onChange={setLevelUpUserId} testId="select-test-level-up-user" />
+            <Select value={levelUpLevelId} onValueChange={setLevelUpLevelId}>
+              <SelectTrigger className="w-64 rounded-xl" data-testid="select-test-level-up-level">
+                <SelectValue placeholder="Select level" />
+              </SelectTrigger>
+              <SelectContent>
+                {(levels || []).map(l => (
+                  <SelectItem key={l.id} value={String(l.id)}>L{l.sortOrder + 1}: {l.displayName}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={handleTriggerLevelUp} disabled={levelUpLoading} data-testid="button-test-level-up">
+              {levelUpLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+              Trigger Level Up
+            </Button>
+          </div>
+          {levelUpResult && (
+            <div className={`p-4 rounded-xl text-sm ${levelUpResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-level-up-result">
+              {levelUpResult.error ? (
+                <p className="text-destructive">{levelUpResult.error}</p>
+              ) : (
+                <>
+                  <p>{levelUpResult.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Skills completed: {levelUpResult.skillsCompleted}</p>
+                </>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 4. Preview Challenge Email */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">Preview Challenge Email</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Returns the latest challenge content for a user. The user must have at least one generated challenge.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={previewUserId} onChange={setPreviewUserId} testId="select-test-preview-email-user" />
+            <Button onClick={handlePreviewEmail} disabled={previewLoading} data-testid="button-test-preview-email">
+              {previewLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+              Preview Email
+            </Button>
+          </div>
+          {previewResult && (
+            <div className={`p-4 rounded-xl text-sm ${previewResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-preview-email-result">
+              {previewResult.error ? (
+                <p className="text-destructive">{previewResult.error}</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                    <span>To: <strong>{previewResult.to}</strong></span>
+                    <span>Subject: <strong>{previewResult.subject}</strong></span>
+                    <span>Skill: <strong>{previewResult.skillName}</strong></span>
+                  </div>
+                  {previewResult.content && (
+                    <div className="border border-border rounded-xl p-4 bg-background max-h-96 overflow-y-auto">
+                      <pre className="text-xs whitespace-pre-wrap font-mono">{JSON.stringify(previewResult.content, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 5. Reset User */}
+      <Card className="rounded-2xl border border-border border-destructive/30">
+        <CardHeader><h3 className="font-heading font-semibold text-destructive">Reset User</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Wipes all assessment data, skill statuses, nudges, and badges for a user. This is destructive and cannot be undone.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={resetUserId} onChange={setResetUserId} testId="select-test-reset-user" />
+            <Button variant="destructive" onClick={handleResetUser} disabled={resetLoading} data-testid="button-test-reset-user">
+              {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RotateCcw className="w-4 h-4 mr-1" />}
+              Reset User
+            </Button>
+          </div>
+          {resetResult && (
+            <div className={`p-4 rounded-xl text-sm ${resetResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-reset-user-result">
+              {resetResult.error ? (
+                <p className="text-destructive">{resetResult.error}</p>
+              ) : (
+                <p>{resetResult.message}</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 6. Send Test Email */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">Send Test Email</h3></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Sends a real email to the selected user. Pick an email type to send.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <UserSelect value={emailUserId} onChange={setEmailUserId} testId="select-test-send-email-user" />
+            <Select value={emailType} onValueChange={setEmailType}>
+              <SelectTrigger className="w-48 rounded-xl" data-testid="select-test-send-email-type">
+                <SelectValue placeholder="Email type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="welcome">Welcome</SelectItem>
+                <SelectItem value="challenge">Challenge</SelectItem>
+                <SelectItem value="level_up">Level Up</SelectItem>
+                <SelectItem value="skill_complete">Skill Complete</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handleSendTestEmail} disabled={emailLoading} data-testid="button-test-send-email">
+              {emailLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+              Send Email
+            </Button>
+          </div>
+          {emailResult && (
+            <div className={`p-4 rounded-xl text-sm ${emailResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-send-email-result">
+              {emailResult.error ? (
+                <p className="text-destructive">{emailResult.error}</p>
+              ) : (
+                <p>{emailResult.message}</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

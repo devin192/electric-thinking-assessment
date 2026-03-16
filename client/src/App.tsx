@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth";
+import { ProtectedRoute } from "@/lib/protected-route";
 import LandingPage from "@/pages/landing";
 import { LoginPage, RegisterPage } from "@/pages/auth";
 import OnboardingPage from "@/pages/onboarding";
@@ -26,14 +27,14 @@ function Router() {
       <Route path="/" component={LandingPage} />
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
-      <Route path="/onboarding" component={OnboardingPage} />
-      <Route path="/assessment/warmup" component={AssessmentWarmup} />
-      <Route path="/assessment" component={AssessmentPage} />
-      <Route path="/results" component={ResultsPage} />
-      <Route path="/dashboard" component={DashboardPage} />
-      <Route path="/settings" component={SettingsPage} />
-      <Route path="/admin" component={AdminPage} />
-      <Route path="/manager" component={ManagerPage} />
+      <Route path="/onboarding">{() => <ProtectedRoute><OnboardingPage /></ProtectedRoute>}</Route>
+      <Route path="/assessment/warmup">{() => <ProtectedRoute><AssessmentWarmup /></ProtectedRoute>}</Route>
+      <Route path="/assessment">{() => <ProtectedRoute><AssessmentPage /></ProtectedRoute>}</Route>
+      <Route path="/results">{() => <ProtectedRoute><ResultsPage /></ProtectedRoute>}</Route>
+      <Route path="/dashboard">{() => <ProtectedRoute><DashboardPage /></ProtectedRoute>}</Route>
+      <Route path="/settings">{() => <ProtectedRoute><SettingsPage /></ProtectedRoute>}</Route>
+      <Route path="/admin">{() => <ProtectedRoute><AdminPage /></ProtectedRoute>}</Route>
+      <Route path="/manager">{() => <ProtectedRoute><ManagerPage /></ProtectedRoute>}</Route>
       <Route path="/unsubscribe/:token" component={UnsubscribePage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
