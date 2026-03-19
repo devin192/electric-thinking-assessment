@@ -1,5 +1,5 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
+import type { Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
 import { getAssessmentResponse, scoreAssessment } from "./assessment-ai";
@@ -317,6 +317,82 @@ export async function registerRoutes(
     const completed = await storage.getCompletedAssessments(user.id);
     if (completed.length === 0) return res.json(null);
     return res.json(completed[0]);
+  });
+
+  // Confirm assessment results after user reviews sliders
+  app.post("/api/assessment/:id/confirm", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const assessmentId = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment || assessment.userId !== user.id) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+
+      if (assessment.status !== "completed") {
+        return res.status(400).json({ message: "Assessment not yet completed" });
+      }
+
+      const { adjustedScores } = req.body as {
+        adjustedScores?: Record<number, number>;
+      };
+
+      if (adjustedScores && typeof adjustedScores === "object") {
+        const allSkills = await storage.getSkills();
+
+        for (const [skillIdStr, rawRating] of Object.entries(adjustedScores)) {
+          const skillId = parseInt(skillIdStr);
+          const userRating = typeof rawRating === "number" ? rawRating : parseInt(String(rawRating));
+          const skill = allSkills.find(s => s.id === skillId);
+          if (!skill || isNaN(skillId) || isNaN(userRating)) continue;
+
+          let status: string;
+          if (userRating >= 8) {
+            status = "green";
+          } else if (userRating >= 4) {
+            status = "yellow";
+          } else {
+            status = "red";
+          }
+
+          await storage.upsertUserSkillStatus({
+            userId: user.id,
+            skillId,
+            status,
+          });
+        }
+
+        // Recalculate activeLevel based on updated statuses
+        const allLevels = await storage.getLevels();
+        const updatedStatuses = await storage.getUserSkillStatuses(user.id);
+        const allSkillsList = await storage.getSkills();
+
+        // Find the lowest level with any non-green skills
+        let newActiveLevel = 0;
+        for (const level of allLevels.sort((a, b) => a.sortOrder - b.sortOrder)) {
+          const levelSkills = allSkillsList.filter(s => s.levelId === level.id);
+          const hasNonGreen = levelSkills.some(s => {
+            const st = updatedStatuses.find(us => us.skillId === s.id);
+            return !st || st.status !== "green";
+          });
+          if (hasNonGreen) {
+            newActiveLevel = level.sortOrder;
+            break;
+          }
+        }
+
+        await storage.updateAssessment(assessmentId, {
+          activeLevel: newActiveLevel,
+        });
+      }
+
+      return res.json({ message: "Assessment confirmed" });
+    } catch (e: any) {
+      console.error("Assessment confirm error:", e);
+      return res.status(500).json({ message: "Failed to confirm assessment" });
+    }
   });
 
   app.get("/api/user/skills", requireAuth, async (req, res) => {
@@ -1641,8 +1717,8 @@ export async function registerRoutes(
         title = `${data.skillName || "Skill"}: Mastered`;
         description = `${userName} mastered ${data.skillName || "a skill"} on Electric Thinking`;
       } else if (badge.badgeType === "level_up") {
-        title = `Level ${data.level}: ${data.levelName || ""}`;
-        description = `${userName} reached Level ${data.level} on Electric Thinking`;
+        title = `Level ${(data.level ?? 0) + 1}: ${data.levelName || ""}`;
+        description = `${userName} reached Level ${(data.level ?? 0) + 1} on Electric Thinking`;
       } else if (badge.badgeType === "ultimate_master") {
         title = "AI Fluency Master";
         description = `${userName} mastered all 25 AI skills on Electric Thinking`;

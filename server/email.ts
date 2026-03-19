@@ -169,7 +169,7 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
           <td align="center" style="padding: 20px 0;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="width: 64px; height: 64px; border-radius: 50%; background-color: ${levelColor}; text-align: center; vertical-align: middle; font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-weight: 700; font-size: 24px; color: ${BRAND.white};" bgcolor="${levelColor}">${level}</td>
+                <td style="width: 64px; height: 64px; border-radius: 50%; background-color: ${levelColor}; text-align: center; vertical-align: middle; font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-weight: 700; font-size: 24px; color: ${BRAND.white};" bgcolor="${levelColor}">${level + 1}</td>
               </tr>
             </table>
             <p style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 18px; font-weight: 600; color: ${BRAND.charcoal}; margin: 12px 0 0 0;" class="email-text">${levelName}</p>
@@ -189,7 +189,7 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: `You're a Level ${level} ${levelName}`,
+      subject: `You're a Level ${level + 1} ${levelName}`,
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
@@ -333,17 +333,17 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
           <td align="center" style="padding: 16px 0 24px 0;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="width: 80px; height: 80px; border-radius: 50%; background-color: ${levelColor}; text-align: center; vertical-align: middle; font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-weight: 700; font-size: 32px; color: ${BRAND.white};" bgcolor="${levelColor}">${level}</td>
+                <td style="width: 80px; height: 80px; border-radius: 50%; background-color: ${levelColor}; text-align: center; vertical-align: middle; font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-weight: 700; font-size: 32px; color: ${BRAND.white};" bgcolor="${levelColor}">${level + 1}</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 26px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; text-align: center; mso-line-height-rule: exactly; line-height: 34px;" class="email-text">You're now a ${levelName}</h1>
-      ${bodyText(`<strong>All five Level ${level} skills: complete.</strong> That took real work.`)}
+      ${bodyText(`<strong>All five Level ${level + 1} skills: complete.</strong> That took real work.`)}
       ${bodyText("The next level brings harder Power Ups and bigger thinking.")}
       ${divider()}
-      ${smallText(`Share your achievement: "I'm a Level ${level} AI ${levelName}, certified by Electric Thinking."`)}
+      ${smallText(`Share your achievement: "I'm a Level ${level + 1} AI ${levelName}, certified by Electric Thinking."`)}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
           ${ctaButton("Explore Your New Territory", `${appUrl}/dashboard`)}
@@ -355,7 +355,7 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: `Level ${level} complete. You're now a ${levelName}.`,
+      subject: `Level ${level + 1} complete. You're now a ${levelName}.`,
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,

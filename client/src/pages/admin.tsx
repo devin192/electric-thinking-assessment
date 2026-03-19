@@ -1224,7 +1224,7 @@ function TestingTab() {
       toast({ title: "Select a user", variant: "destructive" });
       return;
     }
-    if (!confirm("This will wipe all assessment data, skills, nudges, and badges for this user. Continue?")) return;
+    if (!confirm("This will wipe all assessment data, skills, Power Ups, and badges for this user. Continue?")) return;
     setResetLoading(true);
     setResetResult(null);
     try {

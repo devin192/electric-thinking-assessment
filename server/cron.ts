@@ -49,9 +49,16 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
 
     for (const user of activeUsers) {
       try {
-        const freq = (user as any).challengeFrequency || "weekly";
+        const freq = user.challengeFrequency || "weekly";
         const now = new Date();
         const dayOfWeek = now.getDay();
+
+        // Map day names to JS getDay() values
+        const dayNameToNumber: Record<string, number> = {
+          "Sunday": 0, "Monday": 1, "Tuesday": 2, "Wednesday": 3,
+          "Thursday": 4, "Friday": 5, "Saturday": 6,
+        };
+        const preferredDay = dayNameToNumber[user.nudgeDay || "Monday"] ?? 1;
 
         let shouldGenerate = false;
         if (freq === "daily") {
@@ -59,9 +66,10 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
         } else if (freq === "every_other_day") {
           shouldGenerate = dayOfWeek % 2 === 0;
         } else if (freq === "twice_weekly") {
-          shouldGenerate = dayOfWeek === 1 || dayOfWeek === 4;
+          shouldGenerate = dayOfWeek === preferredDay || dayOfWeek === ((preferredDay + 3) % 7);
         } else {
-          shouldGenerate = dayOfWeek === 0;
+          // weekly: use user's preferred nudge day
+          shouldGenerate = dayOfWeek === preferredDay;
         }
 
         if (!shouldGenerate) continue;
@@ -91,7 +99,7 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
             {
               name: user.name || "there",
               roleTitle: user.roleTitle || "professional",
-              workContextSummary: (latestAssessment as any)?.workContextSummary || undefined,
+              workContextSummary: latestAssessment?.workContextSummary || undefined,
               contextSummary: latestAssessment?.contextSummary || undefined,
             },
             nudgeContent

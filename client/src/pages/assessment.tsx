@@ -102,11 +102,29 @@ export default function AssessmentPage() {
     }
   }, [activeAssessment]);
 
+  // If there's no active (in_progress) assessment, check if user already completed one.
+  // This handles the case where a user refreshes during the post-scoring slider/validation phase:
+  // the assessment is already "completed" so activeAssessment is null, but we shouldn't
+  // start a new assessment -- we should send them to results.
+  const { data: latestCompleted } = useQuery<Assessment | null>({
+    queryKey: ["/api/assessment/latest"],
+    enabled: !!user && !activeAssessment && assessmentId === null,
+  });
+
   useEffect(() => {
     if (!activeAssessment && user && assessmentId === null) {
-      startAssessment();
+      // If the user already has a completed assessment, redirect to results
+      // instead of starting a new one (they likely refreshed during sliders/validation)
+      if (latestCompleted && latestCompleted.status === "completed") {
+        navigate("/results");
+        return;
+      }
+      // Only start a new assessment if there's truly no completed one either
+      if (latestCompleted === null) {
+        startAssessment();
+      }
     }
-  }, [activeAssessment, user]);
+  }, [activeAssessment, user, latestCompleted]);
 
   const startAssessment = async () => {
     try {
