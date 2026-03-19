@@ -216,6 +216,10 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Assessment not found" });
       }
 
+      if (assessment.status === "completed") {
+        return res.status(200).json({ message: "Assessment already completed" });
+      }
+
       let messages: Array<{ role: string; content: string }> = [];
       try { messages = JSON.parse(assessment.transcript || "[]"); } catch { messages = []; }
 
@@ -329,6 +333,15 @@ export async function registerRoutes(
       const assessment = await storage.getAssessment(assessmentId);
       if (!assessment || assessment.userId !== user.id) {
         return res.status(404).json({ message: "Assessment not found" });
+
+      if (assessment.status === "completed") {
+        return res.json({
+          assessmentLevel: assessment.assessmentLevel,
+          activeLevel: assessment.activeLevel,
+          scores: assessment.scoresJson,
+          message: "Assessment already completed",
+        });
+      }
       }
 
       if (assessment.status !== "completed") {
@@ -410,7 +423,7 @@ export async function registerRoutes(
       const skillStatuses = await storage.getUserSkillStatuses(user.id);
       const yellowSkills = skillStatuses.filter(s => s.status === "yellow");
       if (yellowSkills.length === 0) {
-        return res.status(400).json({ message: "No active skills to generate a challenge for" });
+        return res.status(400).json({ message: "No active skills to generate a Power Up for" });
       }
 
       const targetSkillStatus = yellowSkills[0];
@@ -429,7 +442,7 @@ export async function registerRoutes(
       return res.json(created);
     } catch (e: any) {
       console.error("Generate next challenge error:", e);
-      return res.status(500).json({ message: "Failed to generate challenge" });
+      return res.status(500).json({ message: "Failed to generate Power Up" });
     }
   });
 
@@ -528,7 +541,7 @@ export async function registerRoutes(
     if (!user) return res.status(401).json({ message: "Not authenticated" });
     const nudgeId = parseInt(req.params.id);
     const nudge = await storage.getNudge(nudgeId);
-    if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Challenge not found" });
+    if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Power Up not found" });
     await storage.updateNudge(nudgeId, { inAppRead: true });
     return res.json({ message: "Marked as read" });
   });
@@ -1551,7 +1564,7 @@ export async function registerRoutes(
 
       const nudges = await storage.getUserNudges(userId);
       const latestNudge = nudges[0];
-      if (!latestNudge) return res.status(404).json({ message: "No challenges found for this user" });
+      if (!latestNudge) return res.status(404).json({ message: "No Power Ups found for this user" });
 
       const skill = latestNudge.skillId ? await storage.getSkill(latestNudge.skillId) : null;
       return res.json({
@@ -1761,7 +1774,7 @@ export async function registerRoutes(
       const nudgeId = parseInt(req.params.nudgeId);
       const nudge = await storage.getNudge(nudgeId);
       if (!nudge || nudge.userId !== user.id) {
-        return res.status(404).json({ message: "Challenge not found" });
+        return res.status(404).json({ message: "Power Up not found" });
       }
 
       // Look up or create conversation
@@ -1863,7 +1876,7 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
       const nudgeId = parseInt(req.params.nudgeId);
       const nudge = await storage.getNudge(nudgeId);
       if (!nudge || nudge.userId !== user.id) {
-        return res.status(404).json({ message: "Challenge not found" });
+        return res.status(404).json({ message: "Power Up not found" });
       }
 
       await storage.createChallengeReflection({

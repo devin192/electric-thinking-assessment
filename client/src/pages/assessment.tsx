@@ -498,7 +498,7 @@ export default function AssessmentPage() {
   };
 
   const handleEndConversation = async () => {
-    if (!assessmentId) return;
+    if (!assessmentId || isScoring) return;
 
     if (voiceMode === "full-duplex" && messages.length > 0) {
       try {
@@ -554,8 +554,7 @@ export default function AssessmentPage() {
         adjustedScores,
       });
     } catch {
-      // If the endpoint doesn't exist yet, just proceed
-      // TODO: Wire up when backend agent adds /api/assessment/:id/confirm
+      // Confirm endpoint may fail; user still sees AI-scored results
     }
     setConfirming(false);
     navigate("/results");

@@ -107,12 +107,18 @@ export function RegisterPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
+  const inviteToken = new URLSearchParams(window.location.search).get("invite");
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await register(email, password, name);
-      navigate("/onboarding");
+      if (inviteToken) {
+        navigate(`/join?token=${inviteToken}`);
+      } else {
+        navigate("/onboarding");
+      }
     } catch (err: any) {
       toast({ title: "Registration failed", description: err.message, variant: "destructive" });
     } finally {
