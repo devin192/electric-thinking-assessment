@@ -140,7 +140,7 @@ export default function UnsubscribePage() {
           <CardContent className="space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Weekly skill challenges</Label>
+                <Label>Weekly Power Ups</Label>
                 <p className="text-xs text-muted-foreground">Personalized tips to build your AI skills</p>
               </div>
               <Switch

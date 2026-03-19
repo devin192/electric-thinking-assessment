@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Wordmark } from "@/components/wordmark";
+import { SkillSliders } from "@/components/skill-sliders";
+import { AssessmentValidation } from "@/components/assessment-validation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +16,7 @@ import {
   Send, Loader2, LogOut, Mic, MicOff, Volume2,
   AlertCircle, RefreshCw, MessageSquare, Phone
 } from "lucide-react";
-import type { Assessment } from "@shared/schema";
+import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -29,6 +32,7 @@ function stripStageDirections(msg: ChatMessage): string {
 }
 
 type VoiceMode = "full-duplex" | "voice-to-text" | "text-only";
+type PostScoringPhase = "none" | "sliders" | "validation";
 
 export default function AssessmentPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +46,12 @@ export default function AssessmentPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  // Post-scoring state
+  const [postScoringPhase, setPostScoringPhase] = useState<PostScoringPhase>("none");
+  const [scoredAssessment, setScoredAssessment] = useState<Assessment | null>(null);
+  const [adjustedScores, setAdjustedScores] = useState<Record<number, number>>({});
+  const [confirming, setConfirming] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const requestedMode = urlParams.get("mode");
@@ -61,14 +71,10 @@ export default function AssessmentPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const connectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
-  // MOBILE FIX: Use a ref for isMuted so the ScriptProcessor callback reads
-  // the current value instead of capturing a stale closure value.
   const isMutedRef = useRef<boolean>(false);
-  // MOBILE FIX: Reconnection state for cellular network resilience.
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 3;
 
-  // Keep the muted ref in sync with state
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
@@ -76,6 +82,14 @@ export default function AssessmentPage() {
   const { data: activeAssessment } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/active"],
     enabled: !!user,
+  });
+
+  // Queries for post-scoring phase
+  const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/levels"] });
+  const { data: allSkills } = useQuery<Skill[]>({ queryKey: ["/api/skills"] });
+  const { data: userSkills } = useQuery<UserSkillStatus[]>({
+    queryKey: ["/api/user/skills"],
+    enabled: !!user && postScoringPhase !== "none",
   });
 
   useEffect(() => {
@@ -138,12 +152,8 @@ export default function AssessmentPage() {
       } else {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioCtx) throw new Error("AudioContext not supported");
-        // MOBILE FIX: Create AudioContext synchronously in the gesture chain.
-        // Call resume() immediately (not deferred) for iOS autoplay compliance.
         audioContextRef.current = new AudioCtx();
         audioContextRef.current.resume();
-        // MOBILE FIX: Request mic with echo cancellation and noise suppression
-        // for better quality on mobile devices with built-in speakers.
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -156,8 +166,6 @@ export default function AssessmentPage() {
 
       const stream = mediaStreamRef.current!;
 
-      // MOBILE FIX: Re-check AudioContext state. iOS may suspend it if there
-      // was a delay between creation and use (e.g., network request above).
       if (audioContextRef.current!.state === "suspended") {
         await audioContextRef.current!.resume();
       }
@@ -178,7 +186,6 @@ export default function AssessmentPage() {
         setVoiceConnecting(false);
         setVoiceConnected(true);
         setIsListening(true);
-        // Reset reconnection counter on successful connect
         reconnectAttemptsRef.current = 0;
 
         const ctx = audioContextRef.current!;
@@ -192,9 +199,6 @@ export default function AssessmentPage() {
         processor.connect(ctx.destination);
 
         processor.onaudioprocess = (e) => {
-          // MOBILE FIX: Read from ref instead of closure to avoid stale mute state.
-          // The original code captured `isMuted` from the useCallback closure,
-          // which never updated when the user toggled mute.
           if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
@@ -269,9 +273,6 @@ export default function AssessmentPage() {
         setIsListening(false);
         setIsSpeaking(false);
 
-        // MOBILE FIX: Automatic reconnection with exponential backoff for cellular.
-        // Mobile networks drop idle WebSocket connections aggressively. Codes 1000
-        // and 1001 are normal closures and should not trigger reconnection.
         const isAbnormalClose = event.code !== 1000 && event.code !== 1001;
         if (isAbnormalClose && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current += 1;
@@ -284,9 +285,6 @@ export default function AssessmentPage() {
         }
 
         saveTranscript();
-        // MOBILE FIX: Clean up mic stream when WebSocket closes.
-        // Without this, the mic stays open (red indicator on iOS) after the
-        // conversation ends, which is confusing and drains battery.
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
           mediaStreamRef.current = null;
@@ -358,8 +356,6 @@ export default function AssessmentPage() {
     try {
       const ctx = audioContextRef.current;
 
-      // MOBILE FIX: Resume AudioContext if iOS suspended it (e.g., phone call
-      // interruption, app backgrounding, or control center interaction).
       if (ctx.state === "suspended") {
         ctx.resume();
       }
@@ -408,7 +404,6 @@ export default function AssessmentPage() {
   };
 
   const disconnectVoice = () => {
-    // Prevent reconnection after intentional disconnect
     reconnectAttemptsRef.current = maxReconnectAttempts;
 
     if (wsRef.current) {
@@ -511,7 +506,12 @@ export default function AssessmentPage() {
 
     try {
       await apiRequest("POST", `/api/assessment/${assessmentId}/complete`);
-      setTimeout(() => { navigate("/results"); }, 1500);
+      // After scoring completes, fetch the scored assessment and show sliders
+      const latestRes = await apiRequest("GET", "/api/assessment/latest");
+      const latestData = await latestRes.json();
+      setScoredAssessment(latestData);
+      setIsScoring(false);
+      setPostScoringPhase("sliders");
     } catch {
       setIsScoring(false);
       toast({
@@ -522,12 +522,135 @@ export default function AssessmentPage() {
     }
   };
 
+  const handleSlidersConfirm = (scores: Record<number, number>) => {
+    setAdjustedScores(scores);
+    setPostScoringPhase("validation");
+  };
+
+  const handleValidationConfirm = async () => {
+    if (!assessmentId) return;
+    setConfirming(true);
+    try {
+      // POST to confirm endpoint with adjusted scores
+      await apiRequest("POST", `/api/assessment/${assessmentId}/confirm`, {
+        adjustedScores,
+      });
+    } catch {
+      // If the endpoint doesn't exist yet, just proceed
+      // TODO: Wire up when backend agent adds /api/assessment/:id/confirm
+    }
+    setConfirming(false);
+    navigate("/results");
+  };
+
+  const handleValidationAdjust = () => {
+    setPostScoringPhase("sliders");
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
+
+  // === POST-SCORING: Sliders phase ===
+  if (postScoringPhase === "sliders" && scoredAssessment && levels && allSkills) {
+    const scoresJson = (scoredAssessment.scoresJson || {}) as Record<string, { status: string; explanation: string }>;
+    const assessmentLevel = scoredAssessment.assessmentLevel ?? 0;
+
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border/50 px-6 py-3 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+          <Wordmark className="text-lg" />
+        </header>
+        <div className="max-w-xl mx-auto px-6 py-10">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="sliders"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3 }}
+            >
+              <SkillSliders
+                skills={allSkills}
+                levels={levels}
+                userSkills={userSkills || []}
+                assessmentLevel={assessmentLevel}
+                scoresJson={scoresJson}
+                onConfirm={handleSlidersConfirm}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
+
+  // === POST-SCORING: Validation phase ===
+  if (postScoringPhase === "validation" && scoredAssessment && levels) {
+    const assessmentLevel = scoredAssessment.assessmentLevel ?? 0;
+    const levelInfo = levels.find(l => l.sortOrder === assessmentLevel);
+    const firstMove = (scoredAssessment.firstMoveJson || {}) as { skillName?: string; suggestion?: string };
+
+    let brightSpots: string[] = [];
+    try {
+      const raw = (scoredAssessment as any)?.brightSpotsText;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        brightSpots = Array.isArray(parsed) ? parsed : [raw];
+      }
+    } catch {
+      const raw = (scoredAssessment as any)?.brightSpotsText;
+      if (raw) brightSpots = [raw];
+    }
+
+    // Detect foundational gaps: skills from levels below that are red/yellow
+    const foundationalGaps: string[] = [];
+    if (assessmentLevel >= 2 && allSkills && levels) {
+      const scoresJson = (scoredAssessment.scoresJson || {}) as Record<string, { status: string; explanation: string }>;
+      for (const skill of allSkills) {
+        const lvl = levels.find(l => l.id === skill.levelId);
+        if (!lvl || lvl.sortOrder >= assessmentLevel) continue;
+        const userStatus = userSkills?.find(us => us.skillId === skill.id);
+        const status = userStatus?.status || scoresJson[skill.name]?.status || "red";
+        if (status === "red" || status === "yellow") {
+          foundationalGaps.push(skill.name);
+        }
+      }
+    }
+
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border/50 px-6 py-3 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+          <Wordmark className="text-lg" />
+        </header>
+        <div className="max-w-xl mx-auto px-6 py-10">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="validation"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -30 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AssessmentValidation
+                assessmentLevel={assessmentLevel}
+                levelInfo={levelInfo}
+                brightSpots={brightSpots}
+                firstMove={firstMove}
+                foundationalGaps={foundationalGaps.length > 0 ? foundationalGaps.slice(0, 4) : undefined}
+                onConfirm={handleValidationConfirm}
+                onAdjust={handleValidationAdjust}
+                confirming={confirming}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
 
   if (isScoring) {
     const scoringMessages = [
@@ -566,7 +689,6 @@ export default function AssessmentPage() {
   if (voiceMode === "full-duplex") {
     return (
       <div className="h-screen flex flex-col bg-background">
-        {/* MOBILE FIX: min-h-[44px] on all interactive elements for touch targets */}
         <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
           <Wordmark className="text-lg" />
           <Button
@@ -641,7 +763,6 @@ export default function AssessmentPage() {
                 <p className="font-heading text-sm text-muted-foreground mb-1">
                   {isSpeaking ? "AI is speaking..." : isListening ? "Listening..." : "Connected"}
                 </p>
-                {/* MOBILE FIX: gap-4 instead of gap-3 for 8px+ spacing between touch targets */}
                 <div className="flex items-center gap-4 justify-center mt-6">
                   <Button
                     variant={isMuted ? "destructive" : "outline"}
@@ -666,7 +787,6 @@ export default function AssessmentPage() {
             )}
           </div>
 
-          {/* Transcript panel: collapsed by default in voice mode */}
           {showTranscript ? (
             <div className="lg:w-80 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto p-4 max-h-[40vh] lg:max-h-none" style={{ WebkitOverflowScrolling: "touch" }}>
               <div className="flex items-center justify-between mb-3">
@@ -708,7 +828,6 @@ export default function AssessmentPage() {
         </div>
 
         <div className="border-t border-border/50 px-4 py-2 text-center shrink-0">
-          {/* MOBILE FIX: min-h-[44px] for touch target on text link */}
           <button
             className="text-xs text-muted-foreground hover:text-foreground underline min-h-[44px] px-4 inline-flex items-center"
             onClick={() => switchToMode("voice-to-text")}
@@ -810,7 +929,6 @@ export default function AssessmentPage() {
           </div>
         </div>
 
-        {/* MOBILE FIX: max-h-[90vh] overflow-y-auto on dialog for small screen scrollability */}
         <Dialog open={showFallbackConfirm} onOpenChange={setShowFallbackConfirm}>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>

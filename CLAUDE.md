@@ -49,7 +49,7 @@ shared/
 - Railway auto-deploys from `main` branch
 - `npm run start` runs `drizzle-kit push --force` then `node dist/index.cjs`
 - No staging environment. `main` = production.
-- Live URL: electricthinking.replit.app
+- Live URL: electric-thinking-assessment-production.up.railway.app
 - Build output: `dist/index.cjs` (server, esbuild CJS bundle) + `dist/public/` (client, Vite)
 
 ## External Services

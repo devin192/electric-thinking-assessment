@@ -207,7 +207,7 @@ function MembersTab() {
     try {
       await apiRequest("PATCH", `/api/manager/team/${memberId}/nudges`, { nudgesActive: !current });
       queryClient.invalidateQueries({ queryKey: ["/api/manager/team"] });
-      toast({ title: `Challenges ${!current ? "enabled" : "disabled"}` });
+      toast({ title: `Power Ups ${!current ? "enabled" : "disabled"}` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -253,7 +253,7 @@ function MembersTab() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Challenges</span>
+                    <span className="text-xs text-muted-foreground">Power Ups</span>
                     <Switch
                       checked={member.nudgesActive}
                       onCheckedChange={() => toggleNudges(member.id, member.nudgesActive)}
@@ -370,7 +370,7 @@ function ActivityTab() {
       case "assessment_completed":
         return `completed skill discovery (${LEVEL_NAMES[data.level] || "Level " + ((data.level ?? -1) + 1)})`;
       case "nudge_read":
-        return `read a challenge`;
+        return `read a Power Up`;
       default:
         return item.eventType.replace(/_/g, " ");
     }

@@ -125,13 +125,13 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Skill Challenges</Label>
-                <p className="text-xs text-muted-foreground">Receive weekly personalized skill challenges</p>
+                <Label>Power Ups</Label>
+                <p className="text-xs text-muted-foreground">Receive weekly personalized Power Ups</p>
               </div>
               <Switch checked={nudgesActive} onCheckedChange={setNudgesActive} data-testid="switch-nudges" />
             </div>
             <div className="space-y-2">
-              <Label>Challenge Day</Label>
+              <Label>Power Up Day</Label>
               <Select value={nudgeDay} onValueChange={setNudgeDay}>
                 <SelectTrigger className="rounded-xl" data-testid="select-nudge-day">
                   <SelectValue />
@@ -153,8 +153,8 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Weekly challenge emails</Label>
-                <p className="text-xs text-muted-foreground">Receive weekly skill challenges via email</p>
+                <Label>Weekly Power Up emails</Label>
+                <p className="text-xs text-muted-foreground">Receive weekly Power Ups via email</p>
               </div>
               <Switch checked={emailPrefsNudges} onCheckedChange={setEmailPrefsNudges} data-testid="switch-email-nudges" />
             </div>

@@ -48,6 +48,7 @@ export async function scoreAssessment(
   assessmentLevel: number;
   activeLevel: number;
   contextSummary: string;
+  workContextSummary: string;
   firstMove: { skillName: string; suggestion: string };
   outcomeOptions: Array<{ outcomeHeadline: string; timeEstimate: string; skillName: string; action: string; whatYoullSee: string }>;
   signatureSkillName: string;
@@ -71,7 +72,7 @@ export async function scoreAssessment(
     return `Level ${level.sortOrder} - ${level.displayName}:\n${lvlSkills.map(s => `  - ${s.name}: ${s.description}`).join("\n")}`;
   }).join("\n\n");
 
-  const scoringPrompt = `You are scoring an AI fluency assessment. Analyze the following conversation transcript and evaluate the user against each skill in the framework.
+  const scoringPrompt = `You are scoring an AI fluency assessment conversation. This conversation focused heavily on understanding the person's work context before asking about AI usage. Use both the work context and AI usage evidence to score accurately.
 
 SKILL FRAMEWORK:
 ${frameworkDescription}
@@ -83,30 +84,37 @@ SCORING RULES:
 - For each skill, write a one-sentence explanation of WHY it got that score, referencing specific evidence from the transcript.
 - Assessment Level: The highest level where the user has 3+ green skills
 - Active Level: The lowest level where they have any non-green skills
-- contextSummary: Write a rich, specific profile of this person. Include: their exact role and what they do day to day, which AI platform they use and how, specific examples they gave during the conversation, what excites them about AI, what frustrates them, and any communication style notes. This summary powers all future personalization, so generic summaries are a failure. If they said something specific, capture it.
-- Generate a "first move" suggestion for their first active skill (the first yellow or red skill at their active level)
 
-WRITING STYLE FOR GENERATED TEXT (brightSpotsText, futureSelfText, signatureSkillRationale):
+WORK CONTEXT IS PRIMARY DATA:
+The conversation spent significant time understanding this person's actual work. Use that context heavily:
+- contextSummary: Write a rich, specific profile of this person. Include: their exact role and what they do day to day, which AI platform they use and how, specific examples they gave during the conversation, what excites them about AI, what frustrates them, and any communication style notes. This summary powers all future personalization, so generic summaries are a failure. If they said something specific, capture it.
+- workContextSummary: Write a 2-3 sentence summary focused specifically on the person's key recurring work activities, tools they use, and who they work with. This powers email subject lines and Power Up personalization. Example: "Sarah spends most of her week writing client proposals and managing a team of 4 account managers. She uses Google Docs and Salesforce daily, and her biggest time sink is pulling data from Salesforce into proposal templates. She collaborates closely with the design team for pitch decks."
+- firstMove: Make the suggestion reference their specific work. Example: "Based on the weekly reports you described, try having AI draft the executive summary section next time." NOT generic advice.
+- brightSpots: Reference specific work tasks they mentioned. Example: "You've already figured out how to use AI for the client proposal drafts you write every week" NOT "You show strong AI skills."
+- futureSelfText: Paint a picture using their actual job. Example: "Imagine your Monday morning planning sessions already have a draft agenda pulled from last week's action items, ready for you to review." NOT generic level descriptions.
+- triggerMoment: Should come from the work context naturally. When do they hit friction? What recurring task frustrates them?
+
+WRITING STYLE FOR GENERATED TEXT (brightSpotsText, futureSelfText, signatureSkillRationale, firstMove suggestion):
 - Never use em dashes. Use periods or commas instead.
 - Never use the words: delve, tapestry, landscape, testament, multifaceted, nuanced, comprehensive, robust, leverage, foster, pivotal, groundbreaking, transformative, synergy, streamline, cutting-edge, game-changer, paradigm, holistic.
 - Never open with "Great job!" or "Amazing progress!" or similar. Be warm but not patronizing. The user is an adult professional.
-- Be specific. Reference things the user actually said. "You've figured out voice-first drafting" is better than "You show strong AI skills."
+- Be specific. Reference things the user actually said. "You've figured out voice-first drafting for your meeting recaps" is better than "You show strong AI skills."
 - Emphasize what they've already accomplished, not what's left to do.
 
 ADDITIONAL ANALYSIS (generate these carefully):
 - signatureSkillName: Identify the SINGLE skill where this user demonstrated the most depth, sophistication, or unique insight during the conversation. This is their standout strength. Use the exact skill name from the framework.
 - signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here. Your approach to prompt iteration is more sophisticated than most people at your level."
-- brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned. Frame as strengths. Example: ["You've figured out voice-first drafting, which most people at your level skip entirely", "Your instinct to iterate on AI output instead of accepting the first response puts you ahead"]
-- futureSelfText: ONE sentence painting the next level identity. Make it aspirational and tied to their role. Example: "At Level 3, your AI stops being a tool you use and starts being a teammate that handles entire workflows for you."
+- brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned about their work. Frame as strengths. Example: ["You've figured out voice-first drafting for meeting recaps, which most people at your level skip entirely", "Your instinct to iterate on AI output for client proposals instead of accepting the first response puts you ahead"]
+- futureSelfText: ONE sentence painting the next level identity using their actual job context. Example: "Imagine your Monday morning planning sessions already have a draft agenda pulled from last week's action items, ready for you to review."
 - nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 4 (Agentic Workflow), return "You've reached the top level."
-- outcomeOptions: An array of exactly 2 outcome-framed challenge options. Each should be tied to something the user said during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
+- outcomeOptions: An array of exactly 2 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
   Each option has:
-  - outcomeHeadline: A tantalizing outcome in one sentence. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
+  - outcomeHeadline: A tantalizing outcome in one sentence tied to their actual work. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
   - timeEstimate: How long to try it. Usually "~90 seconds" or "~2 minutes". Keep it short.
   - skillName: The actual skill name from the framework (shown only after they complete it).
-  - action: ONE specific thing to do right now. Not a generic tip. Example: "Open your last meeting notes, paste them into ${userContext.aiPlatform || "your AI tool"}, and ask it to write a one-paragraph recap highlighting decisions made and next steps."
+  - action: ONE specific thing to do right now, referencing their tools and workflows. Not a generic tip. Example: "Open your last meeting notes, paste them into ${userContext.aiPlatform || "your AI tool"}, and ask it to write a one-paragraph recap highlighting decisions made and next steps."
   - whatYoullSee: ONE sentence describing the expected result. Example: "You'll get a clean recap in about 10 seconds. Compare it to what you'd normally write."
-- triggerMoment: If the user mentioned WHEN or WHERE they typically reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep"), capture that here. If not mentioned, return an empty string.
+- triggerMoment: If the user mentioned WHEN or WHERE they typically hit friction or reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep," "pulling Salesforce data"), capture that here. If not mentioned, return an empty string.
 
 IMPORTANT FOR outcomeOptions:
 - Both options must be doable in under 2 minutes.
@@ -131,17 +139,18 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "assessmentLevel": 0,
   "activeLevel": 0,
   "contextSummary": "paragraph about the user",
-  "firstMove": { "skillName": "name", "suggestion": "actionable suggestion" },
+  "workContextSummary": "2-3 sentence summary of the person's key recurring work activities and tools",
+  "firstMove": { "skillName": "name", "suggestion": "actionable suggestion referencing their specific work" },
   "outcomeOptions": [
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action", "whatYoullSee": "expected result" },
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action", "whatYoullSee": "expected result" }
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" }
   ],
   "signatureSkillName": "exact skill name from framework",
   "signatureSkillRationale": "one sentence compliment",
-  "brightSpots": ["bullet 1", "bullet 2"],
-  "futureSelfText": "one sentence about next level identity",
+  "brightSpots": ["bullet 1 referencing their work", "bullet 2 referencing their work"],
+  "futureSelfText": "one sentence about next level identity using their actual job",
   "nextLevelIdentity": "display name of next level",
-  "triggerMoment": "when they reach for AI, or empty string"
+  "triggerMoment": "when they hit friction at work, or empty string"
 }`;
 
   const response = await anthropic.messages.create({
@@ -166,6 +175,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
       assessmentLevel: Math.max(0, Math.min(4, assessmentLevel)),
       activeLevel: Math.max(0, Math.min(4, activeLevel)),
       contextSummary: parsed.contextSummary || "",
+      workContextSummary: parsed.workContextSummary || "",
       firstMove: parsed.firstMove || { skillName: "", suggestion: "" },
       outcomeOptions: parsed.outcomeOptions || [],
       signatureSkillName: parsed.signatureSkillName || "",
@@ -186,6 +196,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
       assessmentLevel: 0,
       activeLevel: 0,
       contextSummary: "Assessment scoring encountered an error.",
+      workContextSummary: "",
       firstMove: { skillName: allSkills[0]?.name || "", suggestion: "Try opening an AI tool and having your first conversation." },
       outcomeOptions: [],
       signatureSkillName: "",

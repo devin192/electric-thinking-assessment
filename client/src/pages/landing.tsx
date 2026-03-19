@@ -42,12 +42,11 @@ export default function LandingPage() {
             AI Skill Discovery
           </div>
           <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-tight">
-            Find out where you are on your{" "}
-            <span className="text-et-pink">AI journey</span>
+            Find out where you are{" "}
+            <span className="text-et-pink">on the AI curve</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-            Have a quick conversation with an AI that evaluates your fluency across 25 skills and 5 levels.
-            Get a personalized learning path to level up.
+            A 10-minute conversation that shows you exactly where you stand and the one AI skill that will change your work this month.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
@@ -56,7 +55,7 @@ export default function LandingPage() {
               onClick={() => navigate("/register")}
               data-testid="button-get-started"
             >
-              Get Started
+              Start Your 10-Minute Conversation
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             <Button
@@ -78,30 +77,30 @@ export default function LandingPage() {
             <div className="w-12 h-12 rounded-xl bg-et-cyan/15 flex items-center justify-center mb-5">
               <MessageCircle className="w-6 h-6 text-et-cyan" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Have a Conversation</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Know exactly where you stand</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Chat naturally with an AI that's genuinely curious about how you work.
-              No trick questions, no right or wrong answers. Just a friendly conversation.
+              One conversation maps your AI skills across 5 levels. No quizzes, no guessing.
+              You'll see your strengths and the gaps you didn't know you had.
             </p>
           </Card>
           <Card className="p-8 rounded-2xl border border-border">
             <div className="w-12 h-12 rounded-xl bg-et-gold/20 flex items-center justify-center mb-5">
               <Target className="w-6 h-6 text-et-orange" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Discover Your Level</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Get the one skill that matters most</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Get placed across 5 levels from Explorer to Agentic Workflow.
-              See exactly which skills you've mastered and where to grow next.
+              Stop wondering what to learn next. Walk away with a specific, actionable first move
+              matched to your role, your tools, and your actual workflow.
             </p>
           </Card>
           <Card className="p-8 rounded-2xl border border-border">
             <div className="w-12 h-12 rounded-xl bg-et-green/15 flex items-center justify-center mb-5">
               <TrendingUp className="w-6 h-6 text-et-green" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Level Up</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Level up week by week</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Get personalized skill challenges tailored to your role, your tools,
-              and your specific workflow. Progress at your own pace.
+              Personalized Power Ups arrive on your schedule. Each one builds on the last,
+              so you're always progressing toward your next level.
             </p>
           </Card>
         </div>
@@ -181,10 +180,10 @@ export default function LandingPage() {
             <Brain className="w-7 h-7 text-et-pink" />
           </div>
           <h2 className="font-heading text-2xl md:text-3xl font-bold mb-4">
-            Ready to discover your AI fluency?
+            A 10-minute conversation that tells you where you're at and what to focus on next
           </h2>
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            It takes about 5 minutes. Just a natural conversation, no trick questions.
+            No trick questions. No boring quizzes. Just a real conversation about how you work.
           </p>
           <Button
             size="lg"
@@ -192,7 +191,7 @@ export default function LandingPage() {
             onClick={() => navigate("/register")}
             data-testid="button-cta-bottom"
           >
-            Start Your Conversation
+            Find Out Where You Stand
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
         </Card>

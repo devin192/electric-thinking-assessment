@@ -57,28 +57,28 @@ export default function AssessmentWarmup() {
               <Mic className="w-7 h-7 text-et-pink" />
             </div>
             <h1 className="font-heading text-2xl font-bold text-center mb-3" data-testid="text-warmup-title">
-              Here's what's about to happen
+              Here's how it works
             </h1>
             <p className="text-muted-foreground text-center mb-8">
-              You're about to have a quick voice conversation. No trick questions, no wrong answers.
+              Lex is going to ask about your work first, then about how AI fits in. The whole thing takes about 10 minutes.
             </p>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Mic className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">Voice conversation</div>
+                  <div className="font-medium text-sm">A real conversation, not a quiz</div>
                   <div className="text-sm text-muted-foreground">
-                    You'll talk with Lex, your AI conversation guide. He'll ask about how you use AI at work. Just speak naturally.
+                    Lex will ask about how you actually work and where AI shows up in your day. There are no trick questions and no wrong answers.
                   </div>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Clock className="w-5 h-5 text-et-cyan mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">About 5 minutes</div>
+                  <div className="font-medium text-sm">About 10 minutes</div>
                   <div className="text-sm text-muted-foreground">
-                    Shorter if you're just getting started, a bit longer if you're advanced.
+                    Quick and focused. You'll walk away knowing exactly where you stand and what to work on first.
                   </div>
                 </div>
               </div>
@@ -121,7 +121,7 @@ export default function AssessmentWarmup() {
                 data-testid="button-start-text"
               >
                 <MessageSquare className="w-5 h-5 mr-2" />
-                Start Conversation <ArrowRight className="w-5 h-5 ml-2" />
+                Start Your Conversation <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             )}
           </CardContent>

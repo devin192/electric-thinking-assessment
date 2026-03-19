@@ -56,7 +56,7 @@ export default function AdminPage() {
             <TabsTrigger value="skills" data-testid="tab-skills"><Layers className="w-4 h-4 mr-1" /> Skills</TabsTrigger>
             <TabsTrigger value="questions" data-testid="tab-questions"><MessageSquare className="w-4 h-4 mr-1" /> Questions</TabsTrigger>
             <TabsTrigger value="assessments" data-testid="tab-assessments"><FileText className="w-4 h-4 mr-1" /> Assessments</TabsTrigger>
-            <TabsTrigger value="nudges" data-testid="tab-nudges"><Mail className="w-4 h-4 mr-1" /> Challenges</TabsTrigger>
+            <TabsTrigger value="nudges" data-testid="tab-nudges"><Mail className="w-4 h-4 mr-1" /> Power Ups</TabsTrigger>
             <TabsTrigger value="system" data-testid="tab-system"><Activity className="w-4 h-4 mr-1" /> System</TabsTrigger>
             <TabsTrigger value="sessions" data-testid="tab-sessions"><Video className="w-4 h-4 mr-1" /> Sessions</TabsTrigger>
             <TabsTrigger value="config" data-testid="tab-config"><Settings className="w-4 h-4 mr-1" /> Config</TabsTrigger>
@@ -143,7 +143,7 @@ function AnalyticsTab() {
         <Card className="rounded-2xl border border-border">
           <CardContent className="pt-6 pb-6 text-center">
             <p className="font-heading text-2xl font-bold text-et-orange" data-testid="text-nudges-total">{analytics?.nudgeStats?.total ?? 0}</p>
-            <p className="text-xs text-muted-foreground">Total Challenges</p>
+            <p className="text-xs text-muted-foreground">Total Power Ups</p>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border border-border">
@@ -212,7 +212,7 @@ function NudgesTab() {
       const res = await apiRequest("POST", "/api/admin/nudge/generate", body);
       const data = await res.json();
       setGenResult(data);
-      toast({ title: "Challenge generation complete" });
+      toast({ title: "Power Up generation complete" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -227,7 +227,7 @@ function NudgesTab() {
       const res = await apiRequest("POST", "/api/admin/nudge/deliver");
       const data = await res.json();
       setDeliverResult(data);
-      toast({ title: "Challenge delivery complete" });
+      toast({ title: "Power Up delivery complete" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -238,10 +238,10 @@ function NudgesTab() {
   return (
     <div className="space-y-6">
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Generate Challenges</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Generate Power Ups</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Generate AI-powered learning challenges for users with active yellow skills.
+            Generate AI-powered learning Power Ups for users with active yellow skills.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <Input
@@ -272,7 +272,7 @@ function NudgesTab() {
                   )}
                 </>
               ) : (
-                <p>Challenge created for user {targetUserId}</p>
+                <p>Power Up created for user {targetUserId}</p>
               )}
             </div>
           )}
@@ -280,14 +280,14 @@ function NudgesTab() {
       </Card>
 
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Deliver Challenges</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Deliver Power Ups</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Send all unsent challenges via email to users.
+            Send all unsent Power Ups via email to users.
           </p>
           <Button onClick={handleDeliver} disabled={delivering} data-testid="button-deliver-nudges">
             {delivering ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
-            Deliver Unsent Challenges
+            Deliver Unsent Power Ups
           </Button>
           {deliverResult && (
             <div className="p-4 rounded-xl bg-accent/30 text-sm space-y-1" data-testid="nudge-deliver-result">
@@ -326,8 +326,8 @@ function SystemHealthTab() {
         <CardContent>
           <div className="space-y-3">
             {[
-              { name: "Challenge Generation", data: health?.cronJobs?.nudgeGeneration },
-              { name: "Challenge Delivery", data: health?.cronJobs?.nudgeDelivery },
+              { name: "Power Up Generation", data: health?.cronJobs?.nudgeGeneration },
+              { name: "Power Up Delivery", data: health?.cronJobs?.nudgeDelivery },
               { name: "Daily Checks", data: health?.cronJobs?.dailyChecks },
               { name: "Re-Assessment Reminders", data: health?.cronJobs?.reassessmentReminders },
             ].map(job => (
@@ -798,7 +798,7 @@ function ConfigTab() {
     setSaving("nudge");
     try {
       await apiRequest("PUT", "/api/admin/nudge-guide", { text: nudgeText || nudgeGuide?.text });
-      toast({ title: "Challenge guide saved" });
+      toast({ title: "Power Up guide saved" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -862,7 +862,7 @@ function ConfigTab() {
       </Card>
 
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Challenge Voice Guide</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Power Up Voice Guide</h3></CardHeader>
         <CardContent className="space-y-3">
           <Textarea
             value={nudgeText || nudgeGuide?.text || ""}
@@ -1144,7 +1144,7 @@ function TestingTab() {
       const res = await apiRequest("POST", "/api/admin/test/generate-challenge", { userId: parseInt(genChallengeUserId) });
       const data = await res.json();
       setGenChallengeResult(data);
-      toast({ title: "Challenge generated", description: data.skillName ? `For skill: ${data.skillName}` : undefined });
+      toast({ title: "Power Up generated", description: data.skillName ? `For skill: ${data.skillName}` : undefined });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
       setGenChallengeResult({ error: err.message });
@@ -1286,16 +1286,16 @@ function TestingTab() {
 
       {/* 1. Generate Challenge */}
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Generate Challenge</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Generate Power Up</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Generates a challenge immediately for a user. The user must have at least one active (yellow) skill.
+            Generates a Power Up immediately for a user. The user must have at least one active (yellow) skill.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <UserSelect value={genChallengeUserId} onChange={setGenChallengeUserId} testId="select-test-gen-challenge-user" />
             <Button onClick={handleGenerateChallenge} disabled={genChallengeLoading} data-testid="button-test-gen-challenge">
               {genChallengeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
-              Generate Challenge
+              Generate Power Up
             </Button>
           </div>
           {genChallengeResult && (
@@ -1396,10 +1396,10 @@ function TestingTab() {
 
       {/* 4. Preview Challenge Email */}
       <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Preview Challenge Email</h3></CardHeader>
+        <CardHeader><h3 className="font-heading font-semibold">Preview Power Up Email</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Returns the latest challenge content for a user. The user must have at least one generated challenge.
+            Returns the latest Power Up content for a user. The user must have at least one generated Power Up.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <UserSelect value={previewUserId} onChange={setPreviewUserId} testId="select-test-preview-email-user" />
@@ -1472,7 +1472,7 @@ function TestingTab() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="welcome">Welcome</SelectItem>
-                <SelectItem value="challenge">Challenge</SelectItem>
+                <SelectItem value="challenge">Power Up</SelectItem>
                 <SelectItem value="level_up">Level Up</SelectItem>
                 <SelectItem value="skill_complete">Skill Complete</SelectItem>
               </SelectContent>

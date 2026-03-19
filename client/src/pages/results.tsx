@@ -190,7 +190,7 @@ export default function ResultsPage() {
         challengeFrequency: "weekly",
         nudgeDay: scheduleDay,
       });
-      toast({ title: `Challenges will arrive on ${scheduleDay}s` });
+      toast({ title: `Power Ups will arrive on ${scheduleDay}s` });
       navigate("/dashboard");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });

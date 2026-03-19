@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { storage } from "./storage";
 import { generateNudge } from "./nudge-ai";
+import { generateEmailSubjectLine } from "./email-headline";
 import {
   sendNudgeEmail,
   sendReEngagementEmail,
@@ -82,11 +83,31 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
         const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
         const nudgeContent = await generateNudge(user, skill, previousNudges);
 
+        // Generate a personalized email subject line
+        let subjectLine = nudgeContent.subject_line;
+        try {
+          const latestAssessment = (await storage.getCompletedAssessments(user.id))[0];
+          const betterSubject = await generateEmailSubjectLine(
+            {
+              name: user.name || "there",
+              roleTitle: user.roleTitle || "professional",
+              workContextSummary: (latestAssessment as any)?.workContextSummary || undefined,
+              contextSummary: latestAssessment?.contextSummary || undefined,
+            },
+            nudgeContent
+          );
+          if (betterSubject) {
+            subjectLine = betterSubject;
+          }
+        } catch (headlineErr) {
+          console.error(`[cron] Email headline generation failed for user ${user.id}, using default:`, headlineErr);
+        }
+
         await storage.createNudge({
           userId: user.id,
           skillId: skill.id,
           contentJson: nudgeContent,
-          subjectLine: nudgeContent.subject_line,
+          subjectLine,
         });
 
         generated++;

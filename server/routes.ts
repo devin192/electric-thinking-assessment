@@ -239,6 +239,7 @@ export async function registerRoutes(
         assessmentLevel: result.assessmentLevel,
         activeLevel: result.activeLevel,
         contextSummary: result.contextSummary,
+        workContextSummary: result.workContextSummary || null,
         firstMoveJson: result.firstMove,
         outcomeOptionsJson: result.outcomeOptions,
         signatureSkillId: signatureSkill?.id || null,
@@ -294,6 +295,7 @@ export async function registerRoutes(
         activeLevel: result.activeLevel,
         scores: result.scores,
         contextSummary: result.contextSummary,
+        workContextSummary: result.workContextSummary || "",
         firstMove: result.firstMove,
         outcomeOptions: result.outcomeOptions,
         signatureSkillId: signatureSkill?.id || null,
@@ -453,6 +455,74 @@ export async function registerRoutes(
     if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Challenge not found" });
     await storage.updateNudge(nudgeId, { inAppRead: true });
     return res.json({ message: "Marked as read" });
+  });
+
+  // ========== NUDGE FEEDBACK ==========
+  // POST endpoint for programmatic feedback
+  app.post("/api/nudges/:id/feedback", async (req, res) => {
+    try {
+      const nudgeId = parseInt(req.params.id);
+      const nudge = await storage.getNudge(nudgeId);
+      if (!nudge) return res.status(404).json({ message: "Power Up not found" });
+
+      // Auth check: either logged in user owns it, or valid unsubscribe token
+      const token = req.query.token as string;
+      if (token) {
+        const tokenUser = await storage.getUserByUnsubscribeToken(token);
+        if (!tokenUser || tokenUser.id !== nudge.userId) {
+          return res.status(403).json({ message: "Invalid token" });
+        }
+      } else {
+        const user = await getCurrentUser(req);
+        if (!user || user.id !== nudge.userId) {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+      }
+
+      const { relevant, feedback } = req.body;
+      const updates: Record<string, any> = {};
+      if (relevant !== undefined) updates.feedbackRelevant = relevant;
+      if (feedback) updates.feedbackText = feedback;
+
+      await storage.updateNudge(nudgeId, updates);
+      return res.json({ message: "Thanks for the feedback" });
+    } catch (e: any) {
+      console.error("Nudge feedback error:", e);
+      return res.status(500).json({ message: "Failed to save feedback" });
+    }
+  });
+
+  // GET endpoint for email link simplicity (idempotent)
+  app.get("/api/nudges/:id/feedback", async (req, res) => {
+    try {
+      const nudgeId = parseInt(req.params.id);
+      const nudge = await storage.getNudge(nudgeId);
+      if (!nudge) {
+        return res.status(404).send(feedbackResponseHtml("Power Up not found", false));
+      }
+
+      const token = req.query.token as string;
+      if (!token) {
+        return res.status(403).send(feedbackResponseHtml("Missing token", false));
+      }
+
+      const tokenUser = await storage.getUserByUnsubscribeToken(token);
+      if (!tokenUser || tokenUser.id !== nudge.userId) {
+        return res.status(403).send(feedbackResponseHtml("Invalid token", false));
+      }
+
+      const relevant = req.query.relevant === "true";
+      await storage.updateNudge(nudgeId, { feedbackRelevant: relevant });
+
+      const message = relevant
+        ? "Thanks! We'll keep sending Power Ups like this."
+        : "Got it. We'll adjust future Power Ups to be more relevant to your work.";
+
+      return res.send(feedbackResponseHtml(message, true));
+    } catch (e: any) {
+      console.error("Nudge feedback GET error:", e);
+      return res.status(500).send(feedbackResponseHtml("Something went wrong", false));
+    }
   });
 
   // ========== SKILL VERIFICATION ==========
@@ -1756,4 +1826,16 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
   });
 
   return httpServer;
+}
+
+// Helper: simple HTML response for feedback GET endpoint
+function feedbackResponseHtml(message: string, success: boolean): string {
+  const bgColor = success ? "#F0E4CE" : "#FFF0F0";
+  const textColor = success ? "#2B2B2B" : "#CC0000";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Electric Thinking</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:${bgColor}}
+.card{text-align:center;padding:40px;max-width:400px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+h2{color:${textColor};margin:0 0 12px 0;font-size:20px}p{color:#666;margin:0;font-size:16px;line-height:1.5}</style>
+</head><body><div class="card"><h2>${success ? "Thanks for the feedback" : "Oops"}</h2><p>${message}</p></div></body></html>`;
 }

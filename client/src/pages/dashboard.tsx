@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,19 @@ const LEVEL_COLORS: Record<number, string> = {
 };
 const LEVEL_HEX: Record<number, string> = {
   0: "#2DD6FF", 1: "#FFD236", 2: "#FF2F86", 3: "#FF6A2B", 4: "#1C4BFF",
+};
+
+const LEVEL_NAMES: Record<number, string> = {
+  0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic",
+};
+
+type TeamSnapshot = {
+  memberCount: number;
+  averageLevel: number;
+  levelDistribution: Record<number, number>;
+  powerUpsCompletedThisWeek: number;
+  recentLevelUps: number;
+  userRank: "middle" | "ahead" | "behind";
 };
 
 function StatusIcon({ status }: { status: string }) {
@@ -111,6 +125,11 @@ export default function DashboardPage() {
   const { data: allSessions } = useQuery<LiveSession[]>({
     queryKey: ["/api/sessions"],
     enabled: !!user && !!assessment,
+  });
+
+  const { data: teamSnapshot } = useQuery<TeamSnapshot>({
+    queryKey: ["/api/team/snapshot"],
+    enabled: !!user && !!user.orgId && !!assessment,
   });
 
   const { isLoading: authLoading } = useAuth();
@@ -348,7 +367,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="font-heading font-semibold">My Learning</p>
                   <p className="text-xs text-muted-foreground">
-                    {unreadNudges.length > 0 ? `${unreadNudges.length} new challenge${unreadNudges.length > 1 ? "s" : ""}` : "All caught up"}
+                    {unreadNudges.length > 0 ? `${unreadNudges.length} new Power Up${unreadNudges.length > 1 ? "s" : ""}` : "All caught up"}
                   </p>
                 </CardContent>
               </Card>
@@ -441,7 +460,7 @@ export default function DashboardPage() {
             )}
 
             <div id="nudges-section" className="mb-8">
-              <h2 className="font-heading text-xl font-bold mb-4">Latest Challenge</h2>
+              <h2 className="font-heading text-xl font-bold mb-4">Latest Power Up</h2>
               {latestNudge ? (
                 <Card className="rounded-2xl border border-border">
                   <CardContent className="pt-6 pb-6">
@@ -506,7 +525,7 @@ export default function DashboardPage() {
                           {reflectionDone && (
                             <div className="flex items-center gap-2 text-sm text-et-green pt-1">
                               <CheckCircle2 className="w-4 h-4" />
-                              <span>Challenge complete. Nice work.</span>
+                              <span>Power Up complete. Nice work.</span>
                             </div>
                           )}
 
@@ -552,9 +571,9 @@ export default function DashboardPage() {
                     <div className="w-12 h-12 rounded-xl bg-et-gold/10 flex items-center justify-center mx-auto mb-4">
                       <Bell className="w-6 h-6 text-et-orange" />
                     </div>
-                    <p className="font-heading font-semibold mb-1">Your first challenge is being created</p>
+                    <p className="font-heading font-semibold mb-1">Your first Power Up is being created</p>
                     <p className="text-sm text-muted-foreground">
-                      One challenge away from your first skill badge. Refresh in a moment.
+                      One Power Up away from your first skill badge. Refresh in a moment.
                     </p>
                   </CardContent>
                 </Card>
@@ -607,6 +626,98 @@ export default function DashboardPage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+
+            {/* === YOUR TEAM (only for org users) === */}
+            {user.orgId && teamSnapshot && (
+              <div className="mb-8" data-testid="section-team-progress">
+                <h2 className="font-heading text-xl font-bold mb-4">Your Team</h2>
+
+                {/* Team stat card */}
+                <Card className="rounded-2xl border border-border mb-4">
+                  <CardContent className="pt-5 pb-5">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-et-blue/15 flex items-center justify-center shrink-0">
+                          <Users className="w-5 h-5 text-et-blue" />
+                        </div>
+                        <div>
+                          <p className="font-heading font-semibold text-sm">{teamSnapshot.memberCount} team members</p>
+                          <p className="text-xs text-muted-foreground">Avg Level {Math.round(teamSnapshot.averageLevel * 10) / 10}</p>
+                        </div>
+                      </div>
+                      {/* Mini level distribution bar */}
+                      <div className="flex h-5 rounded-md overflow-hidden flex-1 max-w-[200px]">
+                        {[0, 1, 2, 3, 4].map(level => {
+                          const count = teamSnapshot.levelDistribution[level] || 0;
+                          const pct = teamSnapshot.memberCount > 0 ? (count / teamSnapshot.memberCount) * 100 : 0;
+                          if (pct === 0) return null;
+                          return (
+                            <div
+                              key={level}
+                              className="h-full transition-all duration-700"
+                              style={{ width: `${pct}%`, backgroundColor: LEVEL_HEX[level] }}
+                              title={`L${level + 1}: ${count}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Team progress bar (animated) */}
+                <Card className="rounded-2xl border border-border">
+                  <CardContent className="pt-5 pb-5 space-y-4">
+                    <p className="text-xs font-heading uppercase tracking-widest text-muted-foreground">Team Level Distribution</p>
+                    <div className="flex h-8 rounded-lg overflow-hidden bg-muted">
+                      {[0, 1, 2, 3, 4].map(level => {
+                        const count = teamSnapshot.levelDistribution[level] || 0;
+                        const pct = teamSnapshot.memberCount > 0 ? (count / teamSnapshot.memberCount) * 100 : 0;
+                        if (pct === 0) return null;
+                        return (
+                          <motion.div
+                            key={level}
+                            className="h-full flex items-center justify-center text-xs font-bold text-white"
+                            style={{ backgroundColor: LEVEL_HEX[level] }}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, delay: level * 0.1 }}
+                            title={`${LEVEL_NAMES[level]}: ${count}`}
+                          >
+                            {pct >= 10 ? `L${level + 1}` : ""}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground flex-wrap">
+                      {teamSnapshot.powerUpsCompletedThisWeek > 0 && (
+                        <span>{teamSnapshot.powerUpsCompletedThisWeek} Power Up{teamSnapshot.powerUpsCompletedThisWeek !== 1 ? "s" : ""} completed this week</span>
+                      )}
+                      {teamSnapshot.recentLevelUps > 0 && (
+                        <span>{teamSnapshot.recentLevelUps} {teamSnapshot.recentLevelUps === 1 ? "person" : "people"} leveled up recently</span>
+                      )}
+                    </div>
+
+                    {/* Position message (only show if middle or ahead) */}
+                    {teamSnapshot.userRank === "middle" && (
+                      <p className="text-xs text-muted-foreground">You're right in the middle of your group</p>
+                    )}
+                    {teamSnapshot.userRank === "ahead" && (
+                      <p className="text-xs text-muted-foreground">You're leading the pack</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Subtle team invite for solo users */}
+            {!user.orgId && assessment && (
+              <div className="mb-8 text-center">
+                <p className="text-xs text-muted-foreground/60">This gets better with your team</p>
               </div>
             )}
 
