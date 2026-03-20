@@ -363,10 +363,10 @@ function ActivityTab() {
   const formatEvent = (item: ActivityItem) => {
     const data = item.eventDataJson || {};
     switch (item.eventType) {
-      case "skill_completed":
+      case "skill_complete":
         return `completed skill "${data.skillName || "unknown"}"`;
       case "level_up":
-        return `leveled up to ${LEVEL_NAMES[data.newLevel] || "Level " + ((data.newLevel ?? -1) + 1)}`;
+        return `leveled up to ${LEVEL_NAMES[data.level] || "Level " + ((data.level ?? -1) + 1)}`;
       case "assessment_completed":
         return `completed skill discovery (${LEVEL_NAMES[data.level] || "Level " + ((data.level ?? -1) + 1)})`;
       case "nudge_read":

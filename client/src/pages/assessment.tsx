@@ -71,12 +71,18 @@ export default function AssessmentPage() {
   const connectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
   const isMutedRef = useRef<boolean>(false);
+  const voiceConnectedRef = useRef<boolean>(false);
+  const messagesRef = useRef<ChatMessage[]>(messages);
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 3;
 
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const { data: activeAssessment } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/active"],
@@ -202,6 +208,7 @@ export default function AssessmentPage() {
         connectTimerRef.current = null;
         setVoiceConnecting(false);
         setVoiceConnected(true);
+        voiceConnectedRef.current = true;
         setIsListening(true);
         reconnectAttemptsRef.current = 0;
 
@@ -298,6 +305,7 @@ export default function AssessmentPage() {
 
       ws.onclose = (event) => {
         setVoiceConnected(false);
+        voiceConnectedRef.current = false;
         setIsListening(false);
         setIsSpeaking(false);
 
@@ -323,12 +331,13 @@ export default function AssessmentPage() {
         clearInterval(timer);
         setVoiceConnecting(false);
         setVoiceConnected(false);
+        voiceConnectedRef.current = false;
         setVoiceError("Voice connection failed. Your progress is saved.");
         stream.getTracks().forEach(t => t.stop());
       };
 
       const timeout = setTimeout(() => {
-        if (!voiceConnected && ws.readyState !== WebSocket.OPEN) {
+        if (!voiceConnectedRef.current && ws.readyState !== WebSocket.OPEN) {
           ws.close();
           setVoiceConnecting(false);
           setVoiceError("Connection timed out. Try again or use an alternative mode.");
@@ -422,11 +431,12 @@ export default function AssessmentPage() {
   };
 
   const saveTranscript = async () => {
-    if (!assessmentId || messages.length === 0) return;
+    const currentMessages = messagesRef.current;
+    if (!assessmentId || currentMessages.length === 0) return;
     try {
       await apiRequest("POST", `/api/assessment/${assessmentId}/message`, {
         message: "__TRANSCRIPT_SAVE__",
-        transcript: JSON.stringify(messages),
+        transcript: JSON.stringify(currentMessages),
       });
     } catch (err) { console.warn("Transcript save error:", err); }
   };
@@ -452,6 +462,7 @@ export default function AssessmentPage() {
     }
     flushAudioQueue();
     setVoiceConnected(false);
+    voiceConnectedRef.current = false;
     setIsListening(false);
     setIsSpeaking(false);
   };

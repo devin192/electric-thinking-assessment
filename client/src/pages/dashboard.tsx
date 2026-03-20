@@ -76,7 +76,7 @@ function downloadICS(session: LiveSession) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${session.title.replace(/\s+/g, "_")}.ics`;
+  a.download = `${(session.title || "session").replace(/\s+/g, "_")}.ics`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -188,7 +188,7 @@ export default function DashboardPage() {
 
   const isManagerRole = ["manager", "org_admin", "system_admin"].includes(user.userRole);
 
-  const pastSessions = (allSessions || []).filter(s => new Date(s.sessionDate) < new Date() && s.recordingLink);
+  const pastSessions = (allSessions || []).filter(s => s.sessionDate && new Date(s.sessionDate) < new Date() && s.recordingLink);
   const nextSession = (upcomingSessions || [])[0];
 
   const shareUrl = typeof window !== "undefined" ? window.location.origin : "";

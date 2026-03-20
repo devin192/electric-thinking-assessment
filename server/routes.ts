@@ -1015,7 +1015,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: `You're already part of another organization.` });
       }
 
-      await storage.updateUser(user.id, { orgId: invite.orgId, userRole: "member" });
+      const updates: any = { orgId: invite.orgId };
+      if (!["manager", "org_admin", "system_admin"].includes(user.userRole)) {
+        updates.userRole = "member";
+      }
+      await storage.updateUser(user.id, updates);
       await storage.updateInvite(invite.id, { accepted: true });
       return res.json({ message: "Successfully joined organization" });
     } catch (e: any) {
@@ -1068,6 +1072,8 @@ export async function registerRoutes(
 
     const statuses = await storage.getUserSkillStatuses(memberId);
     const badges = await storage.getUserBadges(memberId);
+    const allSkills = await storage.getSkills();
+    const skillNameMap = new Map(allSkills.map(s => [s.id, s.name]));
 
     return res.json({
       id: member.id,
@@ -1077,6 +1083,7 @@ export async function registerRoutes(
       nudgesActive: member.nudgesActive,
       skillStatuses: statuses.map(s => ({
         skillId: s.skillId,
+        skillName: skillNameMap.get(s.skillId) || `Skill #${s.skillId}`,
         status: s.status,
         explanation: s.explanation,
         completedAt: s.completedAt,
@@ -1257,9 +1264,8 @@ export async function registerRoutes(
       if (!updated) return res.status(404).json({ message: "User not found" });
 
       if (prevUser && prevUser.userRole !== "manager" && updated.userRole === "manager") {
-        for (let step = 0; step < 3; step++) {
-          sendManagerOnboardingEmail(updated, step, APP_URL).catch(console.error);
-        }
+        // Just send the first onboarding email, not all 3 at once
+        sendManagerOnboardingEmail(updated, 0, APP_URL).catch(console.error);
       }
 
       const { password: _, ...safe } = updated;

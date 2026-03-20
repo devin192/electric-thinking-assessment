@@ -224,11 +224,17 @@ export async function seedDatabase() {
       const admin = await storage.getUserByEmail("admin@electricthinking.com");
       if (admin) {
         const { comparePasswords } = await import("./auth");
-        const alreadyCurrent = await comparePasswords(process.env.ADMIN_PASSWORD, admin.password);
-        if (!alreadyCurrent) {
+        if (!admin.password) {
           const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
           await storage.updateUser(admin.id, { password: newHash });
-          log("Admin password updated from ADMIN_PASSWORD env var", "seed");
+          log("Admin password set from ADMIN_PASSWORD env var", "seed");
+        } else {
+          const alreadyCurrent = await comparePasswords(process.env.ADMIN_PASSWORD, admin.password);
+          if (!alreadyCurrent) {
+            const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
+            await storage.updateUser(admin.id, { password: newHash });
+            log("Admin password updated from ADMIN_PASSWORD env var", "seed");
+          }
         }
       }
     }
