@@ -274,6 +274,17 @@ export default function AssessmentPage() {
             setMessages(prev => [...prev, { role: "assistant", content: text }]);
           }
 
+          if (data.agent_response_event?.agent_response_correction) {
+            const text = data.agent_response_event.agent_response_correction;
+            setMessages(prev => {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && prev[lastIdx].role === "assistant") {
+                return [...prev.slice(0, lastIdx), { role: "assistant", content: text }];
+              }
+              return [...prev, { role: "assistant", content: text }];
+            });
+          }
+
           if (data.type === "interruption") {
             flushAudioQueue();
             setIsSpeaking(false);

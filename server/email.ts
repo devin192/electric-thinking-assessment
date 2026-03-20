@@ -198,6 +198,15 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
     });
   } catch (e) {
     console.error("Failed to send welcome email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "welcome",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e) } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -263,6 +272,15 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill, app
     return result?.data?.id || null;
   } catch (e) {
     console.error("Failed to send nudge email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "nudge",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e), nudgeId: nudge.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
     return null;
   }
 }
@@ -312,6 +330,15 @@ export async function sendSkillCompleteEmail(user: User, skillName: string, next
     });
   } catch (e) {
     console.error("Failed to send skill complete email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "skill_complete",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e), skillName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -364,6 +391,15 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
     });
   } catch (e) {
     console.error("Failed to send level up email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "level_up",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e), level, levelName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -402,6 +438,15 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
     });
   } catch (e) {
     console.error("Failed to send re-engagement email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "re_engagement",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e) } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -440,6 +485,15 @@ export async function sendReAssessmentEmail(user: User, appUrl: string): Promise
     });
   } catch (e) {
     console.error("Failed to send re-assessment email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "re_assessment",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e) } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -474,6 +528,15 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
     });
   } catch (e) {
     console.error("Failed to send abandoned assessment email:", e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "abandoned_assessment",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e) } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -504,6 +567,14 @@ export async function sendInviteEmail(email: string, inviterName: string, orgNam
     });
   } catch (e) {
     console.error("Failed to send invite email:", e);
+    try {
+      await storage.createEmailLog({
+        emailType: "invite",
+        recipientEmail: email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e), inviterName, orgName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -556,6 +627,15 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
     });
   } catch (e) {
     console.error(`Failed to send manager onboarding email step ${step}:`, e);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "manager_onboarding",
+        recipientEmail: user.email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e), step } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }
 
@@ -589,5 +669,13 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
     });
   } catch (e) {
     console.error("Failed to send password reset email:", e);
+    try {
+      await storage.createEmailLog({
+        emailType: "password_reset",
+        recipientEmail: email,
+        event: "failed",
+        metadata: { error: e instanceof Error ? e.message : String(e) } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask original error */ }
   }
 }

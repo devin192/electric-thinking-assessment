@@ -197,7 +197,7 @@ export default function ResultsPage() {
     }
   };
 
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/results` : "";
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/` : "";
   const shareText = `I just discovered my AI fluency level. I'm a Level ${assessmentLevel + 1} ${levelName}. Take yours:`;
 
   const handleShareLinkedIn = () => {

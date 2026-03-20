@@ -1436,7 +1436,7 @@ function TestingTab() {
         <CardHeader><h3 className="font-heading font-semibold text-destructive">Reset User</h3></CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Wipes all assessment data, skill statuses, nudges, and badges for a user. This is destructive and cannot be undone.
+            Wipes all assessment data, skill statuses, Power Ups, and badges for a user. This is destructive and cannot be undone.
           </p>
           <div className="flex items-center gap-3 flex-wrap">
             <UserSelect value={resetUserId} onChange={setResetUserId} testId="select-test-reset-user" />

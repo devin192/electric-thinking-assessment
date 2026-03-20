@@ -113,6 +113,11 @@ export default function DashboardPage() {
   const { data: nudges } = useQuery<Nudge[]>({
     queryKey: ["/api/user/nudges"],
     enabled: !!user,
+    refetchInterval: (query) => {
+      // Poll every 3s while the first challenge is still generating
+      const data = query.state.data;
+      return (!data || data.length === 0) ? 3000 : false;
+    },
   });
   const { data: badges } = useQuery<BadgeType[]>({
     queryKey: ["/api/user/badges"],
@@ -569,11 +574,11 @@ export default function DashboardPage() {
                 <Card className="rounded-2xl border border-border">
                   <CardContent className="pt-6 pb-6 text-center">
                     <div className="w-12 h-12 rounded-xl bg-et-gold/10 flex items-center justify-center mx-auto mb-4">
-                      <Bell className="w-6 h-6 text-et-orange" />
+                      <Loader2 className="w-6 h-6 text-et-orange animate-spin" />
                     </div>
-                    <p className="font-heading font-semibold mb-1">Your first Power Up is being created</p>
+                    <p className="font-heading font-semibold mb-1">Creating your first Power Up...</p>
                     <p className="text-sm text-muted-foreground">
-                      One Power Up away from your first skill badge. Refresh in a moment.
+                      Personalizing a challenge based on your assessment. This usually takes a few seconds.
                     </p>
                   </CardContent>
                 </Card>
