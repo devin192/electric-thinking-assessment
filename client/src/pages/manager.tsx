@@ -31,7 +31,7 @@ type TeamMember = {
   userRole: string;
   nudgesActive: boolean;
   assessmentLevel: number | null;
-  skillStatuses: { skillId: number; status: string; completedAt: string | null }[];
+  skillStatuses: { skillId: number; skillName?: string; status: string; completedAt: string | null }[];
   lastAssessment: string | null;
 };
 
@@ -41,7 +41,7 @@ type TeamMemberDetail = {
   email: string;
   roleTitle: string;
   nudgesActive: boolean;
-  skillStatuses: { skillId: number; status: string; completedAt: string | null }[];
+  skillStatuses: { skillId: number; skillName?: string; status: string; completedAt: string | null }[];
   badges: { id: number; badgeType: string; badgeDataJson: Record<string, any>; earnedAt: string }[];
 };
 
@@ -284,7 +284,7 @@ function MembersTab() {
                             ss.status === "yellow" ? "bg-et-yellow" :
                             "bg-destructive/60"
                           }`} />
-                          <span className="truncate">Skill #{ss.skillId}</span>
+                          <span className="truncate">{ss.skillName || "Skill #" + ss.skillId}</span>
                           <span className="text-xs text-muted-foreground ml-auto shrink-0">{ss.status}</span>
                         </div>
                       ))}
@@ -295,8 +295,8 @@ function MembersTab() {
                     <div>
                       <p className="text-xs font-heading uppercase tracking-widest text-muted-foreground mb-2">Badges</p>
                       <div className="flex gap-2 flex-wrap">
-                        {memberDetail.badges.map(b => (
-                          <Badge key={b.id} variant="secondary" className="text-xs">
+                        {memberDetail.badges.map((b, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">
                             {b.badgeType}
                           </Badge>
                         ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -110,13 +110,16 @@ export default function DashboardPage() {
     queryKey: ["/api/user/skills"],
     enabled: !!user,
   });
+  const pollStartRef = useRef(Date.now());
   const { data: nudges } = useQuery<Nudge[]>({
     queryKey: ["/api/user/nudges"],
     enabled: !!user,
     refetchInterval: (query) => {
-      // Poll every 3s while the first challenge is still generating
+      // Poll every 3s while the first challenge is still generating, max 60s
       const data = query.state.data;
-      return (!data || data.length === 0) ? 3000 : false;
+      const empty = !data || data.length === 0;
+      const withinTimeout = Date.now() - pollStartRef.current < 60000;
+      return empty && withinTimeout ? 3000 : false;
     },
   });
   const { data: badges } = useQuery<BadgeType[]>({

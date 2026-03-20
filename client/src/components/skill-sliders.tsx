@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Slider } from "@/components/ui/slider";
 import type { Skill, Level, UserSkillStatus } from "@shared/schema";
 
@@ -75,13 +75,11 @@ export function SkillSliders({
   }
 
   // Initialize slider values with defaults based on status
-  const [values, setValues] = useState<Record<number, number>>(() => {
-    const init: Record<number, number> = {};
-    for (const item of relevantSkills) {
-      init[item.skill.id] = getDefaultValue(item.status);
-    }
-    return init;
-  });
+  const initialValues: Record<number, number> = {};
+  for (const item of relevantSkills) {
+    initialValues[item.skill.id] = getDefaultValue(item.status);
+  }
+  const [values, setValues] = useState<Record<number, number>>(initialValues);
 
   const handleSliderChange = (skillId: number, val: number[]) => {
     const newValues = { ...values, [skillId]: val[0] };
@@ -90,14 +88,9 @@ export function SkillSliders({
   };
 
   // Expose initial values on mount
-  useState(() => {
-    const init: Record<number, number> = {};
-    for (const item of relevantSkills) {
-      init[item.skill.id] = getDefaultValue(item.status);
-    }
-    // Trigger parent callback with initial values
-    setTimeout(() => onValuesChange?.(init), 0);
-  });
+  useEffect(() => {
+    onValuesChange?.(initialValues);
+  }, []);
 
   const sortedLevels = Object.keys(grouped)
     .map(Number)

@@ -205,6 +205,12 @@ export async function runDailyChecks(): Promise<void> {
           await storage.updateUser(user.id, { nudgesActive: false });
           console.log(`[cron] Paused nudges for user ${user.id} (6+ weeks inactive)`);
         } else if (unopenedCount >= 3) {
+          const recentReEngagement = await storage.getEmailLogs(100);
+          const sentRecently = recentReEngagement.some(log => 
+            log.userId === user.id && log.emailType === "re_engagement" && 
+            log.createdAt && new Date(log.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          );
+          if (sentRecently) continue; // skip, already sent within 7 days
           await sendReEngagementEmail(user, APP_URL);
           console.log(`[cron] Sent re-engagement email to user ${user.id}`);
         }
@@ -218,6 +224,17 @@ export async function runDailyChecks(): Promise<void> {
       try {
         const user = await storage.getUser(assessment.userId);
         if (user && user.emailValid && user.emailPrefsReminders) {
+          const userAssessments = await storage.getCompletedAssessments(user.id);
+          const hasCompleted = userAssessments.length > 0;
+          if (hasCompleted) continue; // user completed a different assessment, skip
+
+          const recentAbandoned = await storage.getEmailLogs(100);
+          const abandonedSentRecently = recentAbandoned.some(log =>
+            log.userId === user.id && log.emailType === "abandoned_assessment" &&
+            log.createdAt && new Date(log.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+          );
+          if (abandonedSentRecently) continue; // skip, already sent within 7 days
+
           await sendAbandonedAssessmentEmail(user, APP_URL);
         }
       } catch (e: any) {
