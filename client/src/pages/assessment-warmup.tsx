@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 import { setSharedAudioContext, setSharedMediaStream } from "@/lib/audio-context";
 import { Mic, Shield, Clock, ArrowRight, Loader2, MessageSquare } from "lucide-react";
 
 export default function AssessmentWarmup() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [checking, setChecking] = useState(false);
 
   const { data: voiceStatus } = useQuery<{ available: boolean }>({
@@ -37,6 +39,7 @@ export default function AssessmentWarmup() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setSharedMediaStream(stream);
     } catch {
+      toast({ title: "Couldn't access your microphone", description: "Starting in text mode instead." });
       setChecking(false);
       navigate("/assessment");
       return;
@@ -107,7 +110,7 @@ export default function AssessmentWarmup() {
                   Start with Voice <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
                 <button
-                  className="w-full text-center text-sm text-muted-foreground mt-4 hover:text-foreground transition-colors"
+                  className="w-full text-center text-sm text-muted-foreground mt-4 hover:text-foreground transition-colors min-h-[44px] inline-flex items-center justify-center"
                   onClick={handleStartText}
                   data-testid="button-start-text"
                 >

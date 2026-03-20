@@ -154,7 +154,7 @@ export function SkillSliders({
                         max={5}
                         step={1}
                         onValueChange={(v) => handleSliderChange(skill.id, v)}
-                        className="touch-none"
+                        className="touch-pan-y"
                         data-testid={`slider-skill-${skill.id}`}
                       />
                     </div>

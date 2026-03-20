@@ -102,7 +102,7 @@ export default function OnboardingPage() {
                     className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-colors text-left
                       ${selectedPlatform === platform.name
                         ? "border-et-pink bg-et-pink/5"
-                        : "border-border"
+                        : "border-border hover:border-muted-foreground/30 hover:bg-accent/30"
                       }`}
                     data-testid={`button-platform-${platform.name}`}
                   >
@@ -113,6 +113,7 @@ export default function OnboardingPage() {
                   </button>
                 ))}
               </div>
+              <button onClick={() => setStep(0)} className="text-sm text-muted-foreground hover:text-foreground transition-colors mb-3 w-full text-center">{"\u2190"} Back</button>
               <Button
                 className="w-full rounded-2xl py-5"
                 onClick={handleComplete}

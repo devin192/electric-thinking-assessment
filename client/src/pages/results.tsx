@@ -273,7 +273,7 @@ export default function ResultsPage() {
   // === REVEAL + CHOOSE + ACTION + DONE (single scrollable page) ===
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border/50 px-6 py-3 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
+      <header className="border-b border-border/50 px-6 py-4 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
         <Wordmark className="text-lg" />
         <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="text-xs">
           Go to Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -613,7 +613,7 @@ export default function ResultsPage() {
                     <input
                       type="text"
                       placeholder="Optional, just a line..."
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm"
+                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       value={reflectionNote}
                       onChange={(e) => setReflectionNote(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSubmitReflection(); }}

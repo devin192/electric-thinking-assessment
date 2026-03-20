@@ -13,6 +13,13 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import { registerSchema, loginSchema, insertLiveSessionSchema } from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
+
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: { message: "Too many attempts, please try again later" } });
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
 function requireManager(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
@@ -23,7 +30,7 @@ function requireManager(req: Request, res: Response, next: NextFunction) {
       return res.status(403).json({ message: "Manager access required" });
     }
     next();
-  });
+  }).catch(() => res.status(500).json({ message: "Internal error" }));
 }
 
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
@@ -38,7 +45,7 @@ export async function registerRoutes(
   startCronJobs();
 
   // ========== AUTH ==========
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", authLimiter, async (req, res) => {
     try {
       const data = registerSchema.parse(req.body);
       const existing = await storage.getUserByEmail(data.email);
@@ -65,7 +72,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     try {
       const data = loginSchema.parse(req.body);
       const user = await storage.getUserByEmail(data.email);
@@ -88,7 +95,7 @@ export async function registerRoutes(
   });
 
 
-  app.post("/api/auth/forgot-password", async (req, res) => {
+  app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
     try {
       const { email } = z.object({ email: z.string().email() }).parse(req.body);
       // Always return success to avoid leaking whether email exists
@@ -106,7 +113,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/auth/reset-password", async (req, res) => {
+  app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
     try {
       const { token, newPassword } = z.object({
         token: z.string().min(1),
@@ -370,15 +377,15 @@ export async function registerRoutes(
       const assessment = await storage.getAssessment(assessmentId);
       if (!assessment || assessment.userId !== user.id) {
         return res.status(404).json({ message: "Assessment not found" });
+      }
 
-      if (assessment.status === "completed") {
+      if (assessment.status === "completed" && !req.body.adjustedScores) {
         return res.json({
           assessmentLevel: assessment.assessmentLevel,
           activeLevel: assessment.activeLevel,
           scores: assessment.scoresJson,
           message: "Assessment already completed",
         });
-      }
       }
 
       if (assessment.status !== "completed") {
@@ -667,6 +674,7 @@ export async function registerRoutes(
 
       const verificationKey = `${user.id}-${skillId}`;
       pendingVerifications.set(verificationKey, questions);
+      setTimeout(() => pendingVerifications.delete(verificationKey), 30 * 60 * 1000);
 
       const clientQuestions = questions.map(q => ({
         question: q.question,
@@ -915,6 +923,9 @@ export async function registerRoutes(
     try {
       const user = await getCurrentUser(req);
       if (!user || !user.orgId) return res.status(403).json({ message: "No organization" });
+      if (!["manager", "org_admin", "system_admin"].includes(user.userRole)) {
+        return res.status(403).json({ message: "Manager access required to send invites" });
+      }
 
       const { email } = req.body;
       if (!email) return res.status(400).json({ message: "Email required" });
@@ -1152,11 +1163,12 @@ export async function registerRoutes(
   app.post("/api/webhooks/resend", async (req, res) => {
     try {
       const webhookSecret = await storage.getSystemConfig("resend_webhook_secret");
-      if (webhookSecret) {
-        const provided = req.headers["x-webhook-secret"] || req.query.secret;
-        if (provided !== webhookSecret) {
-          return res.status(401).json({ message: "Invalid webhook secret" });
-        }
+      if (!webhookSecret) {
+        return res.status(401).json({ message: "Webhook not configured" });
+      }
+      const provided = req.headers["x-webhook-secret"] || req.query.secret;
+      if (provided !== webhookSecret) {
+        return res.status(401).json({ message: "Invalid webhook secret" });
       }
 
       const { type, data } = req.body;
@@ -1238,7 +1250,10 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const prevUser = await storage.getUser(id);
-      const updated = await storage.updateUser(id, req.body);
+      const allowed = ["name", "roleTitle", "userRole", "orgId", "nudgesActive", "nudgeDay", "timezone", "emailPrefsNudges", "emailPrefsProgress", "emailPrefsReminders"];
+      const updates: Record<string, any> = {};
+      for (const f of allowed) { if (req.body[f] !== undefined) updates[f] = req.body[f]; }
+      const updated = await storage.updateUser(id, updates);
       if (!updated) return res.status(404).json({ message: "User not found" });
 
       if (prevUser && prevUser.userRole !== "manager" && updated.userRole === "manager") {
@@ -1758,17 +1773,20 @@ export async function registerRoutes(
       const badge = await storage.getBadge(badgeId);
       if (!badge) return res.status(404).send("Badge not found");
       const user = await storage.getUser(badge.userId);
-      const userName = user?.name || "Someone";
+      const userName = escapeHtml(user?.name || "Someone");
       const data = (badge.badgeDataJson || {}) as Record<string, any>;
+      const skillName = escapeHtml(data.skillName || "Skill");
+      const levelName = escapeHtml(data.levelName || "");
+      const level = Number(data.level ?? 0) + 1;
 
       let title = "Electric Thinking Badge";
       let description = `${userName} earned a badge on Electric Thinking`;
       if (badge.badgeType === "skill_complete") {
-        title = `${data.skillName || "Skill"}: Mastered`;
-        description = `${userName} mastered ${data.skillName || "a skill"} on Electric Thinking`;
+        title = `${skillName}: Mastered`;
+        description = `${userName} mastered ${escapeHtml(data.skillName || "a skill")} on Electric Thinking`;
       } else if (badge.badgeType === "level_up") {
-        title = `Level ${(data.level ?? 0) + 1}: ${data.levelName || ""}`;
-        description = `${userName} reached Level ${(data.level ?? 0) + 1} on Electric Thinking`;
+        title = `Level ${level}: ${levelName}`;
+        description = `${userName} reached Level ${level} on Electric Thinking`;
       } else if (badge.badgeType === "ultimate_master") {
         title = "AI Fluency Master";
         description = `${userName} mastered all 25 AI skills on Electric Thinking`;
@@ -1947,7 +1965,7 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
       return res.json({ signedUrl });
     } catch (e: any) {
       console.error("Voice token error:", e.message);
-      return res.status(500).json({ message: e.message });
+      return res.status(500).json({ message: "Voice assessment temporarily unavailable" });
     }
   });
 

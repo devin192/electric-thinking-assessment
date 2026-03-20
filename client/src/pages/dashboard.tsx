@@ -33,7 +33,7 @@ const LEVEL_HEX: Record<number, string> = {
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic",
+  0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized Teammates", 4: "Agentic Workflow",
 };
 
 type TeamSnapshot = {
@@ -157,8 +157,11 @@ export default function DashboardPage() {
     setTimeout(() => confetti({ particleCount: 120, spread: 120, origin: { y: 0.4 } }), 1000);
   }, []);
 
-  if (authLoading) return null;
-  if (!user) return null;
+  if (authLoading || !user) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -289,10 +292,10 @@ export default function DashboardPage() {
               <Users className="w-4 h-4 mr-1" /> Team
             </Button>
           )}
-          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} data-testid="button-settings">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings" data-testid="button-settings">
             <Settings className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="button-logout">
+          <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Log out" data-testid="button-logout">
             <LogOut className="w-4 h-4" />
           </Button>
         </div>
@@ -360,7 +363,7 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/30 transition-colors" onClick={() => document.getElementById("nudges-section")?.scrollIntoView({ behavior: "smooth" })} data-testid="card-my-learning">
+              <Card className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} onClick={() => document.getElementById("nudges-section")?.scrollIntoView({ behavior: "smooth" })} data-testid="card-my-learning">
                 <CardContent className="pt-6 pb-6 text-center">
                   <div className="w-10 h-10 rounded-xl bg-et-gold/20 flex items-center justify-center mx-auto mb-3 relative">
                     <Mail className="w-5 h-5 text-et-orange" />
@@ -787,7 +790,7 @@ export default function DashboardPage() {
                                     </div>
                                   </div>
                                   {status !== "green" && (
-                                    <Button variant="ghost" size="sm" className="text-xs rounded-lg shrink-0" onClick={() => startVerification(skill)}>
+                                    <Button variant="outline" size="sm" className="text-xs rounded-lg shrink-0" onClick={() => startVerification(skill)}>
                                       Verify
                                     </Button>
                                   )}

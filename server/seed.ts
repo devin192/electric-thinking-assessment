@@ -204,6 +204,9 @@ export async function seedDatabase() {
     await storage.setNudgeVoiceGuide(DEFAULT_NUDGE_GUIDE);
 
     const adminPasswordRaw = process.env.ADMIN_PASSWORD || "admin123";
+    if (!process.env.ADMIN_PASSWORD) {
+      console.warn("⚠️  ADMIN_PASSWORD not set. Admin account using default password. Set ADMIN_PASSWORD env var in production!");
+    }
     const adminPassword = await hashPassword(adminPasswordRaw);
     await storage.createUser({
       email: "admin@electricthinking.com",

@@ -155,7 +155,7 @@ export function LoginPage() {
                           setShowForgotPassword(true);
                           setForgotEmail(email);
                         }}
-                        className="text-xs text-et-pink hover:underline"
+                        className="text-xs text-et-pink hover:underline min-h-[44px] inline-flex items-center"
                         data-testid="link-forgot-password"
                       >
                         Forgot password?
@@ -179,7 +179,7 @@ export function LoginPage() {
                 </form>
                 <div className="mt-6 text-center text-sm text-muted-foreground">
                   Don't have an account?{" "}
-                  <button onClick={() => navigate("/register")} className="text-et-blue underline" data-testid="link-register">
+                  <button onClick={() => navigate("/register")} className="text-et-blue underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded" data-testid="link-register">
                     Sign up
                   </button>
                 </div>
@@ -289,7 +289,7 @@ export function RegisterPage() {
             </p>
             <div className="mt-4 text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <button onClick={() => navigate("/login")} className="text-et-blue underline" data-testid="link-login">
+              <button onClick={() => navigate("/login")} className="text-et-blue underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded" data-testid="link-login">
                 Sign in
               </button>
             </div>

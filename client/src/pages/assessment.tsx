@@ -12,7 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getSharedAudioContext, getSharedMediaStream, clearSharedAudio } from "@/lib/audio-context";
 import {
-  Send, Loader2, LogOut, Mic, MicOff, Volume2,
+  Send, Loader2, CheckCircle2, Mic, MicOff, Volume2,
   AlertCircle, RefreshCw, MessageSquare, Phone
 } from "lucide-react";
 import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
@@ -293,7 +293,7 @@ export default function AssessmentPage() {
           if (data.type === "ping") {
             ws.send(JSON.stringify({ type: "pong", event_id: data.ping_event?.event_id }));
           }
-        } catch {}
+        } catch (err) { console.warn("WebSocket message error:", err); }
       };
 
       ws.onclose = (event) => {
@@ -364,7 +364,7 @@ export default function AssessmentPage() {
             });
             const msgData = await msgRes.json();
             setMessages(prev => prev.length === 0 ? msgData.messages : prev);
-          } catch {}
+          } catch (err) { console.warn("Initial message error:", err); }
           setIsTyping(false);
         }
       } else {
@@ -414,7 +414,7 @@ export default function AssessmentPage() {
 
       setIsSpeaking(true);
       source.start(startTime);
-    } catch {}
+    } catch (err) { console.warn("Audio playback error:", err); }
   };
 
   const flushAudioQueue = () => {
@@ -428,7 +428,7 @@ export default function AssessmentPage() {
         message: "__TRANSCRIPT_SAVE__",
         transcript: JSON.stringify(messages),
       });
-    } catch {}
+    } catch (err) { console.warn("Transcript save error:", err); }
   };
 
   const disconnectVoice = () => {
@@ -516,7 +516,7 @@ export default function AssessmentPage() {
           message: "__TRANSCRIPT_SAVE__",
           transcript: JSON.stringify(messages),
         });
-      } catch {}
+      } catch (err) { console.warn("Transcript save error:", err); }
     }
 
     disconnectVoice();
@@ -685,7 +685,7 @@ export default function AssessmentPage() {
             className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <CheckCircle2 className="w-4 h-4 mr-2" />
             End Conversation
           </Button>
         </header>
@@ -858,7 +858,7 @@ export default function AssessmentPage() {
             className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <CheckCircle2 className="w-4 h-4 mr-2" />
             End Conversation
           </Button>
         </header>
@@ -987,7 +987,7 @@ export default function AssessmentPage() {
           className="text-muted-foreground min-h-[44px] min-w-[44px]"
           data-testid="button-end-conversation"
         >
-          <LogOut className="w-4 h-4 mr-2" />
+          <CheckCircle2 className="w-4 h-4 mr-2" />
           End Conversation
         </Button>
       </header>
