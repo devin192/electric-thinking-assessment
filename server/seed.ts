@@ -203,7 +203,8 @@ export async function seedDatabase() {
     await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
     await storage.setNudgeVoiceGuide(DEFAULT_NUDGE_GUIDE);
 
-    const adminPassword = await hashPassword(process.env.ADMIN_PASSWORD || "admin123");
+    const adminPasswordRaw = process.env.ADMIN_PASSWORD || "admin123";
+    const adminPassword = await hashPassword(adminPasswordRaw);
     await storage.createUser({
       email: "admin@electricthinking.com",
       name: "System Admin",
@@ -214,6 +215,20 @@ export async function seedDatabase() {
 
     log("Database seeded successfully", "seed");
     await ensureSystemConfig();
+
+    // Update admin password if ADMIN_PASSWORD env var is set (handles existing DB)
+    if (process.env.ADMIN_PASSWORD) {
+      const admin = await storage.getUserByEmail("admin@electricthinking.com");
+      if (admin) {
+        const { comparePasswords } = await import("./auth");
+        const alreadyCurrent = await comparePasswords(process.env.ADMIN_PASSWORD, admin.password);
+        if (!alreadyCurrent) {
+          const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
+          await storage.updateUser(admin.id, { password: newHash });
+          log("Admin password updated from ADMIN_PASSWORD env var", "seed");
+        }
+      }
+    }
   } catch (error) {
     log(`Seed error: ${error}`, "seed");
   }
