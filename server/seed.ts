@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { hashPassword } from "./auth";
 import { log } from "./index";
+import { pool } from "./db";
 
 const LEVEL_DATA = [
   { name: "explorer", displayName: "Explorer", sortOrder: 0, description: "Starting your AI journey", visualTheme: "cyan" },
@@ -175,8 +176,35 @@ Level 4 - Agentic Workflow: Systems Mapping, Automation Design, Independent Judg
 
 const DEFAULT_NUDGE_GUIDE = `You are a learning challenge generator for Electric Thinking. Generate personalized, actionable skill challenges that help users develop specific AI fluency skills. Each challenge should feel like it was written by someone who knows the user personally, referencing their specific role, tasks, and context from the assessment.`;
 
+async function ensureMigrations() {
+  const migrations: Array<{ table: string; column: string; type: string }> = [
+    { table: "assessments", column: "work_context_summary", type: "text" },
+    { table: "assessments", column: "outcome_options_json", type: "jsonb" },
+    { table: "assessments", column: "next_level_identity", type: "text" },
+    { table: "nudges", column: "feedback_relevant", type: "boolean" },
+    { table: "nudges", column: "feedback_text", type: "text" },
+  ];
+
+  for (const { table, column, type } of migrations) {
+    try {
+      const result = await pool.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+        [table, column]
+      );
+      if (result.rows.length === 0) {
+        await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        log(`Added missing column ${table}.${column}`, "migration");
+      }
+    } catch (err: any) {
+      log(`Migration check failed for ${table}.${column}: ${err.message}`, "migration");
+    }
+  }
+}
+
 export async function seedDatabase() {
   try {
+    await ensureMigrations();
+
     const existingLevels = await storage.getLevels();
     if (existingLevels.length > 0) {
       log("Database already seeded, skipping", "seed");
