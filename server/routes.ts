@@ -1992,8 +1992,9 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
   // ========== VOICE ASSESSMENT ==========
   app.get("/api/assessment/voice-available", requireAuth, async (_req, res) => {
     try {
+      const hasApiKey = !!process.env.ELEVENLABS_API_KEY;
       const config = await storage.getSystemConfig("elevenlabs_agent_id");
-      return res.json({ available: !!config });
+      return res.json({ available: hasApiKey && !!config });
     } catch {
       return res.json({ available: false });
     }

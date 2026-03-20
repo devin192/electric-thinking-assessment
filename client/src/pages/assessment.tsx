@@ -131,6 +131,30 @@ export default function AssessmentPage() {
     }
   }, [activeAssessment, user, latestCompleted]);
 
+  // When loading an existing empty assessment in text-only mode, send the initial greeting
+  const greetingSentRef = useRef(false);
+  useEffect(() => {
+    if (
+      voiceMode === "text-only" &&
+      assessmentId &&
+      messages.length === 0 &&
+      !isTyping &&
+      activeAssessment &&
+      !greetingSentRef.current
+    ) {
+      greetingSentRef.current = true;
+      setIsTyping(true);
+      apiRequest("POST", `/api/assessment/${assessmentId}/message`, {
+        message: "Hi, I'm ready to start my assessment.",
+      }).then(async (res) => {
+        const data = await res.json();
+        setMessages(data.messages);
+      }).catch((err) => {
+        console.warn("Initial greeting error:", err);
+      }).finally(() => setIsTyping(false));
+    }
+  }, [voiceMode, assessmentId, messages.length, isTyping, activeAssessment]);
+
   const startAssessment = async () => {
     try {
       const res = await apiRequest("POST", "/api/assessment/start");
@@ -140,11 +164,15 @@ export default function AssessmentPage() {
       if (!data.transcript || JSON.parse(data.transcript || "[]").length === 0) {
         if (voiceMode === "text-only") {
           setIsTyping(true);
-          const msgRes = await apiRequest("POST", `/api/assessment/${data.id}/message`, {
-            message: "Hi, I'm ready to start my assessment.",
-          });
-          const msgData = await msgRes.json();
-          setMessages(msgData.messages);
+          try {
+            const msgRes = await apiRequest("POST", `/api/assessment/${data.id}/message`, {
+              message: "Hi, I'm ready to start my assessment.",
+            });
+            const msgData = await msgRes.json();
+            setMessages(msgData.messages);
+          } catch (greetErr) {
+            console.warn("Initial greeting error:", greetErr);
+          }
           setIsTyping(false);
         }
       }
@@ -203,6 +231,8 @@ export default function AssessmentPage() {
       const ws = new WebSocket(tokenData.signedUrl);
       wsRef.current = ws;
 
+      let activityReceived = false;
+
       ws.onopen = () => {
         clearInterval(timer);
         connectTimerRef.current = null;
@@ -211,6 +241,18 @@ export default function AssessmentPage() {
         voiceConnectedRef.current = true;
         setIsListening(true);
         reconnectAttemptsRef.current = 0;
+
+        // If no agent response within 15s of connecting, auto-fallback to text
+        const activityTimeout = setTimeout(() => {
+          if (!activityReceived && voiceConnectedRef.current) {
+            console.warn("No voice activity after 15s, falling back to text");
+            ws.close();
+            toast({ title: "Voice connected but not responding", description: "Starting in text mode instead." });
+            setVoiceMode("text-only");
+            setShowTranscript(true);
+          }
+        }, 15000);
+        ws.addEventListener("close", () => clearTimeout(activityTimeout));
 
         const ctx = audioContextRef.current!;
         const nativeSampleRate = ctx.sampleRate;
@@ -249,14 +291,17 @@ export default function AssessmentPage() {
           const data = JSON.parse(event.data);
 
           if (data.type === "agent_response" && data.agent_response_event === "agent_response") {
+            activityReceived = true;
             setIsSpeaking(true);
           }
 
           if (data.type === "agent_response" && data.agent_response_event === "agent_response_correction") {
+            activityReceived = true;
             setIsSpeaking(true);
           }
 
           if (data.type === "audio") {
+            activityReceived = true;
             setIsSpeaking(true);
             playAudioChunk(data.audio_event?.audio_base_64 || data.audio);
           }
@@ -329,19 +374,27 @@ export default function AssessmentPage() {
 
       ws.onerror = () => {
         clearInterval(timer);
+        reconnectAttemptsRef.current = maxReconnectAttempts; // prevent onclose from reconnecting
         setVoiceConnecting(false);
         setVoiceConnected(false);
         voiceConnectedRef.current = false;
-        setVoiceError("Voice connection failed. Your progress is saved.");
         stream.getTracks().forEach(t => t.stop());
+        // Auto-fallback to text mode instead of showing error screen
+        toast({ title: "Voice isn't available right now", description: "Starting in text mode instead." });
+        setVoiceMode("text-only");
+        setShowTranscript(true);
       };
 
       const timeout = setTimeout(() => {
         if (!voiceConnectedRef.current && ws.readyState !== WebSocket.OPEN) {
+          reconnectAttemptsRef.current = maxReconnectAttempts; // prevent onclose from reconnecting
           ws.close();
           setVoiceConnecting(false);
-          setVoiceError("Connection timed out. Try again or use an alternative mode.");
           stream.getTracks().forEach(t => t.stop());
+          // Auto-fallback to text mode instead of showing timeout error
+          toast({ title: "Voice connection timed out", description: "Starting in text mode instead." });
+          setVoiceMode("text-only");
+          setShowTranscript(true);
         }
       }, 20000);
 
