@@ -362,8 +362,9 @@ export default function AssessmentPage() {
       }
 
       const msg = err.message || "Failed to connect voice";
-      if (msg.includes("not configured") || msg.includes("agent ID")) {
-        toast({ title: "Voice isn't set up yet, continuing in text" });
+      const isVoiceUnavailable = msg.includes("not configured") || msg.includes("agent ID") || msg.includes("temporarily unavailable") || msg.includes("500:");
+      if (isVoiceUnavailable) {
+        toast({ title: "Voice isn't available right now", description: "Starting in text mode instead." });
         setVoiceMode("text-only");
         if (assessmentId) {
           setIsTyping(true);
@@ -471,15 +472,28 @@ export default function AssessmentPage() {
     return () => { disconnectVoice(); };
   }, []);
 
-  const switchToMode = (mode: VoiceMode) => {
+  const switchToMode = async (mode: VoiceMode) => {
     disconnectVoice();
     setVoiceMode(mode);
     setVoiceError(null);
     setVoiceConnecting(false);
 
-    if (mode === "text-only" && messages.length === 0 && assessmentId) {
+    if (mode === "text-only" && messages.length === 0) {
+      let id = assessmentId;
+      // If assessment hasn't started yet, start it now
+      if (!id) {
+        try {
+          const res = await apiRequest("POST", "/api/assessment/start");
+          const data = await res.json();
+          id = data.id;
+          setAssessmentId(id);
+        } catch (err: any) {
+          toast({ title: "Error starting conversation", description: err.message, variant: "destructive" });
+          return;
+        }
+      }
       setIsTyping(true);
-      apiRequest("POST", `/api/assessment/${assessmentId}/message`, {
+      apiRequest("POST", `/api/assessment/${id}/message`, {
         message: "Hi, I'm ready to start my assessment.",
       }).then(async (res) => {
         const data = await res.json();
