@@ -522,7 +522,9 @@ export async function registerRoutes(
           averageLevel: 0,
           levelDistribution: {},
           recentCompletions: [],
-          userRank: 1,
+          userRank: "middle" as const,
+          powerUpsCompletedThisWeek: 0,
+          recentLevelUps: 0,
         });
       }
 
@@ -552,7 +554,37 @@ export async function registerRoutes(
       const sortedByDate = [...completedAssessments].sort((a, b) =>
         new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
       );
-      const userRank = sortedByDate.findIndex(a => a.userId === user.id) + 1;
+      const numericRank = sortedByDate.findIndex(a => a.userId === user.id) + 1;
+      const rankPosition = numericRank || completedAssessments.length + 1;
+      const totalRanked = completedAssessments.length || 1;
+
+      let userRank: "ahead" | "middle" | "behind" = "middle";
+      if (totalRanked >= 3) {
+        const topThird = Math.ceil(totalRanked / 3);
+        const bottomThirdStart = totalRanked - Math.floor(totalRanked / 3) + 1;
+        if (rankPosition <= topThird) {
+          userRank = "ahead";
+        } else if (rankPosition >= bottomThirdStart) {
+          userRank = "behind";
+        }
+      }
+
+      // Count power-ups (nudges) completed (inAppRead) in the last 7 days across org
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      let powerUpsCompletedThisWeek = 0;
+      for (const u of orgUsers) {
+        const userNudges = await storage.getUserNudges(u.id, 100);
+        powerUpsCompletedThisWeek += userNudges.filter(
+          n => n.inAppRead && n.createdAt && new Date(n.createdAt).getTime() >= sevenDaysAgo.getTime()
+        ).length;
+      }
+
+      // Count recent level-ups from activity feed in the last 14 days
+      const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      const orgFeed = await storage.getOrgActivityFeed(user.orgId!, 200);
+      const recentLevelUps = orgFeed.filter(
+        e => e.eventType === "level_up" && e.createdAt && new Date(e.createdAt).getTime() >= fourteenDaysAgo.getTime()
+      ).length;
 
       return res.json({
         teamName: org?.name || "Your Team",
@@ -565,7 +597,9 @@ export async function registerRoutes(
           level: a.level,
           completedAt: a.completedAt,
         })),
-        userRank: userRank || completedAssessments.length + 1,
+        userRank,
+        powerUpsCompletedThisWeek,
+        recentLevelUps,
       });
     } catch (e: any) {
       return res.status(500).json({ message: e.message });
