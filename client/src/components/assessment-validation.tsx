@@ -1,8 +1,10 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
-import type { Level, Skill } from "@shared/schema";
+import { CheckCircle2, ArrowRight, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { SkillSliders } from "@/components/skill-sliders";
+import type { Level, Skill, UserSkillStatus } from "@shared/schema";
 
 const LEVEL_HEX: Record<number, string> = {
   0: "#2DD6FF", 1: "#FFD236", 2: "#FF2F86", 3: "#FF6A2B", 4: "#1C4BFF",
@@ -14,9 +16,13 @@ interface AssessmentValidationProps {
   brightSpots: string[];
   firstMove: { skillName?: string; suggestion?: string };
   foundationalGaps?: string[];
-  onConfirm: () => void;
-  onAdjust: () => void;
+  onConfirm: (adjustedScores: Record<number, number>) => void;
   confirming?: boolean;
+  // Slider props
+  skills: Skill[];
+  levels: Level[];
+  userSkills: UserSkillStatus[];
+  scoresJson: Record<string, { status: string; explanation: string }>;
 }
 
 export function AssessmentValidation({
@@ -26,11 +32,16 @@ export function AssessmentValidation({
   firstMove,
   foundationalGaps,
   onConfirm,
-  onAdjust,
   confirming,
+  skills,
+  levels,
+  userSkills,
+  scoresJson,
 }: AssessmentValidationProps) {
   const levelColor = LEVEL_HEX[assessmentLevel] || "#888";
   const levelName = levelInfo?.displayName || `Level ${assessmentLevel + 1}`;
+  const [slidersOpen, setSlidersOpen] = useState(false);
+  const [adjustedScores, setAdjustedScores] = useState<Record<number, number>>({});
 
   return (
     <motion.div
@@ -144,6 +155,44 @@ export function AssessmentValidation({
         </motion.div>
       )}
 
+      {/* Collapsible slider section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.75 }}
+      >
+        <button
+          className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors py-3 px-1"
+          onClick={() => setSlidersOpen(!slidersOpen)}
+          data-testid="toggle-adjust-sliders"
+        >
+          <span>{slidersOpen ? "Hide skill ratings" : "Adjust your skill ratings"}</span>
+          {slidersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        <AnimatePresence>
+          {slidersOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="pt-2 pb-4">
+                <SkillSliders
+                  skills={skills}
+                  levels={levels}
+                  userSkills={userSkills}
+                  assessmentLevel={assessmentLevel}
+                  scoresJson={scoresJson}
+                  onValuesChange={setAdjustedScores}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
       {/* Action buttons */}
       <motion.div
         className="space-y-3 pt-2"
@@ -154,7 +203,7 @@ export function AssessmentValidation({
         <Button
           className="w-full rounded-2xl py-6 text-base font-semibold"
           style={{ backgroundColor: levelColor }}
-          onClick={onConfirm}
+          onClick={() => onConfirm(adjustedScores)}
           disabled={confirming}
           data-testid="button-that-sounds-right"
         >
@@ -163,10 +212,10 @@ export function AssessmentValidation({
         </Button>
         <button
           className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-          onClick={onAdjust}
-          data-testid="link-let-me-adjust"
+          onClick={() => onConfirm(adjustedScores)}
+          data-testid="link-skip-trust-ai"
         >
-          Let me adjust
+          Skip — I trust the AI
         </button>
       </motion.div>
     </motion.div>

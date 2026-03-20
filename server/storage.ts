@@ -4,7 +4,7 @@ import {
   users, organizations, assessments, levels, skills, assessmentQuestions,
   userSkillStatus, nudges, nudgeVoiceGuide, invites, aiPlatforms,
   systemConfig, activityFeed, badges, verificationAttempts, emailLogs,
-  liveSessions, coachConversations, challengeReflections,
+  liveSessions, coachConversations, challengeReflections, passwordResetTokens,
   type User, type InsertUser, type Organization, type InsertOrganization,
   type Assessment, type InsertAssessment, type Level, type InsertLevel,
   type Skill, type InsertSkill, type AssessmentQuestion, type InsertAssessmentQuestion,
@@ -15,6 +15,7 @@ import {
   type LiveSession, type InsertLiveSession,
   type CoachConversation, type InsertCoachConversation,
   type ChallengeReflection, type InsertChallengeReflection,
+  type PasswordResetToken, type InsertPasswordResetToken,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -129,6 +130,11 @@ export interface IStorage {
   createCoachConversation(data: InsertCoachConversation): Promise<CoachConversation>;
   updateCoachConversation(id: number, messagesJson: Array<{ role: string; content: string }>): Promise<void>;
   createChallengeReflection(data: InsertChallengeReflection): Promise<ChallengeReflection>;
+
+  // Password reset tokens
+  createPasswordResetToken(data: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -666,6 +672,20 @@ export class DatabaseStorage implements IStorage {
   async createChallengeReflection(data: InsertChallengeReflection): Promise<ChallengeReflection> {
     const [created] = await db.insert(challengeReflections).values(data).returning();
     return created;
+  }
+
+  async createPasswordResetToken(data: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const [created] = await db.insert(passwordResetTokens).values(data).returning();
+    return created;
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const [row] = await db.select().from(passwordResetTokens).where(eq(passwordResetTokens.token, token));
+    return row;
+  }
+
+  async markPasswordResetTokenUsed(id: number): Promise<void> {
+    await db.update(passwordResetTokens).set({ usedAt: new Date() }).where(eq(passwordResetTokens.id, id));
   }
 }
 

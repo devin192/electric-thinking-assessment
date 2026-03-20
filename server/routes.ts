@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
 import { getAssessmentResponse, scoreAssessment } from "./assessment-ai";
 import { generateNudge, generateVerificationQuestions } from "./nudge-ai";
-import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail } from "./email";
+import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail, sendPasswordResetEmail } from "./email";
 import { seedDatabase } from "./seed";
 import { startCronJobs, runNudgeGeneration, runNudgeDelivery } from "./cron";
 import { generateBadgeSVG } from "./badge-svg";
@@ -87,6 +87,43 @@ export async function registerRoutes(
     }
   });
 
+
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+      // Always return success to avoid leaking whether email exists
+      const user = await storage.getUserByEmail(email);
+      if (user) {
+        const token = randomUUID();
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        await storage.createPasswordResetToken({ userId: user.id, token, expiresAt });
+        const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+        await sendPasswordResetEmail(user.email, resetUrl);
+      }
+      return res.json({ message: "If an account with that email exists, we sent a password reset link." });
+    } catch (e: any) {
+      return res.status(400).json({ message: e.message || "Invalid input" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = z.object({
+        token: z.string().min(1),
+        newPassword: z.string().min(6),
+      }).parse(req.body);
+      const resetToken = await storage.getPasswordResetToken(token);
+      if (!resetToken || resetToken.usedAt || resetToken.expiresAt < new Date()) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(resetToken.userId, { password: hashedPassword });
+      await storage.markPasswordResetTokenUsed(resetToken.id);
+      return res.json({ message: "Password has been reset successfully" });
+    } catch (e: any) {
+      return res.status(400).json({ message: e.message || "Invalid input" });
+    }
+  });
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
       res.json({ message: "Logged out" });
@@ -362,9 +399,9 @@ export async function registerRoutes(
           if (!skill || isNaN(skillId) || isNaN(userRating)) continue;
 
           let status: string;
-          if (userRating >= 8) {
+          if (userRating >= 4) {
             status = "green";
-          } else if (userRating >= 4) {
+          } else if (userRating >= 3) {
             status = "yellow";
           } else {
             status = "red";

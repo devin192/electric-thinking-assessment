@@ -558,3 +558,36 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
     console.error(`Failed to send manager onboarding email step ${step}:`, e);
   }
 }
+
+/**
+ * PASSWORD RESET EMAIL
+ * Sent when a user requests a password reset. Simple CTA button.
+ */
+export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    const { from, replyTo } = await getFromConfig();
+
+    const html = baseTemplate(card(`
+      <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">Reset your password</h1>
+      ${bodyText("We received a request to reset your password. Click the button below to choose a new one.")}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr><td style="padding-top: 16px;" align="center">
+          ${ctaButton("Reset Password", resetUrl)}
+        </td></tr>
+      </table>
+      ${divider()}
+      ${smallText("This link expires in 1 hour. If you didn't request this, you can safely ignore this email.")}
+    `));
+
+    await client.emails.send({
+      from: fromEmail || from,
+      to: email,
+      replyTo,
+      subject: "Reset your password",
+      html,
+    });
+  } catch (e) {
+    console.error("Failed to send password reset email:", e);
+  }
+}

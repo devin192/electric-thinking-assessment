@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Wordmark } from "@/components/wordmark";
-import { SkillSliders } from "@/components/skill-sliders";
 import { AssessmentValidation } from "@/components/assessment-validation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
@@ -32,7 +31,7 @@ function stripStageDirections(msg: ChatMessage): string {
 }
 
 type VoiceMode = "full-duplex" | "voice-to-text" | "text-only";
-type PostScoringPhase = "none" | "sliders" | "validation";
+type PostScoringPhase = "none" | "results";
 
 export default function AssessmentPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -50,7 +49,6 @@ export default function AssessmentPage() {
   // Post-scoring state
   const [postScoringPhase, setPostScoringPhase] = useState<PostScoringPhase>("none");
   const [scoredAssessment, setScoredAssessment] = useState<Assessment | null>(null);
-  const [adjustedScores, setAdjustedScores] = useState<Record<number, number>>({});
   const [confirming, setConfirming] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
@@ -64,6 +62,7 @@ export default function AssessmentPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [showFallbackConfirm, setShowFallbackConfirm] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showTranscript, setShowTranscript] = useState(requestedMode !== "voice");
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -524,12 +523,12 @@ export default function AssessmentPage() {
 
     try {
       await apiRequest("POST", `/api/assessment/${assessmentId}/complete`);
-      // After scoring completes, fetch the scored assessment and show sliders
+      // After scoring completes, fetch the scored assessment and show combined results
       const latestRes = await apiRequest("GET", "/api/assessment/latest");
       const latestData = await latestRes.json();
       setScoredAssessment(latestData);
       setIsScoring(false);
-      setPostScoringPhase("sliders");
+      setPostScoringPhase("results");
     } catch {
       setIsScoring(false);
       toast({
@@ -540,12 +539,7 @@ export default function AssessmentPage() {
     }
   };
 
-  const handleSlidersConfirm = (scores: Record<number, number>) => {
-    setAdjustedScores(scores);
-    setPostScoringPhase("validation");
-  };
-
-  const handleValidationConfirm = async () => {
+  const handleConfirm = async (adjustedScores: Record<number, number>) => {
     if (!assessmentId) return;
     setConfirming(true);
     try {
@@ -560,10 +554,6 @@ export default function AssessmentPage() {
     navigate("/results");
   };
 
-  const handleValidationAdjust = () => {
-    setPostScoringPhase("sliders");
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -571,42 +561,9 @@ export default function AssessmentPage() {
     }
   };
 
-  // === POST-SCORING: Sliders phase ===
-  if (postScoringPhase === "sliders" && scoredAssessment && levels && allSkills) {
+  // === POST-SCORING: Combined results + sliders screen ===
+  if (postScoringPhase === "results" && scoredAssessment && levels && allSkills) {
     const scoresJson = (scoredAssessment.scoresJson || {}) as Record<string, { status: string; explanation: string }>;
-    const assessmentLevel = scoredAssessment.assessmentLevel ?? 0;
-
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border/50 px-6 py-3 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-          <Wordmark className="text-lg" />
-        </header>
-        <div className="max-w-xl mx-auto px-6 py-10">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="sliders"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              transition={{ duration: 0.3 }}
-            >
-              <SkillSliders
-                skills={allSkills}
-                levels={levels}
-                userSkills={userSkills || []}
-                assessmentLevel={assessmentLevel}
-                scoresJson={scoresJson}
-                onConfirm={handleSlidersConfirm}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-    );
-  }
-
-  // === POST-SCORING: Validation phase ===
-  if (postScoringPhase === "validation" && scoredAssessment && levels) {
     const assessmentLevel = scoredAssessment.assessmentLevel ?? 0;
     const levelInfo = levels.find(l => l.sortOrder === assessmentLevel);
     const firstMove = (scoredAssessment.firstMoveJson || {}) as { skillName?: string; suggestion?: string };
@@ -626,7 +583,6 @@ export default function AssessmentPage() {
     // Detect foundational gaps: skills from levels below that are red/yellow
     const foundationalGaps: string[] = [];
     if (assessmentLevel >= 2 && allSkills && levels) {
-      const scoresJson = (scoredAssessment.scoresJson || {}) as Record<string, { status: string; explanation: string }>;
       for (const skill of allSkills) {
         const lvl = levels.find(l => l.id === skill.levelId);
         if (!lvl || lvl.sortOrder >= assessmentLevel) continue;
@@ -646,7 +602,7 @@ export default function AssessmentPage() {
         <div className="max-w-xl mx-auto px-6 py-10">
           <AnimatePresence mode="wait">
             <motion.div
-              key="validation"
+              key="results"
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -30 }}
@@ -658,9 +614,12 @@ export default function AssessmentPage() {
                 brightSpots={brightSpots}
                 firstMove={firstMove}
                 foundationalGaps={foundationalGaps.length > 0 ? foundationalGaps.slice(0, 4) : undefined}
-                onConfirm={handleValidationConfirm}
-                onAdjust={handleValidationAdjust}
+                onConfirm={handleConfirm}
                 confirming={confirming}
+                skills={allSkills}
+                levels={levels}
+                userSkills={userSkills || []}
+                scoresJson={scoresJson}
               />
             </motion.div>
           </AnimatePresence>
@@ -711,7 +670,7 @@ export default function AssessmentPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleEndConversation}
+            onClick={() => setShowEndConfirm(true)}
             className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
@@ -794,7 +753,7 @@ export default function AssessmentPage() {
                     variant="outline"
                     size="icon"
                     className="rounded-full w-12 h-12 border-destructive text-destructive hover:bg-destructive/10"
-                    onClick={handleEndConversation}
+                    onClick={() => setShowEndConfirm(true)}
                     data-testid="button-end-voice"
                   >
                     <Phone className="w-5 h-5" />
@@ -853,6 +812,25 @@ export default function AssessmentPage() {
             Having trouble with live voice?
           </button>
         </div>
+
+        <Dialog open={showEndConfirm} onOpenChange={setShowEndConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">End your conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>
+                Keep talking
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowEndConfirm(false); handleEndConversation(); }}>
+                End & see results
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -865,7 +843,7 @@ export default function AssessmentPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleEndConversation}
+            onClick={() => setShowEndConfirm(true)}
             className="text-muted-foreground min-h-[44px] min-w-[44px]"
             data-testid="button-end-conversation"
           >
@@ -964,6 +942,25 @@ export default function AssessmentPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showEndConfirm} onOpenChange={setShowEndConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">End your conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>
+                Keep talking
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowEndConfirm(false); handleEndConversation(); }}>
+                End & see results
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -975,7 +972,7 @@ export default function AssessmentPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleEndConversation}
+          onClick={() => setShowEndConfirm(true)}
           className="text-muted-foreground min-h-[44px] min-w-[44px]"
           data-testid="button-end-conversation"
         >
@@ -1046,6 +1043,25 @@ export default function AssessmentPage() {
           </Button>
         </div>
       </div>
+
+        <Dialog open={showEndConfirm} onOpenChange={setShowEndConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">End your conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>
+                Keep talking
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowEndConfirm(false); handleEndConversation(); }}>
+                End & see results
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
     </div>
   );
 }

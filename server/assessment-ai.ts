@@ -153,58 +153,96 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "triggerMoment": "when they hit friction at work, or empty string"
 }`;
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4000,
-    messages: [{ role: "user", content: scoringPrompt }],
-  });
+  const maxRetries = 3;
+  const retryDelayMs = 2000;
+  const allSkillNames = allSkills.map(s => s.name);
+  const allSkillNamesLower = allSkills.map(s => s.name.toLowerCase());
 
-  const textBlock = response.content.find(b => b.type === "text");
-  const text = textBlock?.text || "{}";
+  let lastError: Error | null = null;
 
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("No JSON found in response");
-    const parsed = JSON.parse(jsonMatch[0]);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await anthropic.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: scoringPrompt }],
+      });
 
-    const assessmentLevel = parsed.assessmentLevel ?? 0;
-    const activeLevel = parsed.activeLevel ?? 0;
+      const textBlock = response.content.find(b => b.type === "text");
+      const text = textBlock?.text || "{}";
 
-    return {
-      scores: parsed.scores || {},
-      assessmentLevel: Math.max(0, Math.min(4, assessmentLevel)),
-      activeLevel: Math.max(0, Math.min(4, activeLevel)),
-      contextSummary: parsed.contextSummary || "",
-      workContextSummary: parsed.workContextSummary || "",
-      firstMove: parsed.firstMove || { skillName: "", suggestion: "" },
-      outcomeOptions: parsed.outcomeOptions || [],
-      signatureSkillName: parsed.signatureSkillName || "",
-      signatureSkillRationale: parsed.signatureSkillRationale || "",
-      brightSpots: parsed.brightSpots || [],
-      futureSelfText: parsed.futureSelfText || "",
-      nextLevelIdentity: parsed.nextLevelIdentity || "",
-      triggerMoment: parsed.triggerMoment || "",
-    };
-  } catch (e) {
-    console.error("Failed to parse scoring response:", e);
-    const defaultScores: Record<string, { status: string; explanation: string }> = {};
-    allSkills.forEach(s => {
-      defaultScores[s.name] = { status: "red", explanation: "Not enough information to assess." };
-    });
-    return {
-      scores: defaultScores,
-      assessmentLevel: 0,
-      activeLevel: 0,
-      contextSummary: "Assessment scoring encountered an error.",
-      workContextSummary: "",
-      firstMove: { skillName: allSkills[0]?.name || "", suggestion: "Try opening an AI tool and having your first conversation." },
-      outcomeOptions: [],
-      signatureSkillName: "",
-      signatureSkillRationale: "",
-      brightSpots: [],
-      futureSelfText: "",
-      nextLevelIdentity: "",
-      triggerMoment: "",
-    };
+      // Try JSON.parse directly first, then fall back to regex extraction
+      let parsed: any;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("No JSON found in response");
+        parsed = JSON.parse(jsonMatch[0]);
+      }
+
+      const assessmentLevel = parsed.assessmentLevel ?? 0;
+      const activeLevel = parsed.activeLevel ?? 0;
+
+      // Validate signatureSkillName against actual skill names
+      let signatureSkillName = parsed.signatureSkillName || "";
+      if (signatureSkillName) {
+        const exactMatch = allSkillNames.includes(signatureSkillName);
+        const caseInsensitiveMatch = !exactMatch && allSkillNamesLower.includes(signatureSkillName.toLowerCase());
+        if (!exactMatch && caseInsensitiveMatch) {
+          // Fix casing to match the canonical name
+          const idx = allSkillNamesLower.indexOf(signatureSkillName.toLowerCase());
+          signatureSkillName = allSkillNames[idx];
+        } else if (!exactMatch && !caseInsensitiveMatch) {
+          // Name doesn't match any known skill — nullify to prevent bad references
+          console.warn(`scoreAssessment: signatureSkillName "${signatureSkillName}" does not match any known skill. Setting to empty.`);
+          signatureSkillName = "";
+        }
+      }
+
+      return {
+        scores: parsed.scores || {},
+        assessmentLevel: Math.max(0, Math.min(4, assessmentLevel)),
+        activeLevel: Math.max(0, Math.min(4, activeLevel)),
+        contextSummary: parsed.contextSummary || "",
+        workContextSummary: parsed.workContextSummary || "",
+        firstMove: parsed.firstMove || { skillName: "", suggestion: "" },
+        outcomeOptions: parsed.outcomeOptions || [],
+        signatureSkillName,
+        signatureSkillRationale: parsed.signatureSkillRationale || "",
+        brightSpots: parsed.brightSpots || [],
+        futureSelfText: parsed.futureSelfText || "",
+        nextLevelIdentity: parsed.nextLevelIdentity || "",
+        triggerMoment: parsed.triggerMoment || "",
+      };
+    } catch (e: any) {
+      lastError = e;
+      console.error(`scoreAssessment attempt ${attempt}/${maxRetries} failed:`, e.message || e);
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      }
+    }
   }
+
+  // All retries exhausted — fall back to error defaults
+  console.error("scoreAssessment: all retries exhausted. Last error:", lastError);
+  const defaultScores: Record<string, { status: string; explanation: string }> = {};
+  allSkills.forEach(s => {
+    defaultScores[s.name] = { status: "red", explanation: "Not enough information to assess." };
+  });
+  return {
+    scores: defaultScores,
+    assessmentLevel: 0,
+    activeLevel: 0,
+    contextSummary: "Assessment scoring encountered an error.",
+    workContextSummary: "",
+    firstMove: { skillName: allSkills[0]?.name || "", suggestion: "Try opening an AI tool and having your first conversation." },
+    outcomeOptions: [],
+    signatureSkillName: "",
+    signatureSkillRationale: "",
+    brightSpots: [],
+    futureSelfText: "",
+    nextLevelIdentity: "",
+    triggerMoment: "",
+  };
 }

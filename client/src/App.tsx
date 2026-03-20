@@ -20,6 +20,7 @@ import PrivacyPage from "@/pages/privacy";
 import TermsPage from "@/pages/terms";
 import JoinPage from "@/pages/join";
 import NotFound from "@/pages/not-found";
+import ResetPasswordPage from "@/pages/reset-password";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
       <Route path="/unsubscribe/:token" component={UnsubscribePage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/join" component={JoinPage} />
       <Route component={NotFound} />
     </Switch>

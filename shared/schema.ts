@@ -318,6 +318,26 @@ export const challengeReflections = pgTable("challenge_reflections", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .references(() => users.id)
+      .notNull(),
+    token: varchar("token", { length: 255 }).notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    usedAt: timestamp("used_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("password_reset_tokens_token_idx").on(table.token),
+    index("password_reset_tokens_user_idx").on(table.userId),
+  ]
+);
+
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
+
 export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({ id: true, createdAt: true });
 export const insertVerificationAttemptSchema = createInsertSchema(verificationAttempts).omit({ id: true, attemptedAt: true });
 export const insertActivityFeedSchema = createInsertSchema(activityFeed).omit({ id: true, createdAt: true });
@@ -369,3 +389,5 @@ export type CoachConversation = typeof coachConversations.$inferSelect;
 export type InsertCoachConversation = z.infer<typeof insertCoachConversationSchema>;
 export type ChallengeReflection = typeof challengeReflections.$inferSelect;
 export type InsertChallengeReflection = z.infer<typeof insertChallengeReflectionSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
