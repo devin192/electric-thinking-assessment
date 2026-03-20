@@ -31,7 +31,13 @@ export async function setupAuth(app: any) {
       pool: pool,
       tableName: "session",
     }),
-    secret: process.env.SESSION_SECRET || "electric-thinking-secret-key",
+    secret: (() => {
+      const secret = process.env.SESSION_SECRET;
+      if (!secret) {
+        throw new Error("SESSION_SECRET environment variable is required. Set it in your Railway environment variables.");
+      }
+      return secret;
+    })(),
     resave: false,
     saveUninitialized: false,
     cookie: {

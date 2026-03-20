@@ -203,7 +203,7 @@ export async function seedDatabase() {
     await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
     await storage.setNudgeVoiceGuide(DEFAULT_NUDGE_GUIDE);
 
-    const adminPassword = await hashPassword("admin123");
+    const adminPassword = await hashPassword(process.env.ADMIN_PASSWORD || "admin123");
     await storage.createUser({
       email: "admin@electricthinking.com",
       name: "System Admin",
