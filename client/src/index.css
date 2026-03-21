@@ -443,6 +443,14 @@
     touch-action: manipulation;
   }
 
+  /* Mobile-safe full-height utility. On iOS Chrome/Safari, 100vh includes
+     the address bar, so elements can extend below the visible viewport.
+     100dvh (dynamic viewport height) adapts when the address bar shows/hides. */
+  .h-dvh-safe {
+    height: 100vh;
+    height: 100dvh;
+  }
+
   /* Prevent horizontal overflow on mobile. Content should never
      extend beyond the viewport width. */
   html, body {

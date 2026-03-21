@@ -40,6 +40,7 @@ export default function AssessmentPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [scoringPhase, setScoringPhase] = useState(0);
+  const [scoringFailed, setScoringFailed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
@@ -586,7 +587,17 @@ export default function AssessmentPage() {
   };
 
   const handleEndConversation = async () => {
-    if (!assessmentId || isScoring) return;
+    if (isScoring) return;
+    setScoringFailed(false);
+    if (!assessmentId) {
+      console.error("handleEndConversation: no assessmentId");
+      toast({
+        title: "Something went wrong",
+        description: "Please refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (voiceMode === "full-duplex" && messages.length > 0) {
       try {
@@ -599,32 +610,60 @@ export default function AssessmentPage() {
 
     disconnectVoice();
     setIsScoring(true);
+    setScoringPhase(0);
 
+    const phaseTimers: ReturnType<typeof setTimeout>[] = [];
     const phases = [
-      { delay: 0, phase: 0 },
       { delay: 8000, phase: 1 },
       { delay: 20000, phase: 2 },
       { delay: 40000, phase: 3 },
     ];
     phases.forEach(({ delay, phase }) => {
-      setTimeout(() => setScoringPhase(phase), delay);
+      phaseTimers.push(setTimeout(() => setScoringPhase(phase), delay));
     });
 
-    try {
-      await apiRequest("POST", `/api/assessment/${assessmentId}/complete`);
-      // After scoring completes, fetch the scored assessment and show combined results
+    const completeScoring = async (id: number) => {
+      try {
+        await apiRequest("POST", `/api/assessment/${id}/complete`);
+      } catch {
+        // Scoring may have already completed on the server (e.g. timeout on client
+        // but server finished). Check if the assessment is now completed.
+        console.warn("Complete endpoint failed, checking if assessment was scored anyway...");
+      }
+      // Always try to fetch the latest scored assessment
       const latestRes = await apiRequest("GET", "/api/assessment/latest");
       const latestData = await latestRes.json();
-      setScoredAssessment(latestData);
+      if (latestData && latestData.status === "completed") {
+        return latestData;
+      }
+      throw new Error("Assessment not yet scored");
+    };
+
+    try {
+      const scored = await completeScoring(assessmentId);
+      phaseTimers.forEach(clearTimeout);
+      setScoredAssessment(scored);
       setIsScoring(false);
       setPostScoringPhase("results");
     } catch {
+      // First attempt failed. Wait a moment and retry once — the server may
+      // still be processing (Claude scoring takes 30-60s).
+      try {
+        await new Promise(r => setTimeout(r, 5000));
+        const retryRes = await apiRequest("GET", "/api/assessment/latest");
+        const retryData = await retryRes.json();
+        if (retryData && retryData.status === "completed") {
+          phaseTimers.forEach(clearTimeout);
+          setScoredAssessment(retryData);
+          setIsScoring(false);
+          setPostScoringPhase("results");
+          return;
+        }
+      } catch { /* retry also failed */ }
+
+      phaseTimers.forEach(clearTimeout);
       setIsScoring(false);
-      toast({
-        title: "Scoring in progress",
-        description: "Your results are being calculated. We'll notify you when ready.",
-        variant: "destructive",
-      });
+      setScoringFailed(true);
     }
   };
 
@@ -649,6 +688,14 @@ export default function AssessmentPage() {
       sendMessage();
     }
   };
+
+  // Auto-resize textarea as content changes (supports voice-to-text dictation)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [input]);
 
   // === POST-SCORING: Combined results + sliders screen ===
   if (postScoringPhase === "results" && scoredAssessment && levels && allSkills) {
@@ -717,6 +764,42 @@ export default function AssessmentPage() {
     );
   }
 
+  if (scoringFailed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <Wordmark className="text-xl mb-8 block" />
+          <AlertCircle className="w-12 h-12 text-et-orange mx-auto mb-4" />
+          <p className="font-heading text-xl font-semibold mb-3">
+            Scoring is taking longer than expected
+          </p>
+          <p className="text-muted-foreground text-sm mb-6">
+            Your conversation has been saved. Let's try getting your results again.
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button
+              className="min-h-[44px]"
+              onClick={() => {
+                setScoringFailed(false);
+                handleEndConversation();
+              }}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+            <Button
+              variant="ghost"
+              className="min-h-[44px]"
+              onClick={() => navigate("/dashboard")}
+            >
+              Go to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isScoring) {
     const scoringMessages = [
       "Reading your conversation...",
@@ -753,8 +836,8 @@ export default function AssessmentPage() {
 
   if (voiceMode === "full-duplex") {
     return (
-      <div className="h-screen flex flex-col bg-background">
-        <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+      <div className="h-dvh-safe flex flex-col bg-background">
+        <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
           <Wordmark className="text-lg" />
           <Button
             variant="ghost"
@@ -926,8 +1009,8 @@ export default function AssessmentPage() {
 
   if (voiceMode === "voice-to-text") {
     return (
-      <div className="h-screen flex flex-col bg-background">
-        <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+      <div className="h-dvh-safe flex flex-col bg-background">
+        <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
           <Wordmark className="text-lg" />
           <Button
             variant="ghost"
@@ -986,7 +1069,7 @@ export default function AssessmentPage() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Speak or type your message..."
-                className="rounded-xl resize-none min-h-[48px] max-h-[160px]"
+                className="rounded-xl resize-none min-h-[48px] max-h-[40vh] overflow-y-auto"
                 rows={1}
                 disabled={isTyping}
                 data-testid="input-message"
@@ -1055,8 +1138,8 @@ export default function AssessmentPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+    <div className="h-dvh-safe flex flex-col bg-background">
+      <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
         <Wordmark className="text-lg" />
         <Button
           variant="ghost"
@@ -1116,7 +1199,7 @@ export default function AssessmentPage() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            className="rounded-xl resize-none min-h-[48px] max-h-[160px]"
+            className="rounded-xl resize-none min-h-[48px] max-h-[40vh] overflow-y-auto"
             rows={1}
             disabled={isTyping}
             data-testid="input-message"
