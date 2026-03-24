@@ -1,8 +1,9 @@
-# Lex V5 - ElevenLabs Prompt (SUPERSEDED — see lex-elevenlabs-prompt-v6.md)
+# Lex V6 - ElevenLabs Voice Prompt
 
-**Note:** This file was accidentally overwritten with V6 content on March 21, 2026. The original V5 content is lost. Going forward, each version gets its own file. The current version is **lex-elevenlabs-prompt-v6.md**.
+**Created:** March 21, 2026
+**Changes from V5:** Level-based calibration (CALIBRATION block in Phase 1), truncated input rescue, meta-conversation handling, closing CTA ("Hit End Conversation"), level numbering fixed to 1-5, "Never asks are we done" replaced with explicit End Conversation instruction.
 
-Copy everything below the line into ElevenLabs agent configuration.
+Copy everything below the line into ElevenLabs agent configuration. Make sure "Default personality" is UNCHECKED.
 
 ---
 

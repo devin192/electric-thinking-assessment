@@ -59,12 +59,9 @@ export default function AssessmentWarmup() {
             <div className="w-14 h-14 rounded-2xl bg-et-pink/15 flex items-center justify-center mx-auto mb-6">
               <Mic className="w-7 h-7 text-et-pink" />
             </div>
-            <h1 className="font-heading text-2xl font-bold text-center mb-3" data-testid="text-warmup-title">
+            <h1 className="font-heading text-2xl font-bold text-center mb-6" data-testid="text-warmup-title">
               Here's how it works
             </h1>
-            <p className="text-muted-foreground text-center mb-8">
-              Lex is going to ask about your work first, then about how AI fits in. The whole thing takes about 10 minutes.
-            </p>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
@@ -72,7 +69,7 @@ export default function AssessmentWarmup() {
                 <div>
                   <div className="font-medium text-sm">A real conversation, not a quiz</div>
                   <div className="text-sm text-muted-foreground">
-                    Lex will ask about how you actually work and where AI shows up in your day. There are no trick questions and no wrong answers.
+                    No trick questions, no wrong answers. Just talk about your work.
                   </div>
                 </div>
               </div>
@@ -81,7 +78,7 @@ export default function AssessmentWarmup() {
                 <div>
                   <div className="font-medium text-sm">About 10 minutes</div>
                   <div className="text-sm text-muted-foreground">
-                    Quick and focused. You'll walk away knowing exactly where you stand and what to work on first.
+                    You'll walk away knowing exactly where you stand and what to work on first.
                   </div>
                 </div>
               </div>
@@ -91,8 +88,8 @@ export default function AssessmentWarmup() {
                   <div className="font-medium text-sm">Your answers are private</div>
                   <div className="text-sm text-muted-foreground">
                     {user?.orgId
-                      ? "Your manager can see your skill levels and progress. They cannot hear this conversation or see your specific answers."
-                      : "Your conversation transcript is private and only visible to you."}
+                      ? "Your team lead sees your skill levels, not your conversation."
+                      : "Only you can see your conversation."}
                   </div>
                 </div>
               </div>

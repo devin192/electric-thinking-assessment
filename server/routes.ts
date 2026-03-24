@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
 import { getAssessmentResponse, scoreAssessment } from "./assessment-ai";
 import { generateNudge, generateVerificationQuestions } from "./nudge-ai";
+import Anthropic from "@anthropic-ai/sdk";
 import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail, sendPasswordResetEmail } from "./email";
 import { seedDatabase } from "./seed";
 import { startCronJobs, runNudgeGeneration, runNudgeDelivery } from "./cron";
@@ -1915,7 +1916,6 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
         { role: "user" as const, content: message.trim() },
       ];
 
-      const Anthropic = (await import("@anthropic-ai/sdk")).default;
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
       const response = await anthropic.messages.create({
