@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Wordmark } from "@/components/wordmark";
-import { AssessmentValidation } from "@/components/assessment-validation";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -15,7 +14,7 @@ import {
   Send, Loader2, CheckCircle2, Mic, MicOff, Volume2,
   AlertCircle, RefreshCw, MessageSquare, Phone
 } from "lucide-react";
-import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
+import type { Assessment } from "@shared/schema";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -31,7 +30,6 @@ function stripStageDirections(msg: ChatMessage): string {
 }
 
 type VoiceMode = "full-duplex" | "voice-to-text" | "text-only";
-type PostScoringPhase = "none" | "results";
 
 export default function AssessmentPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -47,10 +45,6 @@ export default function AssessmentPage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
-  // Post-scoring state
-  const [postScoringPhase, setPostScoringPhase] = useState<PostScoringPhase>("none");
-  const [scoredAssessment, setScoredAssessment] = useState<Assessment | null>(null);
-  const [confirming, setConfirming] = useState(false);
 
   const urlParams = new URLSearchParams(window.location.search);
   const requestedMode = urlParams.get("mode");
@@ -88,14 +82,6 @@ export default function AssessmentPage() {
   const { data: activeAssessment } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/active"],
     enabled: !!user,
-  });
-
-  // Queries for post-scoring phase
-  const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/levels"] });
-  const { data: allSkills } = useQuery<Skill[]>({ queryKey: ["/api/skills"] });
-  const { data: userSkills } = useQuery<UserSkillStatus[]>({
-    queryKey: ["/api/user/skills"],
-    enabled: !!user && postScoringPhase !== "none",
   });
 
   useEffect(() => {
@@ -681,7 +667,7 @@ export default function AssessmentPage() {
     try {
       const scored = await completeScoring(assessmentId);
       phaseTimers.forEach(clearTimeout);
-      setScoredAssessment(scored);
+
       setIsScoring(false);
       navigate("/results");
     } catch {
@@ -693,7 +679,7 @@ export default function AssessmentPage() {
         const retryData = await retryRes.json();
         if (retryData && retryData.status === "completed") {
           phaseTimers.forEach(clearTimeout);
-          setScoredAssessment(retryData);
+
           setIsScoring(false);
           navigate("/results");
           return;
@@ -704,21 +690,6 @@ export default function AssessmentPage() {
       setIsScoring(false);
       setScoringFailed(true);
     }
-  };
-
-  const handleConfirm = async (adjustedScores: Record<number, number>) => {
-    if (!assessmentId) return;
-    setConfirming(true);
-    try {
-      // POST to confirm endpoint with adjusted scores
-      await apiRequest("POST", `/api/assessment/${assessmentId}/confirm`, {
-        adjustedScores,
-      });
-    } catch {
-      // Confirm endpoint may fail; user still sees AI-scored results
-    }
-    setConfirming(false);
-    navigate("/results");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -735,73 +706,6 @@ export default function AssessmentPage() {
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
   }, [input]);
-
-  // === POST-SCORING: Combined results + sliders screen ===
-  if (postScoringPhase === "results" && scoredAssessment && levels && allSkills) {
-    const scoresJson = (scoredAssessment.scoresJson || {}) as Record<string, { status: string; explanation: string }>;
-    const assessmentLevel = scoredAssessment.assessmentLevel ?? 0;
-    const levelInfo = levels.find(l => l.sortOrder === assessmentLevel);
-    const firstMove = (scoredAssessment.firstMoveJson || {}) as { skillName?: string; suggestion?: string };
-
-    let brightSpots: string[] = [];
-    try {
-      const raw = (scoredAssessment as any)?.brightSpotsText;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        brightSpots = Array.isArray(parsed) ? parsed : [raw];
-      }
-    } catch {
-      const raw = (scoredAssessment as any)?.brightSpotsText;
-      if (raw) brightSpots = [raw];
-    }
-
-    // Detect foundational gaps: skills from levels below that are red/yellow
-    const foundationalGaps: string[] = [];
-    if (assessmentLevel >= 2 && allSkills && levels) {
-      for (const skill of allSkills) {
-        const lvl = levels.find(l => l.id === skill.levelId);
-        if (!lvl || lvl.sortOrder >= assessmentLevel) continue;
-        const userStatus = userSkills?.find(us => us.skillId === skill.id);
-        const status = userStatus?.status || scoresJson[skill.name]?.status || "red";
-        if (status === "red" || status === "yellow") {
-          foundationalGaps.push(skill.name);
-        }
-      }
-    }
-
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border/50 px-6 py-3 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
-          <Wordmark className="text-lg" />
-        </header>
-        <div className="max-w-xl mx-auto px-6 py-10">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="results"
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              transition={{ duration: 0.3 }}
-            >
-              <AssessmentValidation
-                assessmentLevel={assessmentLevel}
-                levelInfo={levelInfo}
-                brightSpots={brightSpots}
-                firstMove={firstMove}
-                foundationalGaps={foundationalGaps.length > 0 ? foundationalGaps.slice(0, 4) : undefined}
-                onConfirm={handleConfirm}
-                confirming={confirming}
-                skills={allSkills}
-                levels={levels}
-                userSkills={userSkills || []}
-                scoresJson={scoresJson}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </div>
-    );
-  }
 
   if (scoringFailed) {
     return (

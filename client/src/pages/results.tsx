@@ -439,13 +439,13 @@ export default function ResultsPage() {
               <Button
                 className="w-full rounded-2xl py-6 text-base"
                 onClick={() => {
-                  toast({ title: "You're on the list!", description: "We'll be in touch." });
+                  const text = encodeURIComponent(`I just took an AI skills assessment and I'm a Level ${assessmentLevel + 1} ${levelName}! Find out where you stand with AI:`);
+                  const url = encodeURIComponent(window.location.origin);
+                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&summary=${text}`, "_blank", "noopener");
                 }}
               >
-                <ArrowRight className="w-5 h-5 mr-2" />
-                {assessmentLevel >= 3
-                  ? "Join the waitlist for advanced workshops"
-                  : `Join the waitlist for Level ${assessmentLevel + 2} ${LEVEL_NAMES[assessmentLevel + 1]}`}
+                <Share2 className="w-5 h-5 mr-2" />
+                Share on LinkedIn
               </Button>
               <div className="flex gap-3">
                 <Button
