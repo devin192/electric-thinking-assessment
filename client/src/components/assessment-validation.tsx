@@ -40,7 +40,7 @@ export function AssessmentValidation({
 }: AssessmentValidationProps) {
   const levelColor = LEVEL_HEX[assessmentLevel] || "#888";
   const levelName = levelInfo?.displayName || `Level ${assessmentLevel + 1}`;
-  const [slidersOpen, setSlidersOpen] = useState(false);
+  const [slidersOpen, setSlidersOpen] = useState(true);
   const [adjustedScores, setAdjustedScores] = useState<Record<number, number>>({});
 
   return (
@@ -155,25 +155,17 @@ export function AssessmentValidation({
         </motion.div>
       )}
 
-      {/* Collapsible slider section */}
+      {/* Skill sliders — open by default */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.75 }}
       >
-        <button
-          className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors py-3 px-1"
-          onClick={() => setSlidersOpen(!slidersOpen)}
-          data-testid="toggle-adjust-sliders"
-        >
-          <span>{slidersOpen ? "Hide skill ratings" : "Adjust your skill ratings"}</span>
-          {slidersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        <AnimatePresence>
-          {slidersOpen && (
+        <AnimatePresence initial={false}>
+          {slidersOpen ? (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
+              key="sliders"
+              initial={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
@@ -188,6 +180,30 @@ export function AssessmentValidation({
                   onValuesChange={setAdjustedScores}
                 />
               </div>
+              <button
+                className="w-full flex items-center justify-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+                onClick={() => setSlidersOpen(false)}
+                data-testid="toggle-adjust-sliders"
+              >
+                <span>Hide skill ratings</span>
+                <ChevronUp className="w-3 h-3 ml-1" />
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="collapsed"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors py-3 px-1"
+                onClick={() => setSlidersOpen(true)}
+                data-testid="toggle-adjust-sliders"
+              >
+                <span>Show skill ratings</span>
+                <ChevronDown className="w-4 h-4" />
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -207,15 +223,15 @@ export function AssessmentValidation({
           disabled={confirming}
           data-testid="button-that-sounds-right"
         >
-          {confirming ? "Confirming..." : "That sounds right"}
+          {confirming ? "Confirming..." : "Looks right, continue"}
           {!confirming && <ArrowRight className="w-5 h-5 ml-2" />}
         </Button>
         <button
-          className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+          className="w-full text-center text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors py-2"
           onClick={() => onConfirm(adjustedScores)}
           data-testid="link-skip-trust-ai"
         >
-          Skip — I trust the AI
+          Skip this — I trust the AI
         </button>
       </motion.div>
     </motion.div>

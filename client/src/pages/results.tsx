@@ -11,10 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { Assessment, Level, Skill, Nudge } from "@shared/schema";
 import {
   ArrowRight, Sparkles, Loader2, Crown,
-  Clock, CheckCircle2, MessageCircle, CalendarClock,
-  ChevronDown, Share2, BarChart3
+  Clock, CheckCircle2, MessageCircle,
+  ChevronDown, BarChart3
 } from "lucide-react";
-import { SiLinkedin } from "react-icons/si";
 import confetti from "canvas-confetti";
 
 const LEVEL_COLORS: Record<number, string> = {
@@ -52,9 +51,6 @@ export default function ResultsPage() {
   const [reflectionNote, setReflectionNote] = useState("");
   const [showReflection, setShowReflection] = useState(false);
   const [completingChallenge, setCompletingChallenge] = useState(false);
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [scheduleDay, setScheduleDay] = useState("Monday");
-  const [showShareCard, setShowShareCard] = useState(false);
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
@@ -183,31 +179,6 @@ export default function ResultsPage() {
     setCompletingChallenge(false);
   };
 
-  const handleScheduleLater = async () => {
-    // For now, just save the journey preferences and go to dashboard
-    try {
-      await apiRequest("POST", "/api/user/journey-setup", {
-        challengeFrequency: "weekly",
-        nudgeDay: scheduleDay,
-      });
-      toast({ title: `Power Ups will arrive on ${scheduleDay}s` });
-      navigate("/dashboard");
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    }
-  };
-
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/` : "";
-  const shareText = `I just discovered my AI fluency level. I'm a Level ${assessmentLevel + 1} ${levelName}. Take yours:`;
-
-  const handleShareLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, "_blank");
-  };
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-    toast({ title: "Copied to clipboard!" });
-  };
-
   if (!user) return null;
 
   if (assessmentLoading || !levels || !allSkills) {
@@ -331,37 +302,6 @@ export default function ResultsPage() {
             )}
           </motion.div>
 
-          {/* Share button right after identity */}
-          <motion.div
-            className="mt-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6 }}
-          >
-            <button
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setShowShareCard(!showShareCard)}
-            >
-              <Share2 className="w-3.5 h-3.5" /> Share your results
-            </button>
-            <AnimatePresence>
-              {showShareCard && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="flex justify-center gap-3 mt-3"
-                >
-                  <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={handleShareLinkedIn}>
-                    <SiLinkedin className="w-3.5 h-3.5 mr-1.5" /> LinkedIn
-                  </Button>
-                  <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={handleCopyLink}>
-                    Copy Link
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
         </motion.section>
 
         {/* === BRIGHT SPOTS + ASPIRATION === */}
@@ -548,47 +488,6 @@ export default function ResultsPage() {
                       {completingChallenge ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
                       I did it
                     </Button>
-
-                    <button
-                      className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowSchedule(!showSchedule)}
-                    >
-                      <CalendarClock className="w-3.5 h-3.5 inline mr-1" />
-                      Schedule for later
-                    </button>
-
-                    <AnimatePresence>
-                      {showSchedule && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden"
-                        >
-                          <Card className="rounded-xl border border-border">
-                            <CardContent className="pt-4 pb-4">
-                              <div className="flex gap-3 items-end">
-                                <div className="flex-1">
-                                  <label className="text-xs text-muted-foreground block mb-1">Preferred day</label>
-                                  <select
-                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                                    value={scheduleDay}
-                                    onChange={(e) => setScheduleDay(e.target.value)}
-                                  >
-                                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(d => (
-                                      <option key={d} value={d}>{d}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <Button size="sm" className="rounded-lg" onClick={handleScheduleLater}>
-                                  Set
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
 
                     <button
                       className="w-full text-center text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors pt-2"

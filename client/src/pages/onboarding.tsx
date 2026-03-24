@@ -65,7 +65,7 @@ export default function OnboardingPage() {
                   <Label htmlFor="role">What's your job title?</Label>
                   <Input
                     id="role"
-                    placeholder="e.g. Product Manager, Software Engineer"
+                    placeholder="e.g. Operations Manager, Sales Lead, Teacher"
                     value={roleTitle}
                     onChange={e => setRoleTitle(e.target.value)}
                     className="rounded-xl"

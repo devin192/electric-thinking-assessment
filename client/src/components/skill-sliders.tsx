@@ -103,9 +103,9 @@ export function SkillSliders({
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h3 className="font-heading text-lg font-semibold mb-1">Quick gut-check</h3>
+        <h3 className="font-heading text-lg font-semibold mb-1">Quick gut check</h3>
         <p className="text-muted-foreground text-sm max-w-md mx-auto">
-          Do these feel right? Adjust anything that's off, or skip if they look good.
+          Here's my skill read on you. Do these feel right? Adjust anything that's off.
         </p>
       </div>
 

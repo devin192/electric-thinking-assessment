@@ -92,7 +92,7 @@ export function ChallengeCoach({ nudgeId, challengeContent, isOpen, onClose }: C
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <MessageCircle className="w-4 h-4 text-et-pink" />
-          <span className="text-sm font-medium">AI Coach</span>
+          <span className="text-sm font-medium">Need help?</span>
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose} data-testid="coach-close">
           <X className="w-4 h-4" />

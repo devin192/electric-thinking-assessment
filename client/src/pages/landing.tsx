@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
-import { Zap, MessageCircle, TrendingUp, Shield, ArrowRight, Brain, Target, Users } from "lucide-react";
+import { MessageCircle, TrendingUp, Shield, ArrowRight, Brain, Target, Users } from "lucide-react";
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
@@ -37,13 +37,9 @@ export default function LandingPage() {
 
       <section className="max-w-6xl mx-auto px-6 pt-20 pb-16">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-et-pink/10 text-et-pink text-sm font-medium mb-8">
-            <Zap className="w-4 h-4" />
-            AI Skill Discovery
-          </div>
           <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6 tracking-tight">
             Find out where you are{" "}
-            <span className="text-et-pink">on the AI curve</span>
+            <span className="text-et-pink">with AI</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
             A 10-minute conversation that shows you exactly where you stand and the one AI skill that will change your work this month.
@@ -99,7 +95,7 @@ export default function LandingPage() {
             </div>
             <h3 className="font-heading text-lg font-semibold mb-3">Level up week by week</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Personalized Power Ups arrive on your schedule. Each one builds on the last,
+              Weekly tips matched to your level. Each one builds on the last,
               so you're always progressing toward your next level.
             </p>
           </Card>
@@ -149,7 +145,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>Data stored on SOC 2 Type II certified infrastructure, encrypted at rest.</span>
+                <span>Your data is stored securely and encrypted.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />

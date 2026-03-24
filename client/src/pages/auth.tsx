@@ -234,7 +234,7 @@ export function RegisterPage() {
         <Card className="rounded-2xl border border-border">
           <CardHeader className="text-center pb-2">
             <h1 className="font-heading text-2xl font-bold">Create your account</h1>
-            <p className="text-muted-foreground text-sm mt-1">Start your AI fluency journey</p>
+            <p className="text-muted-foreground text-sm mt-1">Create your account to get started</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">

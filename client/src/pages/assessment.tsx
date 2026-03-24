@@ -991,7 +991,7 @@ export default function AssessmentPage() {
               <DialogTitle className="font-heading">End your conversation?</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground mb-4">
-              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+              Once we end, we'll build your results. You won't be able to add more to this conversation.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>
@@ -1102,7 +1102,7 @@ export default function AssessmentPage() {
               <DialogTitle className="font-heading">Switch to text-only?</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground mb-4">
-              We strongly recommend voice for this experience. Voice-to-text builds a critical AI skill. If your device truly doesn't support audio, you can continue in text.
+              Voice mode gives you the best experience, but text works fine too. Choose whichever you prefer.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowFallbackConfirm(false)}>
@@ -1121,7 +1121,7 @@ export default function AssessmentPage() {
               <DialogTitle className="font-heading">End your conversation?</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground mb-4">
-              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+              Once we end, we'll build your results. You won't be able to add more to this conversation.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>
@@ -1222,7 +1222,7 @@ export default function AssessmentPage() {
               <DialogTitle className="font-heading">End your conversation?</DialogTitle>
             </DialogHeader>
             <p className="text-sm text-muted-foreground mb-4">
-              Once we end, Lex will build your results. You won't be able to add more to this conversation.
+              Once we end, we'll build your results. You won't be able to add more to this conversation.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowEndConfirm(false)}>

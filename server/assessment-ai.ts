@@ -110,14 +110,14 @@ ADDITIONAL ANALYSIS (generate these carefully):
 - outcomeOptions: An array of exactly 2 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
   Each option has:
   - outcomeHeadline: A tantalizing outcome in one sentence tied to their actual work. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
-  - timeEstimate: How long to try it. Usually "~90 seconds" or "~2 minutes". Keep it short.
+  - timeEstimate: How long to try it. Usually "~5 minutes" or "under 10 minutes". Keep it realistic.
   - skillName: The actual skill name from the framework (shown only after they complete it).
   - action: ONE specific thing to do right now, referencing their tools and workflows. Not a generic tip. Example: "Open your last meeting notes, paste them into ${userContext.aiPlatform || "your AI tool"}, and ask it to write a one-paragraph recap highlighting decisions made and next steps."
   - whatYoullSee: ONE sentence describing the expected result. Example: "You'll get a clean recap in about 10 seconds. Compare it to what you'd normally write."
 - triggerMoment: If the user mentioned WHEN or WHERE they typically hit friction or reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep," "pulling Salesforce data"), capture that here. If not mentioned, return an empty string.
 
 IMPORTANT FOR outcomeOptions:
-- Both options must be doable in under 2 minutes.
+- Both options should be doable in a few minutes — realistic, not rushed.
 - Both must reference something specific the user said about their work.
 - Frame as the OUTCOME they get, not the skill they practice.
 - The action should describe what to do in their own words, not a copy-paste prompt.
@@ -142,8 +142,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "workContextSummary": "2-3 sentence summary of the person's key recurring work activities and tools",
   "firstMove": { "skillName": "name", "suggestion": "actionable suggestion referencing their specific work" },
   "outcomeOptions": [
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~90 seconds", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" }
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" }
   ],
   "signatureSkillName": "exact skill name from framework",
   "signatureSkillRationale": "one sentence compliment",

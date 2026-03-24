@@ -15,7 +15,7 @@ export default function PrivacyPage() {
       </header>
       <div className="max-w-2xl mx-auto px-6 py-10 prose prose-sm">
         <h1 className="font-heading text-3xl font-bold mb-2">Privacy Policy</h1>
-        <p className="text-muted-foreground text-sm mb-8">Last updated: February 2026</p>
+        <p className="text-muted-foreground text-sm mb-8">Last updated: March 2026</p>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">What We Collect</h2>
         <ul className="text-muted-foreground space-y-2">
@@ -45,9 +45,11 @@ export default function PrivacyPage() {
         </p>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Third-Party Services</h2>
-        <p className="text-muted-foreground">
-          We use Anthropic (Claude) for AI analysis of assessment conversations. Additional services may be added in future phases.
-        </p>
+        <ul className="text-muted-foreground space-y-2">
+          <li><strong>Anthropic (Claude):</strong> AI analysis of assessment conversations and coaching. Anthropic does not train on API data.</li>
+          <li><strong>ElevenLabs:</strong> Voice conversation processing (if you choose the voice option). Audio is processed in real-time and not stored by ElevenLabs after the session.</li>
+          <li><strong>Resend:</strong> Email delivery for account notifications and Power Ups.</li>
+        </ul>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Data Retention</h2>
         <p className="text-muted-foreground">
@@ -56,8 +58,8 @@ export default function PrivacyPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Your Rights</h2>
         <ul className="text-muted-foreground space-y-2">
-          <li>Download a copy of all your data at any time</li>
-          <li>Request complete deletion of your account and data</li>
+          <li>Request a copy of your data by contacting support</li>
+          <li>Request deletion of your account and data (processed within 30 days)</li>
           <li>Pause or stop Power Ups at any time</li>
         </ul>
 

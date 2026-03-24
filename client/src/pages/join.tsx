@@ -68,7 +68,7 @@ export default function JoinPage() {
             </p>
             <div className="space-y-4">
               <Input
-                placeholder="Paste your invite token"
+                placeholder="Paste the code from your invite email"
                 value={token}
                 onChange={e => setToken(e.target.value)}
                 className="rounded-xl"
