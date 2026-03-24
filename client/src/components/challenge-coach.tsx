@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, Send, X, MessageCircle } from "lucide-react";
+import { Loader2, Send, X, MessageCircle, Mic, MicOff } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,6 +23,76 @@ export function ChallengeCoach({ nudgeId, challengeContent, isOpen, onClose }: C
   const [initialLoaded, setInitialLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported] = useState(() => {
+    return typeof window !== "undefined" &&
+      ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  });
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    const SpeechRecognitionClass =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) return;
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    let finalTranscript = "";
+
+    recognition.onerror = () => {
+      stopListening();
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+    // Capture existing input so we append voice transcription to it
+    const existingInput = input;
+    recognition.onresult = (event: any) => {
+      let currentFinal = "";
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          currentFinal += transcript;
+          finalTranscript += transcript;
+        } else {
+          interim += transcript;
+        }
+      }
+      const prefix = existingInput ? (existingInput.endsWith(" ") ? existingInput : existingInput + " ") : "";
+      setInput(prefix + finalTranscript + interim);
+    };
+
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, input, stopListening]);
+
+  // Clean up recognition when component closes
+  useEffect(() => {
+    if (!isOpen && isListening) {
+      stopListening();
+    }
+  }, [isOpen, isListening, stopListening]);
 
   // Load existing conversation when opened
   useEffect(() => {
@@ -62,6 +132,7 @@ export function ChallengeCoach({ nudgeId, challengeContent, isOpen, onClose }: C
     const text = input.trim();
     if (!text || loading) return;
 
+    if (isListening) stopListening();
     setInput("");
     setMessages(prev => [...prev, { role: "user", content: text }]);
     setLoading(true);
@@ -144,9 +215,24 @@ export function ChallengeCoach({ nudgeId, challengeContent, isOpen, onClose }: C
           className="rounded-xl text-sm"
           data-testid="coach-input"
         />
+        {speechSupported && (
+          <Button
+            size="icon"
+            variant={isListening ? "default" : "outline"}
+            className={`rounded-xl shrink-0 min-w-[44px] min-h-[44px] ${
+              isListening ? "bg-red-500 hover:bg-red-600 animate-pulse" : ""
+            }`}
+            onClick={toggleListening}
+            disabled={loading}
+            data-testid="coach-mic"
+            aria-label={isListening ? "Stop listening" : "Start voice input"}
+          >
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </Button>
+        )}
         <Button
           size="icon"
-          className="rounded-xl shrink-0"
+          className="rounded-xl shrink-0 min-w-[44px] min-h-[44px]"
           onClick={sendMessage}
           disabled={!input.trim() || loading}
           data-testid="coach-send"
