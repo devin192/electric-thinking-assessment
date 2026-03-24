@@ -93,10 +93,10 @@ export default function LandingPage() {
             <div className="w-12 h-12 rounded-xl bg-et-green/15 flex items-center justify-center mb-5">
               <TrendingUp className="w-6 h-6 text-et-green" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Level up week by week</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Walk away with a plan</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Weekly tips matched to your level. Each one builds on the last,
-              so you're always progressing toward your next level.
+              Three personalized outcomes tied to your actual work, plus one thing you can try right now.
+              Not generic advice — specific to you.
             </p>
           </Card>
         </div>
@@ -140,7 +140,7 @@ export default function LandingPage() {
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>Your conversation is private. Managers see skill levels, never your answers.</span>
+                <span>Your conversation is private. Only you see your full results.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
@@ -154,7 +154,7 @@ export default function LandingPage() {
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>Used only for personalized learning content.</span>
+                <span>Used only to personalize your assessment results.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
