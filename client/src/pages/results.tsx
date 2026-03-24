@@ -439,33 +439,20 @@ export default function ResultsPage() {
               <Button
                 className="w-full rounded-2xl py-6 text-base"
                 onClick={() => {
-                  const text = encodeURIComponent(`I just took an AI skills assessment and I'm a Level ${assessmentLevel + 1} ${levelName}! Find out where you stand with AI:`);
                   const url = encodeURIComponent(window.location.origin);
-                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&summary=${text}`, "_blank", "noopener");
+                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, "_blank", "noopener");
                 }}
               >
                 <Share2 className="w-5 h-5 mr-2" />
                 Share on LinkedIn
               </Button>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-2xl py-5"
-                  onClick={handleShare}
-                >
-                  <Share2 className="w-4 h-4 mr-2" /> Share results
-                </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1 rounded-2xl py-5"
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.origin);
-                    toast({ title: "Link copied!" });
-                  }}
-                >
-                  <Link2 className="w-4 h-4 mr-2" /> Copy link
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                className="w-full rounded-2xl py-5"
+                onClick={handleShare}
+              >
+                <Link2 className="w-4 h-4 mr-2" /> Copy share link
+              </Button>
               <div className="text-center">
                 <button
                   onClick={() => navigate("/survey")}

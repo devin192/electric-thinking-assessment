@@ -46,7 +46,7 @@ export default function PrivacyPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Third-Party Services</h2>
         <ul className="text-muted-foreground space-y-2">
-          <li><strong>Anthropic (Claude):</strong> AI analysis of assessment conversations and coaching. Anthropic does not train on API data.</li>
+          <li><strong>Anthropic (Claude):</strong> AI analysis of assessment conversations. Anthropic does not train on API data.</li>
           <li><strong>ElevenLabs:</strong> Voice conversation processing (if you choose the voice option). Audio is processed in real-time and not stored by ElevenLabs after the session.</li>
           <li><strong>Resend:</strong> Email delivery for account notifications.</li>
         </ul>

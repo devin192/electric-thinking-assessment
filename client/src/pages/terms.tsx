@@ -31,7 +31,7 @@ export default function TermsPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">3. Acceptable Use</h2>
         <p className="text-muted-foreground">
-          You agree to use the service for its intended purpose of AI fluency assessment and learning.
+          You agree to use the service for its intended purpose of AI fluency assessment.
           Do not attempt to manipulate assessment results or misuse the platform.
         </p>
 
@@ -62,8 +62,8 @@ export default function TermsPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">8. Account Deletion</h2>
         <p className="text-muted-foreground">
-          You may request deletion of your account and all associated data at any time through
-          the settings page. Deletion will be completed within 30 days.
+          You may request deletion of your account and all associated data at any time by contacting us.
+          Deletion will be completed within 30 days.
         </p>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">9. Changes to Terms</h2>
