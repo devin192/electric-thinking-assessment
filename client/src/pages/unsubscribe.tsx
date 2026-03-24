@@ -140,8 +140,8 @@ export default function UnsubscribePage() {
           <CardContent className="space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Weekly Power Ups</Label>
-                <p className="text-xs text-muted-foreground">Personalized tips to build your AI skills</p>
+                <Label>Assessment updates</Label>
+                <p className="text-xs text-muted-foreground">Updates related to your assessment results</p>
               </div>
               <Switch
                 checked={emailPrefsNudges}
@@ -151,8 +151,8 @@ export default function UnsubscribePage() {
             </div>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Progress updates</Label>
-                <p className="text-xs text-muted-foreground">Skill complete and level up notifications</p>
+                <Label>Product updates</Label>
+                <p className="text-xs text-muted-foreground">New features and improvements</p>
               </div>
               <Switch
                 checked={emailPrefsProgress}
@@ -163,7 +163,7 @@ export default function UnsubscribePage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label>Reminders</Label>
-                <p className="text-xs text-muted-foreground">Re-assessment and check-in reminders</p>
+                <p className="text-xs text-muted-foreground">Occasional check-in reminders</p>
               </div>
               <Switch
                 checked={emailPrefsReminders}

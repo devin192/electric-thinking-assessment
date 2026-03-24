@@ -19,7 +19,7 @@ export default function TermsPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">1. Service Description</h2>
         <p className="text-muted-foreground">
-          Electric Thinking provides an AI-powered fluency assessment and personalized learning platform.
+          Electric Thinking provides an AI-powered fluency assessment.
           By using this service, you agree to these terms.
         </p>
 
@@ -38,7 +38,7 @@ export default function TermsPage() {
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">4. Data and Privacy</h2>
         <p className="text-muted-foreground">
           Your use of the service is also governed by our Privacy Policy. Assessment data is used solely
-          for personalized learning and will not be sold or shared for advertising purposes.
+          for generating your personalized results and will not be sold or shared for advertising purposes.
         </p>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">5. Intellectual Property</h2>

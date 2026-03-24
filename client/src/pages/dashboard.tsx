@@ -83,10 +83,10 @@ export default function DashboardPage() {
               Ready to discover your AI fluency?
             </h2>
             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Have a quick conversation with an AI that maps your skills across four levels.
+              A quick survey and a conversation that maps your AI skills across four levels.
             </p>
             <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/survey")} data-testid="button-start-assessment">
-              Have a Conversation <ArrowRight className="w-5 h-5 ml-2" />
+              Take the Assessment <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </CardContent>
         </Card>

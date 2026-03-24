@@ -158,7 +158,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>You can download or delete your data anytime.</span>
+                <span>Request a copy or deletion of your data by contacting us.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />

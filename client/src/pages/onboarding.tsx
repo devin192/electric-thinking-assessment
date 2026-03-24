@@ -121,7 +121,7 @@ export default function OnboardingPage() {
                 data-testid="button-complete-onboarding"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Start Conversation <ArrowRight className="w-4 h-4 ml-2" />
+                Start the Assessment <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
           </Card>

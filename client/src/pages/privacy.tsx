@@ -34,21 +34,21 @@ export default function PrivacyPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Who Can See What</h2>
         <ul className="text-muted-foreground space-y-2">
-          <li><strong>You:</strong> See all your own data, including transcript, scores, and learning history.</li>
+          <li><strong>You:</strong> See all your own data, including transcript and scores.</li>
           <li><strong>Your Manager:</strong> Can see your skill scores and levels. Cannot see your conversation transcript or specific answers. Your responses are private.</li>
           <li><strong>System Admin:</strong> Can see aggregate analytics and access individual data for support purposes.</li>
         </ul>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">What It's Used For</h2>
         <p className="text-muted-foreground">
-          Your data is used exclusively for personalized learning content. No advertising, no profiling, no selling. Ever.
+          Your data is used exclusively to personalize your assessment results. No advertising, no profiling, no selling. Ever.
         </p>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Third-Party Services</h2>
         <ul className="text-muted-foreground space-y-2">
           <li><strong>Anthropic (Claude):</strong> AI analysis of assessment conversations and coaching. Anthropic does not train on API data.</li>
           <li><strong>ElevenLabs:</strong> Voice conversation processing (if you choose the voice option). Audio is processed in real-time and not stored by ElevenLabs after the session.</li>
-          <li><strong>Resend:</strong> Email delivery for account notifications and Power Ups.</li>
+          <li><strong>Resend:</strong> Email delivery for account notifications.</li>
         </ul>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Data Retention</h2>
@@ -60,7 +60,7 @@ export default function PrivacyPage() {
         <ul className="text-muted-foreground space-y-2">
           <li>Request a copy of your data by contacting support</li>
           <li>Request deletion of your account and data (processed within 30 days)</li>
-          <li>Pause or stop Power Ups at any time</li>
+          <li>Opt out of email notifications at any time</li>
         </ul>
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Enterprise Note</h2>
