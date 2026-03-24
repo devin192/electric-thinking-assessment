@@ -1939,7 +1939,8 @@ IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the 
       return res.json({ response: assistantMessage, conversationId: conversation.id });
     } catch (e: any) {
       console.error("Coach conversation error:", e);
-      return res.status(500).json({ message: "Failed to get coaching response" });
+      const errMsg = e instanceof Error ? e.message : String(e);
+      return res.status(500).json({ message: "Failed to get coaching response", debug: errMsg.substring(0, 200) });
     }
   });
 
