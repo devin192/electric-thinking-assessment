@@ -181,6 +181,64 @@ Level 5 - Agentic Workflow: Systems Mapping, Automation Design, Independent Judg
 const DEFAULT_NUDGE_GUIDE = `You are a learning challenge generator for Electric Thinking. Generate personalized, actionable skill challenges that help users develop specific AI fluency skills. Each challenge should feel like it was written by someone who knows the user personally, referencing their specific role, tasks, and context from the assessment.`;
 
 async function ensureMigrations() {
+  // Ensure tables exist (drizzle-kit push can silently skip these)
+  const tableDDLs = [
+    {
+      name: "coach_conversations",
+      sql: `CREATE TABLE IF NOT EXISTS coach_conversations (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        nudge_id INTEGER REFERENCES nudges(id),
+        messages_json JSONB DEFAULT '[]',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )`,
+      indexes: [
+        `CREATE INDEX IF NOT EXISTS coach_conversations_user_idx ON coach_conversations(user_id)`,
+        `CREATE INDEX IF NOT EXISTS coach_conversations_nudge_idx ON coach_conversations(nudge_id)`,
+      ],
+    },
+    {
+      name: "challenge_reflections",
+      sql: `CREATE TABLE IF NOT EXISTS challenge_reflections (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        nudge_id INTEGER REFERENCES nudges(id),
+        note TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )`,
+      indexes: [],
+    },
+    {
+      name: "password_reset_tokens",
+      sql: `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        token VARCHAR(255) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )`,
+      indexes: [
+        `CREATE UNIQUE INDEX IF NOT EXISTS password_reset_tokens_token_idx ON password_reset_tokens(token)`,
+        `CREATE INDEX IF NOT EXISTS password_reset_tokens_user_idx ON password_reset_tokens(user_id)`,
+      ],
+    },
+  ];
+
+  for (const { name, sql, indexes } of tableDDLs) {
+    try {
+      await pool.query(sql);
+      for (const idx of indexes) {
+        await pool.query(idx);
+      }
+      log(`Ensured table ${name} exists`, "migration");
+    } catch (err: any) {
+      log(`Table creation failed for ${name}: ${err.message}`, "migration");
+    }
+  }
+
+  // Ensure columns exist on existing tables
   const migrations: Array<{ table: string; column: string; type: string }> = [
     { table: "assessments", column: "work_context_summary", type: "text" },
     { table: "assessments", column: "outcome_options_json", type: "jsonb" },
