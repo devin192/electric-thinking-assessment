@@ -682,7 +682,7 @@ export default function AssessmentPage() {
       phaseTimers.forEach(clearTimeout);
       setScoredAssessment(scored);
       setIsScoring(false);
-      setPostScoringPhase("results");
+      navigate("/results");
     } catch {
       // First attempt failed. Wait a moment and retry once — the server may
       // still be processing (Claude scoring takes 30-60s).
@@ -694,7 +694,7 @@ export default function AssessmentPage() {
           phaseTimers.forEach(clearTimeout);
           setScoredAssessment(retryData);
           setIsScoring(false);
-          setPostScoringPhase("results");
+          navigate("/results");
           return;
         }
       } catch { /* retry also failed */ }

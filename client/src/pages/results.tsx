@@ -353,7 +353,7 @@ export default function ResultsPage() {
                       </p>
                       <p className="text-sm">{tryItNow.suggestion}</p>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Open your AI tool and say a version of this out loud.
+                        Turn on voice-to-text and say a version of this into your AI tool.
                       </p>
                     </div>
                   </div>

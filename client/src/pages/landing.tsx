@@ -75,7 +75,7 @@ export default function LandingPage() {
             </div>
             <h3 className="font-heading text-lg font-semibold mb-3">Know exactly where you stand</h3>
             <p className="text-muted-foreground leading-relaxed">
-              One conversation maps your AI skills across 4 levels. No quizzes, no guessing.
+              A quick survey and a conversation map your AI skills across 4 levels. No guessing.
               You'll see your strengths and the gaps you didn't know you had.
             </p>
           </Card>
@@ -175,10 +175,10 @@ export default function LandingPage() {
             <Brain className="w-7 h-7 text-et-pink" />
           </div>
           <h2 className="font-heading text-2xl md:text-3xl font-bold mb-4">
-            A 10-minute conversation that tells you where you're at and what to focus on next
+            Under 15 minutes to know where you're at and what to focus on next
           </h2>
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            No trick questions. No boring quizzes. Just a real conversation about how you work.
+            No trick questions. Just a short survey and a real conversation about how you work.
           </p>
           <Button
             size="lg"
