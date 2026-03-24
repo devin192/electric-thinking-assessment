@@ -270,11 +270,34 @@ export default function ResultsPage() {
             </h1>
             {signatureSkill && (
               <p className="text-sm text-muted-foreground mt-1">
-                Signature skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
+                Your strongest skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
               </p>
             )}
           </motion.div>
         </motion.section>
+
+        {/* === BRIGHT SPOTS === */}
+        <AnimatePresence>
+          {phase === "results" && brightSpots.length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.05 }}
+            >
+              <p className="text-xs font-semibold text-et-green uppercase tracking-wider mb-2">
+                What you're already doing well
+              </p>
+              <ul className="space-y-1.5">
+                {brightSpots.map((spot, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 text-et-green shrink-0 mt-0.5" />
+                    <span>{spot}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         {/* === 2. THREE PERSONALIZED OUTCOMES === */}
         <AnimatePresence>
@@ -451,7 +474,7 @@ export default function ResultsPage() {
                 className="w-full rounded-2xl py-5"
                 onClick={handleShare}
               >
-                <Link2 className="w-4 h-4 mr-2" /> Copy share link
+                <Link2 className="w-4 h-4 mr-2" /> Share results
               </Button>
               <div className="text-center">
                 <button

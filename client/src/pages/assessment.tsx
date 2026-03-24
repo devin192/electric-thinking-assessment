@@ -804,7 +804,7 @@ export default function AssessmentPage() {
                 </div>
                 <p className="font-heading text-lg font-semibold mb-2">
                   {connectSeconds < 5
-                    ? "Connecting to your conversation guide..."
+                    ? "Connecting to Lex..."
                     : connectSeconds < 15
                     ? "Still connecting..."
                     : "Taking longer than expected..."}
@@ -852,7 +852,7 @@ export default function AssessmentPage() {
                   <div className="voice-bar" />
                 </div>
                 <p className="font-heading text-sm text-muted-foreground mb-1">
-                  {isSpeaking ? "AI is speaking..." : isListening ? "Listening..." : "Connected"}
+                  {isSpeaking ? "Lex is speaking..." : isListening ? "Listening..." : "Connected"}
                 </p>
                 <div className="flex items-center gap-4 justify-center mt-6">
                   <Button

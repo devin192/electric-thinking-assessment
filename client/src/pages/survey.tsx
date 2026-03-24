@@ -314,20 +314,7 @@ export default function SurveyPage() {
           >
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              if (currentIndex < activeQuestions.length - 1) {
-                setDirection(1);
-                setCurrentIndex(prev => prev + 1);
-              }
-            }}
-            disabled={currentIndex >= activeQuestions.length - 1}
-            className="min-h-[44px]"
-          >
-            Skip <ArrowRight className="w-4 h-4 ml-1" />
-          </Button>
+          <div className="min-h-[44px]" />{/* spacer to keep Back aligned left */}
         </div>
       )}
     </div>
