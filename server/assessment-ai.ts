@@ -246,7 +246,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
     ],
     signatureSkillName: "",
     signatureSkillRationale: "",
-    brightSpots: ["You took the assessment — that's the first step."],
+    brightSpots: ["You took the assessment. That's the first step."],
     futureSelfText: "",
     nextLevelIdentity: "",
     triggerMoment: "",

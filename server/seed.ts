@@ -252,6 +252,45 @@ async function ensureMigrations() {
       log(`Migration check failed for ${table}.${column}: ${err.message}`, "migration");
     }
   }
+
+  // Ensure "I haven't used any yet" platform exists (added in pivot)
+  try {
+    const nonePlatform = await pool.query(`SELECT 1 FROM ai_platforms WHERE name = 'none'`);
+    if (nonePlatform.rows.length === 0) {
+      await pool.query(`INSERT INTO ai_platforms (name, display_name, sort_order, is_active) VALUES ('none', 'I haven''t used any yet', 5, true)`);
+      log("Added 'none' AI platform option", "migration");
+    }
+  } catch (err: any) {
+    log(`Platform migration failed: ${err.message}`, "migration");
+  }
+
+  // Clean up old "Foundations" level from pre-pivot 5-level framework
+  // The pivot dropped it to 4 levels (Accelerator through Agentic Workflow)
+  try {
+    const foundationsLevel = await pool.query(
+      `SELECT id FROM levels WHERE display_name = 'Foundations' OR (sort_order = 0 AND display_name != 'Accelerator')`
+    );
+    if (foundationsLevel.rows.length > 0) {
+      const foundationsId = foundationsLevel.rows[0].id;
+      // Delete skills tied to Foundations, then the level itself
+      await pool.query(`DELETE FROM user_skill_statuses WHERE skill_id IN (SELECT id FROM skills WHERE level_id = $1)`, [foundationsId]);
+      await pool.query(`DELETE FROM skills WHERE level_id = $1`, [foundationsId]);
+      await pool.query(`DELETE FROM levels WHERE id = $1`, [foundationsId]);
+      // Re-number remaining levels to 0-3
+      const remainingLevels = await pool.query(`SELECT id, display_name FROM levels ORDER BY sort_order`);
+      for (let i = 0; i < remainingLevels.rows.length; i++) {
+        await pool.query(`UPDATE levels SET sort_order = $1 WHERE id = $2`, [i, remainingLevels.rows[i].id]);
+      }
+      // Re-number skills to 0-19
+      const remainingSkills = await pool.query(`SELECT id FROM skills ORDER BY sort_order`);
+      for (let i = 0; i < remainingSkills.rows.length; i++) {
+        await pool.query(`UPDATE skills SET sort_order = $1 WHERE id = $2`, [i, remainingSkills.rows[i].id]);
+      }
+      log("Removed old Foundations level and re-numbered levels 0-3, skills 0-19", "migration");
+    }
+  } catch (err: any) {
+    log(`Foundations cleanup failed: ${err.message}`, "migration");
+  }
 }
 
 export async function seedDatabase() {
