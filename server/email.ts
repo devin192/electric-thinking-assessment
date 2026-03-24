@@ -29,7 +29,7 @@ const BRAND = {
   border: "#E5E0DF",
   textLight: "#666666",
   white: "#FFFFFF",
-  levelColors: ["#2DD6FF", "#FFD236", "#FF2F86", "#FF6A2B", "#1C4BFF"],
+  levelColors: ["#FFD236", "#FF2F86", "#FF6A2B", "#1C4BFF"],
 };
 
 function baseTemplate(content: string, unsubscribeUrl?: string): string {

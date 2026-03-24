@@ -34,7 +34,7 @@ export default function OnboardingPage() {
         onboardingComplete: true,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      navigate("/assessment/warmup");
+      navigate("/survey");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {

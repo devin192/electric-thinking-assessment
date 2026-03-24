@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Check, Lock, Star, BookCheck, MapPin, Compass, Zap, Brain, Settings, Network } from "lucide-react";
+import { Check, Lock, Star, MapPin, Compass, Zap, Brain, Settings, Network } from "lucide-react";
 import type { Level, Skill, UserSkillStatus } from "@shared/schema";
 import { LEVEL_COLORS, LEVEL_BG_COLORS, STATUS_COLORS } from "@/lib/animations";
 
@@ -614,19 +614,6 @@ export function RPGMap({ levels, skills, userSkills, scores, assessmentLevel, on
                               <p className="text-xs text-muted-foreground italic">
                                 {scores[node.skill.name].explanation}
                               </p>
-                            )}
-                            {node.state === "yellow" && (
-                              <Button
-                                size="sm"
-                                className="w-full mt-2"
-                                onClick={() => {
-                                  setOpenPopover(null);
-                                  onVerifySkill(node.skill);
-                                }}
-                                data-testid={`button-verify-map-${node.skill.id}`}
-                              >
-                                <BookCheck className="w-3 h-3 mr-1" /> Verify Skill
-                              </Button>
                             )}
                           </>
                         )}

@@ -97,7 +97,7 @@ export function SkillSliders({
     .sort((a, b) => a - b);
 
   const LEVEL_NAMES: Record<number, string> = {
-    0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic",
+    0: "Accelerator", 1: "Thought Partner", 2: "Specialized", 3: "Agentic",
   };
 
   return (

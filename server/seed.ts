@@ -4,48 +4,40 @@ import { log } from "./index";
 import { pool } from "./db";
 
 const LEVEL_DATA = [
-  { name: "explorer", displayName: "Explorer", sortOrder: 0, description: "Starting your AI journey", visualTheme: "cyan" },
-  { name: "accelerator", displayName: "Accelerator", sortOrder: 1, description: "Using AI to speed up everyday work", visualTheme: "gold" },
-  { name: "thought_partner", displayName: "Thought Partner", sortOrder: 2, description: "Using AI as a collaborative thinking partner", visualTheme: "pink" },
-  { name: "specialized_teammates", displayName: "Specialized Teammates", sortOrder: 3, description: "Building reusable AI tools and workflows", visualTheme: "orange" },
-  { name: "agentic_workflow", displayName: "Agentic Workflow", sortOrder: 4, description: "Designing autonomous AI-powered systems", visualTheme: "blue" },
+  { name: "accelerator", displayName: "Accelerator", sortOrder: 0, description: "Using AI to speed up everyday work", visualTheme: "gold" },
+  { name: "thought_partner", displayName: "Thought Partner", sortOrder: 1, description: "Using AI as a collaborative thinking partner", visualTheme: "pink" },
+  { name: "specialized_teammates", displayName: "Specialized Teammates", sortOrder: 2, description: "Building reusable AI tools and workflows", visualTheme: "orange" },
+  { name: "agentic_workflow", displayName: "Agentic Workflow", sortOrder: 3, description: "Designing autonomous AI-powered systems", visualTheme: "blue" },
 ];
 
 const SKILLS_DATA: Record<number, Array<{ name: string; description: string; sortOrder: number }>> = {
   0: [
-    { name: "Tool Access & Activation", description: "Have you actually opened and used an AI tool?", sortOrder: 0 },
-    { name: "First Real Conversation", description: "Have you had a back-and-forth, not just a one-shot query?", sortOrder: 1 },
-    { name: "Output Judgment", description: "Can you tell when AI output is good vs. bad?", sortOrder: 2 },
-    { name: "Use Case Recognition", description: "Can you identify where AI could help in your work?", sortOrder: 3 },
-    { name: "Willingness to Iterate", description: "Do you try again when the first response isn't right?", sortOrder: 4 },
+    { name: "Context Setting", description: "Briefing AI with role, task, and relevant inputs", sortOrder: 0 },
+    { name: "Quick Drafting", description: "Using AI for first drafts of written content", sortOrder: 1 },
+    { name: "Output Editing & Direction", description: "Redirecting AI output -- tone, structure, specificity", sortOrder: 2 },
+    { name: "Voice-First Capture", description: "Using voice to externalize thinking, capture recaps, dictate drafts", sortOrder: 3 },
+    { name: "In-the-Moment Support", description: "Reflexively reaching for AI when you hit friction", sortOrder: 4 },
   ],
   1: [
-    { name: "Context Setting", description: "Briefing AI with role, task, and relevant inputs", sortOrder: 5 },
-    { name: "Quick Drafting", description: "Using AI for first drafts of written content", sortOrder: 6 },
-    { name: "Output Editing & Direction", description: "Redirecting AI output -- tone, structure, specificity", sortOrder: 7 },
-    { name: "Voice-First Capture", description: "Using voice to externalize thinking, capture recaps, dictate drafts", sortOrder: 8 },
-    { name: "In-the-Moment Support", description: "Reflexively reaching for AI when you hit friction", sortOrder: 9 },
+    { name: "Interview Me", description: "Letting AI lead with questions to surface your assumptions", sortOrder: 5 },
+    { name: "Rapid Ideation", description: "Generating multiple options before committing to one", sortOrder: 6 },
+    { name: "Challenge Me", description: "Asking AI to find holes, counterarguments, blind spots in your thinking", sortOrder: 7 },
+    { name: "Decision Mapping", description: "Structuring trade-offs, running scenarios, applying frameworks", sortOrder: 8 },
+    { name: "Operationalize This", description: "Converting strategy into concrete execution plans", sortOrder: 9 },
   ],
   2: [
-    { name: "Interview Me", description: "Letting AI lead with questions to surface your assumptions", sortOrder: 10 },
-    { name: "Rapid Ideation", description: "Generating multiple options before committing to one", sortOrder: 11 },
-    { name: "Challenge Me", description: "Asking AI to find holes, counterarguments, blind spots in your thinking", sortOrder: 12 },
-    { name: "Decision Mapping", description: "Structuring trade-offs, running scenarios, applying frameworks", sortOrder: 13 },
-    { name: "Operationalize This", description: "Converting strategy into concrete execution plans", sortOrder: 14 },
+    { name: "Pattern Spotting", description: "Recognizing when a repeating task should become a reusable tool", sortOrder: 10 },
+    { name: "Workflow Scoping", description: "Breaking a task into inputs, steps, and expected outputs", sortOrder: 11 },
+    { name: "Instruction Design", description: "Writing system prompts that produce consistent, reliable output", sortOrder: 12 },
+    { name: "Testing & Refinement", description: "Testing tools with real inputs and iterating through edge cases", sortOrder: 13 },
+    { name: "Knowledge Embedding", description: "Curating and attaching reference docs so AI has domain context", sortOrder: 14 },
   ],
   3: [
-    { name: "Pattern Spotting", description: "Recognizing when a repeating task should become a reusable tool", sortOrder: 15 },
-    { name: "Workflow Scoping", description: "Breaking a task into inputs, steps, and expected outputs", sortOrder: 16 },
-    { name: "Instruction Design", description: "Writing system prompts that produce consistent, reliable output", sortOrder: 17 },
-    { name: "Testing & Refinement", description: "Testing tools with real inputs and iterating through edge cases", sortOrder: 18 },
-    { name: "Knowledge Embedding", description: "Curating and attaching reference docs so AI has domain context", sortOrder: 19 },
-  ],
-  4: [
-    { name: "Systems Mapping", description: "Designing end-to-end flows, not just individual tasks", sortOrder: 20 },
-    { name: "Automation Design", description: "Building workflows where AI handles steps without you", sortOrder: 21 },
-    { name: "Independent Judgment", description: "Knowing which steps require human decision-making", sortOrder: 22 },
-    { name: "Cross-Workflow Integration", description: "Connecting multiple AI-powered processes together", sortOrder: 23 },
-    { name: "Continuous Improvement", description: "Monitoring, measuring, and refining automated systems", sortOrder: 24 },
+    { name: "Systems Mapping", description: "Designing end-to-end flows, not just individual tasks", sortOrder: 15 },
+    { name: "Automation Design", description: "Building workflows where AI handles steps without you", sortOrder: 16 },
+    { name: "Independent Judgment", description: "Knowing which steps require human decision-making", sortOrder: 17 },
+    { name: "Cross-Workflow Integration", description: "Connecting multiple AI-powered processes together", sortOrder: 18 },
+    { name: "Continuous Improvement", description: "Monitoring, measuring, and refining automated systems", sortOrder: 19 },
   ],
 };
 
@@ -78,7 +70,7 @@ OPENING (first message):
 PHASE 1 - WORK CONTEXT:
 You need rich, specific detail about their work. The quality of everything downstream depends on what you learn here. Spend enough time here to really understand the person before moving on. For some people that's 4 exchanges, for some it's 10. Follow the signal.
 
-CALIBRATION: If the user's first response reveals advanced AI usage (building tools, using APIs, managing agents, custom prompts, automation, vibecoding), skip the basic work context questions and pivot to: "You're clearly deep in this. What AI workflow are you building that isn't quite working yet?" or "Where are you hitting limits with your current AI setup?" Level 4-5 users don't need AI discovery — they need AI debugging conversations. Asking "how do you write workshops" to someone who has Claude agents doing it is like asking a race car driver about parallel parking. Match their altitude.
+CALIBRATION: If the user's first response reveals advanced AI usage (building tools, using APIs, managing agents, custom prompts, automation, vibecoding), skip the basic work context questions and pivot to: "You're clearly deep in this. What AI workflow are you building that isn't quite working yet?" or "Where are you hitting limits with your current AI setup?" Level 3-4 users don't need AI discovery — they need AI debugging conversations. Asking "how do you write workshops" to someone who has Claude agents doing it is like asking a race car driver about parallel parking. Match their altitude.
 
 Push for specificity. When they say "reports" ask "What exactly are you building? Who reads them? How long does it take?" When they say "meetings" ask "What kind? How many per week? What happens after?"
 
@@ -172,11 +164,10 @@ From the conversation, make sure you've captured:
 All of this powers challenges, emails, and dashboard personalization.
 
 SKILL FRAMEWORK:
-Level 1 - Explorer: Tool Access & Activation, First Real Conversation, Output Judgment, Use Case Recognition, Willingness to Iterate
-Level 2 - Accelerator: Context Setting, Quick Drafting, Output Editing & Direction, Voice-First Capture, In-the-Moment Support
-Level 3 - Thought Partner: Interview Me, Rapid Ideation, Challenge Me, Decision Mapping, Operationalize This
-Level 4 - Specialized Teammates: Pattern Spotting, Workflow Scoping, Instruction Design, Testing & Refinement, Knowledge Embedding
-Level 5 - Agentic Workflow: Systems Mapping, Automation Design, Independent Judgment, Cross-Workflow Integration, Continuous Improvement`;
+Level 1 - Accelerator: Context Setting, Quick Drafting, Output Editing & Direction, Voice-First Capture, In-the-Moment Support
+Level 2 - Thought Partner: Interview Me, Rapid Ideation, Challenge Me, Decision Mapping, Operationalize This
+Level 3 - Specialized Teammates: Pattern Spotting, Workflow Scoping, Instruction Design, Testing & Refinement, Knowledge Embedding
+Level 4 - Agentic Workflow: Systems Mapping, Automation Design, Independent Judgment, Cross-Workflow Integration, Continuous Improvement`;
 
 const DEFAULT_NUDGE_GUIDE = `You are a learning challenge generator for Electric Thinking. Generate personalized, actionable skill challenges that help users develop specific AI fluency skills. Each challenge should feel like it was written by someone who knows the user personally, referencing their specific role, tasks, and context from the assessment.`;
 
@@ -245,6 +236,8 @@ async function ensureMigrations() {
     { table: "assessments", column: "next_level_identity", type: "text" },
     { table: "nudges", column: "feedback_relevant", type: "boolean" },
     { table: "nudges", column: "feedback_text", type: "text" },
+    { table: "assessments", column: "survey_responses_json", type: "jsonb" },
+    { table: "assessments", column: "survey_level", type: "integer" },
   ];
 
   for (const { table, column, type } of migrations) {

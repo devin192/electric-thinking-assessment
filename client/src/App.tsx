@@ -14,13 +14,13 @@ import ResultsPage from "@/pages/results";
 import DashboardPage from "@/pages/dashboard";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
-import ManagerPage from "@/pages/manager";
 import UnsubscribePage from "@/pages/unsubscribe";
 import PrivacyPage from "@/pages/privacy";
 import TermsPage from "@/pages/terms";
 import JoinPage from "@/pages/join";
 import NotFound from "@/pages/not-found";
 import ResetPasswordPage from "@/pages/reset-password";
+import SurveyPage from "@/pages/survey";
 
 function Router() {
   return (
@@ -29,13 +29,13 @@ function Router() {
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
       <Route path="/onboarding">{() => <ProtectedRoute><OnboardingPage /></ProtectedRoute>}</Route>
+      <Route path="/survey">{() => <ProtectedRoute><SurveyPage /></ProtectedRoute>}</Route>
       <Route path="/assessment/warmup">{() => <ProtectedRoute><AssessmentWarmup /></ProtectedRoute>}</Route>
       <Route path="/assessment">{() => <ProtectedRoute><AssessmentPage /></ProtectedRoute>}</Route>
       <Route path="/results">{() => <ProtectedRoute><ResultsPage /></ProtectedRoute>}</Route>
       <Route path="/dashboard">{() => <ProtectedRoute><DashboardPage /></ProtectedRoute>}</Route>
       <Route path="/settings">{() => <ProtectedRoute><SettingsPage /></ProtectedRoute>}</Route>
       <Route path="/admin">{() => <ProtectedRoute><AdminPage /></ProtectedRoute>}</Route>
-      <Route path="/manager">{() => <ProtectedRoute><ManagerPage /></ProtectedRoute>}</Route>
       <Route path="/unsubscribe/:token" component={UnsubscribePage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />

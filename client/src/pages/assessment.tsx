@@ -243,6 +243,44 @@ export default function AssessmentPage() {
         setIsListening(true);
         reconnectAttemptsRef.current = 0;
 
+        // Send survey context to ElevenLabs agent as dynamic variables
+        if (activeAssessment?.surveyResponsesJson) {
+          try {
+            const surveyData = activeAssessment.surveyResponsesJson as Record<string, number>;
+            const userName = user?.name || "";
+            const roleTitle = user?.roleTitle || "";
+            const aiPlatform = user?.aiPlatform || "";
+            const surveyLevel = (activeAssessment as any).surveyLevel ?? 0;
+            const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+
+            // Build readable survey summary
+            const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
+            const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
+            const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
+
+            const surveySummary = [
+              `Approximate level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
+              strong.length > 0 ? `Always does: ${strong.join(", ")}` : "",
+              sometimes.length > 0 ? `Sometimes does: ${sometimes.join(", ")}` : "",
+              never.length > 0 ? `Never does: ${never.join(", ")}` : "",
+            ].filter(Boolean).join(". ");
+
+            ws.send(JSON.stringify({
+              type: "conversation_initiation_client_data",
+              dynamic_variables: {
+                user_name: userName,
+                role_title: roleTitle,
+                ai_platform: aiPlatform,
+                survey_level: String(surveyLevel + 1),
+                survey_level_name: levelNames[surveyLevel] || "Accelerator",
+                survey_summary: surveySummary,
+              },
+            }));
+          } catch (e) {
+            console.warn("Failed to send survey context to voice agent:", e);
+          }
+        }
+
         // If no agent response within 15s of connecting, auto-fallback to text
         const activityTimeout = setTimeout(() => {
           if (!activityReceived && voiceConnectedRef.current) {

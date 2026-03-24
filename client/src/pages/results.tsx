@@ -6,51 +6,46 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import type { Assessment, Level, Skill, Nudge } from "@shared/schema";
+import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
 import {
-  ArrowRight, Sparkles, Loader2, Crown,
-  Clock, CheckCircle2, MessageCircle,
-  ChevronDown, BarChart3
+  ArrowRight, Sparkles, Loader2, Crown, ChevronDown, ChevronUp,
+  CheckCircle2, BarChart3, Settings, LogOut, Mic, Share2, Link2
 } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useToast } from "@/hooks/use-toast";
 
 const LEVEL_COLORS: Record<number, string> = {
-  0: "#2DD6FF", 1: "#FFD236", 2: "#FF2F86", 3: "#FF6A2B", 4: "#1C4BFF",
+  0: "#FFD236", 1: "#FF2F86", 2: "#FF6A2B", 3: "#1C4BFF",
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized Teammates", 4: "Agentic Workflow",
+  0: "Accelerator", 1: "Thought Partner", 2: "Specialized Teammates", 3: "Agentic Workflow",
 };
 
-const NEXT_LEVEL_DESCRIPTIONS: Record<number, string> = {
-  0: "At Level 2, AI stops being a tool you open and becomes a reflex you reach for.",
-  1: "At Level 3, AI stops being your assistant and becomes your thinking partner.",
-  2: "At Level 4, you build reusable AI systems that work without you babysitting them.",
-  3: "At Level 5, your AI runs entire workflows while you focus on the decisions only you can make.",
-  4: "You've reached the highest level. Now it's about depth, not altitude.",
+const LEVEL_SUBTITLES: Record<number, string> = {
+  0: "Speed up everyday work",
+  1: "Think better with AI",
+  2: "Build reusable AI tools",
+  3: "Design autonomous systems",
 };
 
-type Phase = "loading" | "reveal" | "choose" | "action" | "done";
-
-interface OutcomeOption {
+type OutcomeOption = {
   outcomeHeadline: string;
-  timeEstimate: string;
-  skillName: string;
-  action: string;
-  whatYoullSee: string;
-}
+  timeEstimate?: string;
+  skillName?: string;
+  action?: string;
+  whatYoullSee?: string;
+};
+
+type Phase = "loading" | "reveal" | "results";
 
 export default function ResultsPage() {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const [phase, setPhase] = useState<Phase>("loading");
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [reflectionNote, setReflectionNote] = useState("");
-  const [showReflection, setShowReflection] = useState(false);
-  const [completingChallenge, setCompletingChallenge] = useState(false);
+  const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
+  const [showSkills, setShowSkills] = useState(false);
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
@@ -58,26 +53,27 @@ export default function ResultsPage() {
   });
   const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/levels"] });
   const { data: allSkills } = useQuery<Skill[]>({ queryKey: ["/api/skills"] });
-  const { data: nudges, refetch: refetchNudges } = useQuery<Nudge[]>({
-    queryKey: ["/api/user/nudges"],
-    enabled: !!user,
+  const { data: userSkills } = useQuery<UserSkillStatus[]>({
+    queryKey: ["/api/user/skills"],
+    enabled: !!user && phase === "results",
   });
-
-  const firstChallenge = nudges?.find((n: any) => n.isFirstChallenge);
 
   const assessmentLevel = assessment?.assessmentLevel ?? 0;
   const levelColor = LEVEL_COLORS[assessmentLevel] || LEVEL_COLORS[0];
-  const levelName = LEVEL_NAMES[assessmentLevel] || "Explorer";
+  const levelName = LEVEL_NAMES[assessmentLevel] || "Accelerator";
   const currentLevelInfo = levels?.find(l => l.sortOrder === assessmentLevel);
-  const nextLevelName = LEVEL_NAMES[Math.min(assessmentLevel + 1, 4)] || "";
 
-  // Parse the new data shape
-  const outcomeOptions: OutcomeOption[] = (assessment as any)?.outcomeOptionsJson || [];
-  const signatureSkillRationale = (assessment as any)?.signatureSkillRationale || "";
   const signatureSkillId = (assessment as any)?.signatureSkillId;
   const signatureSkill = allSkills?.find(s => s.id === signatureSkillId);
 
-  // brightSpotsText is now JSON stringified array
+  // Parse outcomes from assessment
+  let outcomes: OutcomeOption[] = [];
+  try {
+    const raw = (assessment as any)?.outcomeOptionsJson;
+    if (Array.isArray(raw)) outcomes = raw;
+  } catch {}
+
+  // Parse bright spots
   let brightSpots: string[] = [];
   try {
     const raw = (assessment as any)?.brightSpotsText;
@@ -91,92 +87,50 @@ export default function ResultsPage() {
   }
 
   const futureSelfText = (assessment as any)?.futureSelfText || "";
-  const nextLevelIdentity = (assessment as any)?.nextLevelIdentity || nextLevelName;
 
-  // Fallback outcome options from firstMove if new format not available
-  const firstMove = (assessment?.firstMoveJson || {}) as { skillName?: string; suggestion?: string };
-  const hasOutcomeOptions = outcomeOptions.length >= 2;
+  // Parse first move (try-it-now prompt)
+  let tryItNow: { skillName?: string; suggestion?: string } = {};
+  try {
+    const raw = (assessment as any)?.firstMoveJson;
+    if (raw && typeof raw === "object") tryItNow = raw;
+  } catch {}
 
   useEffect(() => {
     if (assessment && allSkills && levels && phase === "loading") {
       const animKey = `results-animated-${assessment.id}`;
       const alreadySeen = sessionStorage.getItem(animKey) === "true";
-
       if (alreadySeen) {
-        setPhase("choose");
+        setPhase("results");
       } else {
-        // Brief loading moment, then reveal
         setTimeout(() => {
           setPhase("reveal");
           sessionStorage.setItem(animKey, "true");
-          // Fire confetti on reveal
           const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
           if (!prefersReduced) {
-            setTimeout(() => {
-              confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-            }, 800);
+            setTimeout(() => confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } }), 800);
           }
-          // Auto-advance to choose after the reveal settles
-          setTimeout(() => setPhase("choose"), 3000);
+          setTimeout(() => setPhase("results"), 3000);
         }, 2000);
       }
     }
   }, [assessment, allSkills, levels]);
 
-  const handleSelectOption = (index: number) => {
-    setSelectedOption(index);
-    setPhase("action");
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
   };
 
-  const handleDidIt = async () => {
-    setShowReflection(true);
-  };
-
-  const handleSubmitReflection = async () => {
-    setCompletingChallenge(true);
-    try {
-      // If we have a first challenge nudge, mark it as read and save reflection
-      if (firstChallenge && reflectionNote.trim()) {
-        await apiRequest("POST", `/api/challenge/${firstChallenge.id}/reflect`, {
-          note: reflectionNote.trim(),
-        });
-      } else if (firstChallenge) {
-        // Just mark as read without reflection
-        await apiRequest("PATCH", `/api/nudges/${firstChallenge.id}/read`);
-      }
-      await refetchNudges();
-      queryClient.invalidateQueries({ queryKey: ["/api/user/skills"] });
-
-      // Celebrate
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (!prefersReduced) {
-        confetti({ particleCount: 100, spread: 100, origin: { y: 0.5 } });
-      }
-
-      setPhase("done");
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+  const handleShare = async () => {
+    const shareText = `I just took an AI skills assessment and I'm a Level ${assessmentLevel + 1} ${levelName}! Find out where you stand:`;
+    const shareUrl = window.location.origin;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "My AI Level", text: shareText, url: shareUrl });
+      } catch {}
+    } else {
+      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+      toast({ title: "Link copied to clipboard" });
     }
-    setCompletingChallenge(false);
-  };
-
-  const handleSkipReflection = async () => {
-    setCompletingChallenge(true);
-    try {
-      if (firstChallenge) {
-        await apiRequest("PATCH", `/api/nudges/${firstChallenge.id}/read`);
-      }
-      await refetchNudges();
-
-      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (!prefersReduced) {
-        confetti({ particleCount: 80, spread: 80, origin: { y: 0.5 } });
-      }
-      setPhase("done");
-    } catch (e: any) {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
-    }
-    setCompletingChallenge(false);
   };
 
   if (!user) return null;
@@ -201,9 +155,9 @@ export default function ResultsPage() {
               <BarChart3 className="w-7 h-7 text-et-pink" />
             </div>
             <h1 className="font-heading text-2xl font-bold mb-3">Ready to find your AI level?</h1>
-            <p className="text-muted-foreground mb-6">Have a quick conversation and find out where you stand.</p>
-            <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/assessment/warmup")}>
-              Start Your Conversation <ArrowRight className="w-5 h-5 ml-2" />
+            <p className="text-muted-foreground mb-6">Take a quick survey and have a conversation to find out.</p>
+            <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/survey")}>
+              Start the Assessment <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </CardContent>
         </Card>
@@ -215,11 +169,7 @@ export default function ResultsPage() {
   if (phase === "loading") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+        <motion.div className="text-center" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Wordmark className="text-xl mb-8 block" />
           <div className="relative w-24 h-24 mx-auto mb-8">
             <motion.div
@@ -228,10 +178,7 @@ export default function ResultsPage() {
               animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.6, 0.3] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <div
-              className="absolute inset-2 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: `${levelColor}30` }}
-            >
+            <div className="absolute inset-2 rounded-full flex items-center justify-center" style={{ backgroundColor: `${levelColor}30` }}>
               <Sparkles className="w-8 h-8" style={{ color: levelColor }} />
             </div>
           </div>
@@ -241,338 +188,275 @@ export default function ResultsPage() {
     );
   }
 
-  // === REVEAL + CHOOSE + ACTION + DONE (single scrollable page) ===
+  // Build skill breakdown by level
+  const skillsByLevel = levels
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(level => {
+      const levelSkills = (allSkills || []).filter(s => s.levelId === level.id);
+      return {
+        level,
+        skills: levelSkills.map(skill => {
+          const userStatus = userSkills?.find(us => us.skillId === skill.id);
+          return { ...skill, status: userStatus?.status || "red" };
+        }),
+      };
+    });
+
+  // === REVEAL + RESULTS ===
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 px-6 py-4 flex items-center justify-between sticky top-0 z-50 bg-background/80 backdrop-blur-md">
         <Wordmark className="text-lg" />
-        <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="text-xs">
-          Go to Dashboard <ArrowRight className="w-3.5 h-3.5 ml-1" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {user.userRole === "system_admin" && (
+            <Button variant="ghost" size="sm" onClick={() => navigate("/admin")} data-testid="link-admin">Admin</Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => navigate("/settings")} aria-label="Settings">
+            <Settings className="w-4 h-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleLogout} aria-label="Log out">
+            <LogOut className="w-4 h-4" /><span className="ml-1">Sign out</span>
+          </Button>
+        </div>
       </header>
 
       <div className="max-w-xl mx-auto px-6 py-10 space-y-8">
-        {/* === IDENTITY SECTION === */}
-        <motion.section
-          className="text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          {/* Level circle */}
-          <motion.div
-            className="relative w-28 h-28 mx-auto mb-6"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 150, damping: 15 }}
-          >
-            <div
-              className="absolute inset-0 rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: levelColor,
-                boxShadow: `0 0 40px ${levelColor}40, 0 0 80px ${levelColor}15`,
-              }}
-            >
-              <span className="text-white font-heading text-5xl font-bold">{assessmentLevel + 1}</span>
-            </div>
-            <motion.div
-              className="absolute -top-1 -right-1"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.5, type: "spring" }}
-            >
-              <div className="w-8 h-8 rounded-full bg-card border-2 border-border flex items-center justify-center shadow-lg">
-                <Crown className="w-4 h-4" style={{ color: levelColor }} />
-              </div>
-            </motion.div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <h1 className="font-heading text-3xl font-bold mb-1">
-              You're a <span style={{ color: levelColor }}>{currentLevelInfo?.displayName || levelName}</span>
+        {/* === 1. LEVEL LADDER HERO === */}
+        <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+          <div className="space-y-2">
+            {[3, 2, 1, 0].map(lvl => {
+              const isCurrentLevel = lvl === assessmentLevel;
+              const color = LEVEL_COLORS[lvl];
+              return (
+                <motion.div
+                  key={lvl}
+                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
+                    isCurrentLevel ? "ring-2 bg-card shadow-md" : "opacity-40"
+                  }`}
+                  style={isCurrentLevel ? { ringColor: color, borderColor: color } : {}}
+                  initial={isCurrentLevel ? { scale: 0.95 } : {}}
+                  animate={isCurrentLevel ? { scale: 1 } : {}}
+                  transition={{ type: "spring", stiffness: 150, damping: 15 }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-bold text-lg shrink-0"
+                    style={{ backgroundColor: color }}
+                  >
+                    {lvl + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-heading font-semibold text-sm">{LEVEL_NAMES[lvl]}</p>
+                    <p className="text-xs text-muted-foreground">{LEVEL_SUBTITLES[lvl]}</p>
+                  </div>
+                  {isCurrentLevel && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.3, type: "spring" }}
+                    >
+                      <Crown className="w-5 h-5" style={{ color }} />
+                    </motion.div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+
+          <motion.div className="text-center mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
+            <h1 className="font-heading text-2xl font-bold">
+              You're a Level {assessmentLevel + 1}{" "}
+              <span style={{ color: levelColor }}>{currentLevelInfo?.displayName || levelName}</span>
             </h1>
             {signatureSkill && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Your signature skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
+              <p className="text-sm text-muted-foreground mt-1">
+                Signature skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
               </p>
             )}
           </motion.div>
-
         </motion.section>
 
-        {/* === BRIGHT SPOTS + ASPIRATION === */}
+        {/* === 2. THREE PERSONALIZED OUTCOMES === */}
         <AnimatePresence>
-          {(phase === "choose" || phase === "action" || phase === "done") && (
+          {phase === "results" && outcomes.length > 0 && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <Card className="rounded-2xl border border-border overflow-hidden">
-                <CardContent className="pt-6 pb-6 space-y-4">
-                  {/* Bright spots as bullets */}
-                  {brightSpots.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-2">
-                        What you're already doing well
-                      </p>
-                      <ul className="space-y-2">
-                        {brightSpots.map((spot, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                            <span>{spot}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Aspiration line */}
-                  {assessmentLevel < 4 && (
-                    <div className="pt-3 border-t border-border/50">
-                      <p className="text-sm">
-                        <span className="font-medium" style={{ color: LEVEL_COLORS[Math.min(assessmentLevel + 1, 4)] }}>
-                          Next: {nextLevelIdentity}
-                        </span>
-                        {" "}<span className="text-muted-foreground">{futureSelfText || NEXT_LEVEL_DESCRIPTIONS[assessmentLevel]}</span>
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.section>
-          )}
-        </AnimatePresence>
-
-        {/* === OUTCOME CARDS === */}
-        <AnimatePresence>
-          {phase === "choose" && hasOutcomeOptions && (
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <p className="text-center text-sm font-medium mb-4">Pick the outcome you want first:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {outcomeOptions.slice(0, 2).map((option, i) => (
-                  <motion.div
+              <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-3">
+                What's possible for you
+              </p>
+              <div className="space-y-3">
+                {outcomes.map((outcome, i) => (
+                  <Card
                     key={i}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
+                    className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/50 transition-colors"
+                    onClick={() => setExpandedOutcome(expandedOutcome === i ? null : i)}
                   >
-                    <Card
-                      className="rounded-2xl border-2 cursor-pointer transition-all hover:shadow-lg h-full"
-                      style={{ borderColor: `${levelColor}30` }}
-                      onClick={() => handleSelectOption(i)}
-                    >
-                      <CardContent className="pt-6 pb-6 flex flex-col h-full">
-                        <p className="font-heading text-base font-bold leading-snug mb-3 flex-1">
-                          {option.outcomeHeadline}
-                        </p>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Clock className="w-3.5 h-3.5" />
-                          {option.timeEstimate}
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-heading font-semibold text-sm">{outcome.outcomeHeadline}</p>
+                          {expandedOutcome !== i && outcome.action && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{outcome.action}</p>
+                          )}
                         </div>
-                        <Button
-                          className="w-full rounded-xl mt-4"
-                          style={{ backgroundColor: levelColor }}
-                        >
-                          Let's do this <ArrowRight className="w-4 h-4 ml-1" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
+                        {expandedOutcome === i ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                      <AnimatePresence>
+                        {expandedOutcome === i && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-3 mt-3 border-t border-border/50 space-y-2 text-sm">
+                              {outcome.action && <p><span className="font-medium">What to do:</span> {outcome.action}</p>}
+                              {outcome.whatYoullSee && <p><span className="font-medium">What you'll see:</span> {outcome.whatYoullSee}</p>}
+                              {outcome.timeEstimate && <p className="text-xs text-muted-foreground">{outcome.timeEstimate}</p>}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </motion.section>
           )}
+        </AnimatePresence>
 
-          {/* Fallback if no outcome options (legacy assessments) */}
-          {phase === "choose" && !hasOutcomeOptions && firstMove.skillName && (
+        {/* === 3. TRY IT NOW === */}
+        <AnimatePresence>
+          {phase === "results" && tryItNow.suggestion && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Card className="rounded-2xl border-2 cursor-pointer" style={{ borderColor: `${levelColor}30` }}>
-                <CardContent className="pt-6 pb-6">
-                  <p className="font-heading text-lg font-bold mb-2">{firstMove.skillName}</p>
-                  <p className="text-sm text-muted-foreground mb-4">{firstMove.suggestion}</p>
-                  <Button
-                    className="rounded-xl"
-                    style={{ backgroundColor: levelColor }}
-                    onClick={() => { setSelectedOption(0); setPhase("action"); }}
-                  >
-                    Start <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
+              <Card className="rounded-2xl border-2 border-et-pink/30 bg-et-pink/5">
+                <CardContent className="pt-5 pb-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-et-pink/15 flex items-center justify-center shrink-0 mt-0.5">
+                      <Mic className="w-4 h-4 text-et-pink" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-1">
+                        Try this right now
+                      </p>
+                      <p className="text-sm">{tryItNow.suggestion}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Open your AI tool and say a version of this out loud.
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </motion.section>
           )}
         </AnimatePresence>
 
-        {/* === ACTION PHASE === */}
+        {/* === 4. COLLAPSED SKILL BREAKDOWN === */}
         <AnimatePresence>
-          {phase === "action" && selectedOption !== null && (
+          {phase === "results" && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="space-y-4"
+              transition={{ duration: 0.5, delay: 0.3 }}
             >
-              {hasOutcomeOptions && outcomeOptions[selectedOption] ? (
-                <Card className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${levelColor}40` }}>
-                  <div className="h-1" style={{ backgroundColor: levelColor }} />
-                  <CardContent className="pt-6 pb-6 space-y-5">
-                    <div>
-                      <p className="font-heading text-xl font-bold mb-1">
-                        {outcomeOptions[selectedOption].outcomeHeadline}
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {outcomeOptions[selectedOption].timeEstimate}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: levelColor }}>
-                        What to do
-                      </p>
-                      <p className="text-sm leading-relaxed">
-                        {outcomeOptions[selectedOption].action}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                        What you'll see
-                      </p>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {outcomeOptions[selectedOption].whatYoullSee}
-                      </p>
-                    </div>
-
-                    {firstChallenge && (
-                      <button
-                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors pt-2"
-                        onClick={() => navigate(`/dashboard`)}
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" /> Need help? Open the coach on your dashboard
-                      </button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : firstMove.skillName && (
-                <Card className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: `${levelColor}40` }}>
-                  <div className="h-1" style={{ backgroundColor: levelColor }} />
-                  <CardContent className="pt-6 pb-6 space-y-3">
-                    <p className="font-heading text-xl font-bold">{firstMove.skillName}</p>
-                    <p className="text-sm leading-relaxed">{firstMove.suggestion}</p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Action buttons */}
-              <div className="space-y-3">
-                {!showReflection ? (
-                  <>
-                    <Button
-                      className="w-full rounded-2xl py-6 text-base font-semibold"
-                      style={{ backgroundColor: levelColor }}
-                      onClick={handleDidIt}
-                      disabled={completingChallenge}
-                    >
-                      {completingChallenge ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-                      I did it
-                    </Button>
-
-                    <button
-                      className="w-full text-center text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors pt-2"
-                      onClick={() => {
-                        // Generate a different challenge
-                        if (hasOutcomeOptions && outcomeOptions.length > 1) {
-                          const otherIndex = selectedOption === 0 ? 1 : 0;
-                          setSelectedOption(otherIndex);
-                        }
-                      }}
-                    >
-                      Show me something different
-                    </button>
-                  </>
-                ) : (
+              <button
+                onClick={() => setShowSkills(!showSkills)}
+                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+              >
+                <span>See your detailed skill breakdown</span>
+                {showSkills ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              <AnimatePresence>
+                {showSkills && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
                   >
-                    <p className="text-sm font-medium">Quick: what surprised you?</p>
-                    <input
-                      type="text"
-                      placeholder="Optional, just a line..."
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      value={reflectionNote}
-                      onChange={(e) => setReflectionNote(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSubmitReflection(); }}
-                      autoFocus
-                    />
-                    <div className="flex gap-3">
-                      <Button
-                        className="flex-1 rounded-xl"
-                        style={{ backgroundColor: levelColor }}
-                        onClick={handleSubmitReflection}
-                        disabled={completingChallenge}
-                      >
-                        {completingChallenge ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save & continue"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        className="rounded-xl"
-                        onClick={handleSkipReflection}
-                        disabled={completingChallenge}
-                      >
-                        Skip
-                      </Button>
+                    <div className="space-y-4 pt-3">
+                      {skillsByLevel.map(({ level, skills }) => (
+                        <div key={level.id}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                              style={{ backgroundColor: LEVEL_COLORS[level.sortOrder] }}
+                            >
+                              {level.sortOrder + 1}
+                            </div>
+                            <span className="text-xs font-semibold">{level.displayName}</span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-1.5 pl-7">
+                            {skills.map(skill => (
+                              <div key={skill.id} className="flex items-center gap-2 text-sm">
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${
+                                  skill.status === "green" ? "bg-emerald-500" :
+                                  skill.status === "yellow" ? "bg-amber-500" : "bg-red-400"
+                                }`} />
+                                <span className={skill.status === "green" ? "text-foreground" : "text-muted-foreground"}>
+                                  {skill.name}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </motion.div>
                 )}
-              </div>
+              </AnimatePresence>
             </motion.section>
           )}
         </AnimatePresence>
 
-        {/* === DONE PHASE === */}
+        {/* === 5. CTA SECTION === */}
         <AnimatePresence>
-          {phase === "done" && (
+          {phase === "results" && (
             <motion.section
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5, type: "spring" }}
-              className="text-center space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="space-y-3 pt-4"
             >
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-              </div>
-              <div>
-                <h2 className="font-heading text-2xl font-bold mb-2">Nice work.</h2>
-                {hasOutcomeOptions && selectedOption !== null && outcomeOptions[selectedOption] && (
-                  <p className="text-sm text-muted-foreground">
-                    You just practiced <span className="font-medium text-foreground">{outcomeOptions[selectedOption].skillName}</span>. That's a {levelName} skill.
-                  </p>
-                )}
-              </div>
-
-              <Button
-                className="rounded-2xl px-8 py-5 text-base"
-                onClick={() => navigate("/dashboard")}
-              >
-                Go to Your Dashboard <ArrowRight className="w-5 h-5 ml-2" />
+              <Button className="w-full rounded-2xl py-5" onClick={handleShare}>
+                <Share2 className="w-4 h-4 mr-2" /> Share your results
               </Button>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-2xl py-5"
+                  onClick={() => navigate("/survey")}
+                >
+                  Retake
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-2xl py-5"
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.origin);
+                    toast({ title: "Link copied!" });
+                  }}
+                >
+                  <Link2 className="w-4 h-4 mr-2" /> Copy link
+                </Button>
+              </div>
             </motion.section>
           )}
         </AnimatePresence>
+
       </div>
     </div>
   );

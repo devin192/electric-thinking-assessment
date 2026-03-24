@@ -102,6 +102,8 @@ export const assessments = pgTable(
     futureSelfText: text("future_self_text"),
     nextLevelIdentity: text("next_level_identity"),
     triggerMoment: text("trigger_moment"),
+    surveyResponsesJson: jsonb("survey_responses_json").$type<Record<string, number>>(),
+    surveyLevel: integer("survey_level"),
     status: varchar("status", { length: 50 }).notNull().default("in_progress"),
     startedAt: timestamp("started_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),

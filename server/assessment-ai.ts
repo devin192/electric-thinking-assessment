@@ -13,7 +13,7 @@ interface ConversationMessage {
 
 export async function getAssessmentResponse(
   messages: ConversationMessage[],
-  userContext: { name?: string; roleTitle?: string; aiPlatform?: string }
+  userContext: { name?: string; roleTitle?: string; aiPlatform?: string; surveyContext?: string }
 ): Promise<string> {
   const guide = await storage.getSystemConfig("assessment_conversation_guide");
   const systemPrompt = guide || "You are an AI fluency assessment agent.";
@@ -22,6 +22,7 @@ export async function getAssessmentResponse(
     userContext.name ? `User's name: ${userContext.name}` : "",
     userContext.roleTitle ? `Role: ${userContext.roleTitle}` : "",
     userContext.aiPlatform ? `Primary AI platform: ${userContext.aiPlatform}` : "",
+    userContext.surveyContext ? `\nSurvey results (from Part A self-assessment):\n${userContext.surveyContext}` : "",
   ].filter(Boolean).join("\n");
 
   const fullSystemPrompt = `${systemPrompt}\n\nUser context:\n${contextInfo}`;
@@ -106,8 +107,8 @@ ADDITIONAL ANALYSIS (generate these carefully):
 - signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here. Your approach to prompt iteration is more sophisticated than most people at your level."
 - brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned about their work. Frame as strengths. Example: ["You've figured out voice-first drafting for meeting recaps, which most people at your level skip entirely", "Your instinct to iterate on AI output for client proposals instead of accepting the first response puts you ahead"]
 - futureSelfText: ONE sentence painting the next level identity using their actual job context. Example: "Imagine your Monday morning planning sessions already have a draft agenda pulled from last week's action items, ready for you to review."
-- nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 4 (Agentic Workflow), return "You've reached the top level."
-- outcomeOptions: An array of exactly 2 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
+- nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 3 (Agentic Workflow), return "You've reached the top level."
+- outcomeOptions: An array of exactly 3 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
   Each option has:
   - outcomeHeadline: A tantalizing outcome in one sentence tied to their actual work. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
   - timeEstimate: How long to try it. Usually "~5 minutes" or "under 10 minutes". Keep it realistic.
@@ -117,11 +118,11 @@ ADDITIONAL ANALYSIS (generate these carefully):
 - triggerMoment: If the user mentioned WHEN or WHERE they typically hit friction or reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep," "pulling Salesforce data"), capture that here. If not mentioned, return an empty string.
 
 IMPORTANT FOR outcomeOptions:
-- Both options should be doable in a few minutes — realistic, not rushed.
-- Both must reference something specific the user said about their work.
+- All three options should be doable in a few minutes — realistic, not rushed.
+- All three must reference something specific the user said about their work.
 - Frame as the OUTCOME they get, not the skill they practice.
 - The action should describe what to do in their own words, not a copy-paste prompt.
-- Make both options genuinely appealing. The user should have a hard time choosing.
+- Make all three options genuinely appealing. The user should have a hard time choosing.
 
 TRANSCRIPT:
 ${transcript}
@@ -142,6 +143,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "workContextSummary": "2-3 sentence summary of the person's key recurring work activities and tools",
   "firstMove": { "skillName": "name", "suggestion": "actionable suggestion referencing their specific work" },
   "outcomeOptions": [
+    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
     { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
     { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" }
   ],
@@ -202,8 +204,8 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 
       return {
         scores: parsed.scores || {},
-        assessmentLevel: Math.max(0, Math.min(4, assessmentLevel)),
-        activeLevel: Math.max(0, Math.min(4, activeLevel)),
+        assessmentLevel: Math.max(0, Math.min(3, assessmentLevel)),
+        activeLevel: Math.max(0, Math.min(3, activeLevel)),
         contextSummary: parsed.contextSummary || "",
         workContextSummary: parsed.workContextSummary || "",
         firstMove: parsed.firstMove || { skillName: "", suggestion: "" },

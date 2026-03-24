@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { AiPlatform } from "@shared/schema";
-import { ArrowLeft, Loader2, Save, Users } from "lucide-react";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -23,22 +22,12 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
   const [aiPlatform, setAiPlatform] = useState("");
-  const [nudgesActive, setNudgesActive] = useState(true);
-  const [nudgeDay, setNudgeDay] = useState("Monday");
-  const [emailPrefsNudges, setEmailPrefsNudges] = useState(true);
-  const [emailPrefsProgress, setEmailPrefsProgress] = useState(true);
-  const [emailPrefsReminders, setEmailPrefsReminders] = useState(true);
 
   useEffect(() => {
     if (user) {
       setName(user.name || "");
       setRoleTitle(user.roleTitle || "");
       setAiPlatform(user.aiPlatform || "");
-      setNudgesActive(user.nudgesActive ?? true);
-      setNudgeDay(user.nudgeDay || "Monday");
-      setEmailPrefsNudges(user.emailPrefsNudges ?? true);
-      setEmailPrefsProgress(user.emailPrefsProgress ?? true);
-      setEmailPrefsReminders(user.emailPrefsReminders ?? true);
     }
   }, [user]);
 
@@ -48,8 +37,7 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       await apiRequest("PATCH", "/api/auth/me", {
-        name, roleTitle, aiPlatform, nudgesActive, nudgeDay,
-        emailPrefsNudges, emailPrefsProgress, emailPrefsReminders,
+        name, roleTitle, aiPlatform,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({ title: "Settings saved" });
@@ -66,18 +54,12 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 px-6 py-4 flex items-center justify-between gap-4 sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/dashboard")} className="text-muted-foreground" aria-label="Back to dashboard" data-testid="button-back">
+          <button onClick={() => navigate("/results")} className="text-muted-foreground" aria-label="Back" data-testid="button-back">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Wordmark className="text-lg" />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {(user.userRole === "manager" || user.userRole === "org_admin" || user.userRole === "system_admin") && (
-            <Button variant="ghost" size="sm" onClick={() => navigate("/manager")} data-testid="link-manager">
-              <Users className="w-4 h-4 mr-1" />
-              Team
-            </Button>
-          )}
           {user.userRole === "system_admin" && (
             <Button variant="ghost" size="sm" onClick={() => navigate("/admin")} data-testid="link-admin">
               Admin
@@ -115,75 +97,6 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border border-border mb-6">
-          <CardHeader className="pb-2">
-            <h2 className="font-heading font-semibold">Notifications</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Power Ups</Label>
-                <p className="text-xs text-muted-foreground">Receive weekly personalized Power Ups</p>
-              </div>
-              <Switch checked={nudgesActive} onCheckedChange={setNudgesActive} data-testid="switch-nudges" />
-            </div>
-            <div className="space-y-2">
-              <Label>Power Up Day</Label>
-              <Select value={nudgeDay} onValueChange={setNudgeDay}>
-                <SelectTrigger className="rounded-xl" data-testid="select-nudge-day">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(day => (
-                    <SelectItem key={day} value={day}>{day}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border border-border mb-6">
-          <CardHeader className="pb-2">
-            <h2 className="font-heading font-semibold">Email Preferences</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Weekly Power Up emails</Label>
-                <p className="text-xs text-muted-foreground">Receive weekly Power Ups via email</p>
-              </div>
-              <Switch checked={emailPrefsNudges} onCheckedChange={setEmailPrefsNudges} data-testid="switch-email-nudges" />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Progress updates</Label>
-                <p className="text-xs text-muted-foreground">Skill complete, level up notifications</p>
-              </div>
-              <Switch checked={emailPrefsProgress} onCheckedChange={setEmailPrefsProgress} data-testid="switch-email-progress" />
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label>Reminders</Label>
-                <p className="text-xs text-muted-foreground">Re-assessment, abandoned assessment reminders</p>
-              </div>
-              <Switch checked={emailPrefsReminders} onCheckedChange={setEmailPrefsReminders} data-testid="switch-email-reminders" />
-            </div>
-            <button
-              type="button"
-              className="text-sm text-muted-foreground underline"
-              onClick={() => {
-                setEmailPrefsNudges(false);
-                setEmailPrefsProgress(false);
-                setEmailPrefsReminders(false);
-              }}
-              data-testid="button-turn-off-all-emails"
-            >
-              Turn off all emails
-            </button>
           </CardContent>
         </Card>
 

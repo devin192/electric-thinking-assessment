@@ -5,7 +5,7 @@
  * All timing values live here so they can be tuned from one place.
  */
 
-// ── Timing Constants (milliseconds) ──
+// -- Timing Constants (milliseconds) --
 
 export const TIMING = {
   /** Slow breathing glow on mastered nodes */
@@ -30,7 +30,7 @@ export const TIMING = {
   LEVEL_UP_PAUSE: 800,
 } as const;
 
-// ── Easing Curves ──
+// -- Easing Curves --
 
 export const EASING = {
   /** For elements entering the screen */
@@ -43,7 +43,7 @@ export const EASING = {
   settle: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number],
 } as const;
 
-// ── Spring Configs (Framer Motion) ──
+// -- Spring Configs (Framer Motion) --
 
 export const SPRING = {
   /** Snappy pop for checkmarks and small icons */
@@ -54,7 +54,7 @@ export const SPRING = {
   bouncy: { type: "spring" as const, stiffness: 400, damping: 15 },
 } as const;
 
-// ── Framer Motion Variants ──
+// -- Framer Motion Variants --
 
 /** Node reveal: scales from 0 to 1 with a slight overshoot */
 export const nodeRevealVariant = {
@@ -98,25 +98,23 @@ export const fogFadeVariant = {
   },
 };
 
-// ── Level Colors ──
+// -- Level Colors (4 levels: 0=Accelerator, 1=Thought Partner, 2=Specialized, 3=Agentic) --
 
 export const LEVEL_COLORS: Record<number, string> = {
-  0: "#2DD6FF",
-  1: "#FFD236",
-  2: "#FF2F86",
-  3: "#FF6A2B",
-  4: "#1C4BFF",
+  0: "#FFD236",
+  1: "#FF2F86",
+  2: "#FF6A2B",
+  3: "#1C4BFF",
 };
 
 export const LEVEL_BG_COLORS: Record<number, string> = {
-  0: "rgba(45,214,255,0.06)",
-  1: "rgba(255,210,54,0.06)",
-  2: "rgba(255,47,134,0.06)",
-  3: "rgba(255,106,43,0.06)",
-  4: "rgba(28,75,255,0.06)",
+  0: "rgba(255,210,54,0.06)",
+  1: "rgba(255,47,134,0.06)",
+  2: "rgba(255,106,43,0.06)",
+  3: "rgba(28,75,255,0.06)",
 };
 
-// ── Status Colors ──
+// -- Status Colors --
 
 export const STATUS_COLORS = {
   green: "#38A169",

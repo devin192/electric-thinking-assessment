@@ -102,7 +102,7 @@ export function ChallengeCoach({ nudgeId, challengeContent, isOpen, onClose }: C
       <div ref={scrollRef} className="max-h-[300px] overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && !loading && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            Need help with this Power Up? Describe what you're trying and where you're stuck.
+            Need help? Describe what you're trying and where you're stuck.
           </p>
         )}
 

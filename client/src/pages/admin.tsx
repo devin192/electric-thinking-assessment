@@ -90,7 +90,7 @@ function AnalyticsTab() {
   const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
 
   const LEVEL_NAMES: Record<number, string> = {
-    0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic"
+    0: "Accelerator", 1: "Thought Partner", 2: "Specialized", 3: "Agentic"
   };
 
   return (

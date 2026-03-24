@@ -1,17 +1,15 @@
 const LEVEL_COLORS: Record<number, string> = {
-  0: "#2DD6FF",
-  1: "#FFD236",
-  2: "#FF2F86",
-  3: "#FF6A2B",
-  4: "#1C4BFF",
+  0: "#FFD236",
+  1: "#FF2F86",
+  2: "#FF6A2B",
+  3: "#1C4BFF",
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Explorer",
-  1: "Accelerator",
-  2: "Thought Partner",
-  3: "Specialized",
-  4: "Agentic Workflow",
+  0: "Accelerator",
+  1: "Thought Partner",
+  2: "Specialized",
+  3: "Agentic Workflow",
 };
 
 export function generateBadgeSVG(
@@ -117,7 +115,7 @@ function masterBadgeSVG(userName: string, date: string): string {
     <text x="300" y="95" text-anchor="middle" font-size="26">⚡</text>
     <text x="300" y="178" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="600" font-size="13" fill="#FF2F86" letter-spacing="3">CERTIFIED</text>
     <text x="300" y="210" text-anchor="middle" font-family="Tomorrow, sans-serif" font-weight="700" font-size="22" fill="#2B2B2B">AI Fluency Master</text>
-    <text x="300" y="240" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" fill="#666">All 25 skills mastered</text>
+    <text x="300" y="240" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="14" fill="#666">All 20 skills mastered</text>
     <text x="300" y="280" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="16" fill="#2B2B2B" font-weight="600">${escapeXml(userName)}</text>
     <text x="300" y="305" text-anchor="middle" font-family="Source Sans 3, sans-serif" font-size="13" fill="#999">${date}</text>
   `, "#FF2F86");

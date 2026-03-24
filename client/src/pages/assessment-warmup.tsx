@@ -60,25 +60,25 @@ export default function AssessmentWarmup() {
               <Mic className="w-7 h-7 text-et-pink" />
             </div>
             <h1 className="font-heading text-2xl font-bold text-center mb-6" data-testid="text-warmup-title">
-              Here's how it works
+              Now let's talk
             </h1>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Mic className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">A real conversation, not a quiz</div>
+                  <div className="font-medium text-sm">A quick conversation with Lex</div>
                   <div className="text-sm text-muted-foreground">
-                    No trick questions, no wrong answers. Just talk about your work.
+                    Based on your survey, Lex will dig into how AI fits your actual work.
                   </div>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Clock className="w-5 h-5 text-et-cyan mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">About 10 minutes</div>
+                  <div className="font-medium text-sm">About 8-10 minutes</div>
                   <div className="text-sm text-muted-foreground">
-                    You'll walk away knowing exactly where you stand and what to work on first.
+                    At the end, you'll get your level and personalized outcomes.
                   </div>
                 </div>
               </div>

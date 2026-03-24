@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 
 const LEVEL_COLORS: Record<number, string> = {
-  0: "bg-et-cyan", 1: "bg-et-gold", 2: "bg-et-pink", 3: "bg-et-orange", 4: "bg-et-blue",
+  0: "bg-et-gold", 1: "bg-et-pink", 2: "bg-et-orange", 3: "bg-et-blue",
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Explorer", 1: "Accelerator", 2: "Thought Partner", 3: "Specialized", 4: "Agentic",
+  0: "Accelerator", 1: "Thought Partner", 2: "Specialized", 3: "Agentic",
 };
 
 type TeamMember = {
@@ -165,7 +165,7 @@ function OverviewTab() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {[0, 1, 2, 3, 4].map(level => {
+            {[0, 1, 2, 3].map(level => {
               const count = dist[level] || 0;
               const pct = totalMembers > 0 ? Math.round((count / totalMembers) * 100) : 0;
               return (

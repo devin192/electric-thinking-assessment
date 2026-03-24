@@ -42,7 +42,7 @@ export default function LandingPage() {
             <span className="text-et-pink">with AI</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
-            A 10-minute conversation that shows you exactly where you stand and the one AI skill that will change your work this month.
+            A quick survey and a conversation with an AI coach. In under 15 minutes, you'll know exactly where you stand and what to do next.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
@@ -51,7 +51,7 @@ export default function LandingPage() {
               onClick={() => navigate("/register")}
               data-testid="button-get-started"
             >
-              Start Your 10-Minute Conversation
+              Take the Assessment
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             <Button
@@ -75,7 +75,7 @@ export default function LandingPage() {
             </div>
             <h3 className="font-heading text-lg font-semibold mb-3">Know exactly where you stand</h3>
             <p className="text-muted-foreground leading-relaxed">
-              One conversation maps your AI skills across 5 levels. No quizzes, no guessing.
+              One conversation maps your AI skills across 4 levels. No quizzes, no guessing.
               You'll see your strengths and the gaps you didn't know you had.
             </p>
           </Card>
@@ -105,15 +105,14 @@ export default function LandingPage() {
       <section className="max-w-6xl mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
           <h2 className="font-heading text-2xl md:text-3xl font-bold text-center mb-12">
-            Five levels of AI fluency
+            Four levels of AI fluency
           </h2>
           <div className="space-y-4">
             {[
-              { level: 0, name: "Explorer", color: "bg-et-cyan", desc: "Starting your AI journey" },
-              { level: 1, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
-              { level: 2, name: "Thought Partner", color: "bg-et-pink", desc: "AI as a collaborative thinking partner" },
-              { level: 3, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building reusable AI tools" },
-              { level: 4, name: "Agentic Workflow", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
+              { level: 0, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
+              { level: 1, name: "Thought Partner", color: "bg-et-pink", desc: "AI as a collaborative thinking partner" },
+              { level: 2, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building reusable AI tools" },
+              { level: 3, name: "Agentic Workflow", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
             ].map(item => (
               <div key={item.level} className="flex items-center gap-4 p-4 rounded-xl bg-card">
                 <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center text-white font-heading font-bold text-sm shrink-0`}>

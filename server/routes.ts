@@ -197,10 +197,14 @@ export async function registerRoutes(
     const existing = await storage.getActiveAssessment(user.id);
     if (existing) return res.json(existing);
 
+    const { surveyResponsesJson, surveyLevel } = req.body || {};
+
     const assessment = await storage.createAssessment({
       userId: user.id,
       status: "in_progress",
       transcript: JSON.stringify([]),
+      ...(surveyResponsesJson ? { surveyResponsesJson } : {}),
+      ...(typeof surveyLevel === "number" ? { surveyLevel } : {}),
     });
     return res.json(assessment);
   });
@@ -231,10 +235,28 @@ export async function registerRoutes(
 
       messages.push({ role: "user", content: message });
 
+      // Build survey context string if survey data exists
+      let surveyContext: string | undefined;
+      if (assessment.surveyResponsesJson) {
+        const surveyData = assessment.surveyResponsesJson as Record<string, number>;
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+        const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
+        const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
+        const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
+        surveyContext = [
+          `Approximate level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
+          strong.length > 0 ? `Skills they always do: ${strong.join(", ")}` : "",
+          sometimes.length > 0 ? `Skills they sometimes do: ${sometimes.join(", ")}` : "",
+          never.length > 0 ? `Skills they never do: ${never.join(", ")}` : "",
+        ].filter(Boolean).join("\n");
+      }
+
       const aiResponse = await getAssessmentResponse(messages, {
         name: user.name || undefined,
         roleTitle: user.roleTitle || undefined,
         aiPlatform: user.aiPlatform || undefined,
+        surveyContext,
       });
 
       messages.push({ role: "assistant", content: aiResponse });

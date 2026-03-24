@@ -6,8 +6,12 @@ import { CheckCircle2, ArrowRight, AlertTriangle, ChevronDown, ChevronUp } from 
 import { SkillSliders } from "@/components/skill-sliders";
 import type { Level, Skill, UserSkillStatus } from "@shared/schema";
 
+// 4 levels (0=Accelerator through 3=Agentic)
 const LEVEL_HEX: Record<number, string> = {
-  0: "#2DD6FF", 1: "#FFD236", 2: "#FF2F86", 3: "#FF6A2B", 4: "#1C4BFF",
+  0: "#FFD236",
+  1: "#FF2F86",
+  2: "#FF6A2B",
+  3: "#1C4BFF",
 };
 
 interface AssessmentValidationProps {
@@ -111,7 +115,7 @@ export function AssessmentValidation({
         </motion.div>
       )}
 
-      {/* First move / next Power Up */}
+      {/* First move suggestion */}
       {firstMove.skillName && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -121,7 +125,7 @@ export function AssessmentValidation({
           <Card className="rounded-2xl border border-border">
             <CardContent className="pt-5 pb-5">
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: levelColor }}>
-                Your first Power Up
+                Your next move
               </p>
               <p className="text-sm font-medium mb-1">{firstMove.skillName}</p>
               {firstMove.suggestion && (
