@@ -12,26 +12,15 @@ import {
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
 export function startCronJobs() {
-  console.log(`${new Date().toLocaleTimeString()} [cron] Starting scheduled jobs. App URL: ${APP_URL}`);
+  console.log(`${new Date().toLocaleTimeString()} [cron] Cron jobs disabled — assessment-only product (no nudges/challenges). Keeping abandoned assessment check.`);
 
-  cron.schedule("0 2 * * *", async () => {
-    console.log(`${new Date().toLocaleTimeString()} [cron] Running daily challenge generation...`);
-    await runNudgeGeneration();
-  });
+  // Nudge generation, delivery, and re-assessment reminders disabled for assessment-only product.
+  // These were generating AI content and sending emails for the removed Power Ups feature.
 
-  cron.schedule("0 15 * * *", async () => {
-    console.log(`${new Date().toLocaleTimeString()} [cron] Running challenge delivery...`);
-    await runNudgeDelivery();
-  });
-
+  // Keep only the abandoned assessment email (useful for assessment-only flow)
   cron.schedule("0 10 * * *", async () => {
     console.log(`${new Date().toLocaleTimeString()} [cron] Running daily checks...`);
     await runDailyChecks();
-  });
-
-  cron.schedule("0 12 1 */3 *", async () => {
-    console.log(`${new Date().toLocaleTimeString()} [cron] Running quarterly re-assessment reminders...`);
-    await runReAssessmentReminders();
   });
 }
 
@@ -195,29 +184,7 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
 
 export async function runDailyChecks(): Promise<void> {
   try {
-    const allUsers = await storage.getActiveNudgeUsers();
-
-    for (const user of allUsers) {
-      try {
-        const unopenedCount = await storage.getConsecutiveUnopenedNudges(user.id);
-
-        if (unopenedCount >= 6) {
-          await storage.updateUser(user.id, { nudgesActive: false });
-          console.log(`[cron] Paused nudges for user ${user.id} (6+ weeks inactive)`);
-        } else if (unopenedCount >= 3) {
-          const recentReEngagement = await storage.getEmailLogs(100);
-          const sentRecently = recentReEngagement.some(log => 
-            log.userId === user.id && log.emailType === "re_engagement" && 
-            log.createdAt && new Date(log.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          );
-          if (sentRecently) continue; // skip, already sent within 7 days
-          await sendReEngagementEmail(user, APP_URL);
-          console.log(`[cron] Sent re-engagement email to user ${user.id}`);
-        }
-      } catch (e: any) {
-        console.error(`[cron] Daily check failed for user ${user.id}:`, e.message);
-      }
-    }
+    // Nudge/re-engagement checks disabled for assessment-only product
 
     const abandoned = await storage.getAbandonedAssessments(24);
     for (const assessment of abandoned) {

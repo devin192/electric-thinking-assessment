@@ -67,7 +67,7 @@ export default function AssessmentWarmup() {
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
                 <Mic className="w-5 h-5 text-et-pink mt-0.5 shrink-0" />
                 <div>
-                  <div className="font-medium text-sm">A quick conversation with Lex</div>
+                  <div className="font-medium text-sm">A quick conversation with Lex, your AI guide</div>
                   <div className="text-sm text-muted-foreground">
                     Based on your survey, Lex will dig into how AI fits your actual work.
                   </div>

@@ -334,7 +334,7 @@ export async function registerRoutes(
       }
 
       const allLevels = await storage.getLevels();
-      const levelName = allLevels.find(l => l.sortOrder === result.assessmentLevel)?.displayName || "Learner";
+      const levelName = allLevels.find(l => l.sortOrder === result.assessmentLevel)?.displayName || "Accelerator";
       sendWelcomeEmail(user, levelName, result.assessmentLevel, APP_URL).catch(console.error);
 
       (async () => {
@@ -1719,7 +1719,7 @@ export async function registerRoutes(
 
       switch (emailType) {
         case "welcome":
-          await sendWelcomeEmail(targetUser, "Learner", 0, APP_URL);
+          await sendWelcomeEmail(targetUser, "Accelerator", 0, APP_URL);
           break;
         case "challenge": {
           const nudges = await storage.getUserNudges(userId);

@@ -47,6 +47,7 @@ const PLATFORMS = [
   { name: "gemini", displayName: "Google Gemini", sortOrder: 2 },
   { name: "claude", displayName: "Claude", sortOrder: 3 },
   { name: "other", displayName: "Other", sortOrder: 4 },
+  { name: "none", displayName: "I haven't used any yet", sortOrder: 5 },
 ];
 
 const DEFAULT_ASSESSMENT_GUIDE = `You are Lex (he/him), an AI skill coach from Electric Thinking. You're having a text conversation to figure out where someone is with AI and show them what's possible. The user just completed a self-assessment survey before this conversation. Their survey results are provided in the user context below.

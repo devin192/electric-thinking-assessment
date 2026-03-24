@@ -98,6 +98,7 @@ export default function SurveyPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [direction, setDirection] = useState(1);
   const [surveyComplete, setSurveyComplete] = useState(false);
 
@@ -191,8 +192,15 @@ export default function SurveyPage() {
     } catch (err) {
       console.error("Failed to save survey:", err);
       setSubmitting(false);
+      setSubmitError("Something went wrong. Please try again.");
     }
   }, [answers, navigate]);
+
+  // Guard: redirect to onboarding if not complete
+  if (user && !user.onboardingComplete) {
+    navigate("/onboarding");
+    return null;
+  }
 
   if (!user) return null;
 
@@ -202,7 +210,7 @@ export default function SurveyPage() {
       <header className="px-6 py-4 flex items-center justify-between">
         <Wordmark className="text-lg" />
         <span className="text-sm text-muted-foreground">
-          {answeredCount} of ~{totalActive}
+          {answeredCount} of {totalActive}
         </span>
       </header>
 
@@ -221,6 +229,15 @@ export default function SurveyPage() {
       {/* Question area */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
         <div className="w-full max-w-lg">
+          {answeredCount === 0 && !surveyComplete && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm text-muted-foreground text-center mb-4"
+            >
+              How often do you do each of these? No right or wrong answers.
+            </motion.p>
+          )}
           {surveyComplete ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -229,8 +246,11 @@ export default function SurveyPage() {
             >
               <p className="text-2xl font-heading font-bold">Got it.</p>
               <p className="text-muted-foreground">
-                Now you'll have a quick conversation with Lex, who'll dig into how AI fits your actual work.
+                Now you'll have a quick conversation with Lex, an AI guide who'll dig into how AI fits your actual work.
               </p>
+              {submitError && (
+                <p className="text-sm text-red-500">{submitError}</p>
+              )}
               <Button
                 onClick={handleSubmit}
                 disabled={submitting}
@@ -298,12 +318,12 @@ export default function SurveyPage() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              if (currentIndex < SURVEY_QUESTIONS.length - 1) {
+              if (currentIndex < activeQuestions.length - 1) {
                 setDirection(1);
                 setCurrentIndex(prev => prev + 1);
               }
             }}
-            disabled={currentIndex >= SURVEY_QUESTIONS.length - 1}
+            disabled={currentIndex >= activeQuestions.length - 1}
             className="min-h-[44px]"
           >
             Skip <ArrowRight className="w-4 h-4 ml-1" />

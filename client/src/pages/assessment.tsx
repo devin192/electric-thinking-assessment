@@ -126,8 +126,9 @@ export default function AssessmentPage() {
         return;
       }
       // Only start a new assessment if there's truly no completed one either
+      // Redirect to survey first — assessment needs survey data to personalize
       if (latestCompleted === null) {
-        startAssessment();
+        navigate("/survey");
       }
     }
   }, [activeAssessment, user, latestCompleted]);

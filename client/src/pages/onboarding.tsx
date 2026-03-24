@@ -58,7 +58,7 @@ export default function OnboardingPage() {
                 Welcome, {user.name}!
               </h1>
               <p className="text-muted-foreground text-center mb-8">
-                Let's set up your profile before your conversation.
+                Let's set up your profile before the assessment.
               </p>
               <div className="space-y-4">
                 <div className="space-y-2">
