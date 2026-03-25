@@ -66,7 +66,6 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
 
     console.error("Internal Server Error:", err);
 
@@ -74,6 +73,8 @@ app.use((req, res, next) => {
       return next(err);
     }
 
+    // Don't leak internal error details to clients
+    const message = status < 500 ? (err.message || "Bad request") : "Internal Server Error";
     return res.status(status).json({ message });
   });
 

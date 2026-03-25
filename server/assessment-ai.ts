@@ -240,9 +240,9 @@ Respond in this exact JSON format (no markdown, just raw JSON):
     workContextSummary: "",
     firstMove: { skillName: allSkills[0]?.name || "Context Setting", suggestion: "Open your AI tool and try this: tell it your job title, what you're working on, and what you need help with. See how the answer changes when you give it context." },
     outcomeOptions: [
-      { outcomeHeadline: "Speed up your first draft", action: "Next time you need to write an email or document, start by telling your AI tool what you need and who it's for.", whatYoullSee: "A solid first draft in seconds instead of staring at a blank page." },
-      { outcomeHeadline: "Get unstuck faster", action: "When you hit a wall on a task, describe the problem to your AI tool and ask for three different approaches.", whatYoullSee: "Fresh perspectives you wouldn't have thought of on your own." },
-      { outcomeHeadline: "Build your AI reflex", action: "For one week, try reaching for your AI tool first whenever you start a new task.", whatYoullSee: "You'll start recognizing which tasks AI accelerates and which ones it doesn't." },
+      { outcomeHeadline: "Speed up your first draft", skillName: "Context Setting", timeEstimate: "5 minutes", action: "Next time you need to write an email or document, start by telling your AI tool what you need and who it's for.", whatYoullSee: "A solid first draft in seconds instead of staring at a blank page." },
+      { outcomeHeadline: "Get unstuck faster", skillName: "Context Setting", timeEstimate: "5 minutes", action: "When you hit a wall on a task, describe the problem to your AI tool and ask for three different approaches.", whatYoullSee: "Fresh perspectives you wouldn't have thought of on your own." },
+      { outcomeHeadline: "Build your AI reflex", skillName: "Context Setting", timeEstimate: "1 week", action: "For one week, try reaching for your AI tool first whenever you start a new task.", whatYoullSee: "You'll start recognizing which tasks AI accelerates and which ones it doesn't." },
     ],
     signatureSkillName: "",
     signatureSkillRationale: "",
