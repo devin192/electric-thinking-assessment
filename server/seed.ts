@@ -253,6 +253,26 @@ async function ensureMigrations() {
     }
   }
 
+  // Sync admin password from ADMIN_PASSWORD env var on every deploy
+  if (process.env.ADMIN_PASSWORD) {
+    try {
+      const admin = await pool.query(`SELECT id, password FROM users WHERE email = 'admin@electricthinking.com'`);
+      if (admin.rows.length > 0) {
+        const { comparePasswords } = await import("./auth");
+        const alreadyCurrent = admin.rows[0].password
+          ? await comparePasswords(process.env.ADMIN_PASSWORD, admin.rows[0].password)
+          : false;
+        if (!alreadyCurrent) {
+          const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
+          await pool.query(`UPDATE users SET password = $1 WHERE id = $2`, [newHash, admin.rows[0].id]);
+          log("Admin password synced from ADMIN_PASSWORD env var", "migration");
+        }
+      }
+    } catch (err: any) {
+      log(`Admin password sync failed: ${err.message}`, "migration");
+    }
+  }
+
   // Ensure "I haven't used any yet" platform exists (added in pivot)
   try {
     const nonePlatform = await pool.query(`SELECT 1 FROM ai_platforms WHERE name = 'none'`);
@@ -272,9 +292,15 @@ async function ensureMigrations() {
     );
     if (foundationsLevel.rows.length > 0) {
       const foundationsId = foundationsLevel.rows[0].id;
-      // Delete skills tied to Foundations, then the level itself
-      await pool.query(`DELETE FROM user_skill_statuses WHERE skill_id IN (SELECT id FROM skills WHERE level_id = $1)`, [foundationsId]);
-      await pool.query(`DELETE FROM skills WHERE level_id = $1`, [foundationsId]);
+      // Delete all FK references to Foundations skills, then skills, then level
+      const foundationsSkillIds = await pool.query(`SELECT id FROM skills WHERE level_id = $1`, [foundationsId]);
+      const skillIds = foundationsSkillIds.rows.map((r: any) => r.id);
+      if (skillIds.length > 0) {
+        await pool.query(`DELETE FROM assessment_skill_scores WHERE skill_id = ANY($1)`, [skillIds]);
+        await pool.query(`DELETE FROM nudges WHERE skill_id = ANY($1)`, [skillIds]);
+        await pool.query(`DELETE FROM user_skill_statuses WHERE skill_id = ANY($1)`, [skillIds]);
+        await pool.query(`DELETE FROM skills WHERE id = ANY($1)`, [skillIds]);
+      }
       await pool.query(`DELETE FROM levels WHERE id = $1`, [foundationsId]);
       // Re-number remaining levels to 0-3
       const remainingLevels = await pool.query(`SELECT id, display_name FROM levels ORDER BY sort_order`);
@@ -338,26 +364,6 @@ export async function seedDatabase() {
 
     log("Database seeded successfully", "seed");
     await ensureSystemConfig();
-
-    // Update admin password if ADMIN_PASSWORD env var is set (handles existing DB)
-    if (process.env.ADMIN_PASSWORD) {
-      const admin = await storage.getUserByEmail("admin@electricthinking.com");
-      if (admin) {
-        const { comparePasswords } = await import("./auth");
-        if (!admin.password) {
-          const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
-          await storage.updateUser(admin.id, { password: newHash });
-          log("Admin password set from ADMIN_PASSWORD env var", "seed");
-        } else {
-          const alreadyCurrent = await comparePasswords(process.env.ADMIN_PASSWORD, admin.password);
-          if (!alreadyCurrent) {
-            const newHash = await hashPassword(process.env.ADMIN_PASSWORD);
-            await storage.updateUser(admin.id, { password: newHash });
-            log("Admin password updated from ADMIN_PASSWORD env var", "seed");
-          }
-        }
-      }
-    }
   } catch (error) {
     log(`Seed error: ${error}`, "seed");
   }
