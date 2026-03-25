@@ -62,9 +62,12 @@ export default function AssessmentWarmup() {
             <div className="w-14 h-14 rounded-2xl bg-et-pink/15 flex items-center justify-center mx-auto mb-6">
               <Mic className="w-7 h-7 text-et-pink" />
             </div>
-            <h1 className="font-heading text-2xl font-bold text-center mb-6" data-testid="text-warmup-title">
-              Now let's talk
+            <h1 className="font-heading text-2xl font-bold text-center mb-2" data-testid="text-warmup-title">
+              Got it. Now let's talk.
             </h1>
+            <p className="text-muted-foreground text-center text-sm mb-6">
+              Your personalized results are on the other side.
+            </p>
 
             <div className="space-y-4 mb-8">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-accent/50">
