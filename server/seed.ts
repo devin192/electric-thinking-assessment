@@ -296,9 +296,8 @@ async function ensureMigrations() {
       const foundationsSkillIds = await pool.query(`SELECT id FROM skills WHERE level_id = $1`, [foundationsId]);
       const skillIds = foundationsSkillIds.rows.map((r: any) => r.id);
       if (skillIds.length > 0) {
-        await pool.query(`DELETE FROM assessment_skill_scores WHERE skill_id = ANY($1)`, [skillIds]);
         await pool.query(`DELETE FROM nudges WHERE skill_id = ANY($1)`, [skillIds]);
-        await pool.query(`DELETE FROM user_skill_statuses WHERE skill_id = ANY($1)`, [skillIds]);
+        await pool.query(`DELETE FROM user_skill_status WHERE skill_id = ANY($1)`, [skillIds]);
         await pool.query(`DELETE FROM skills WHERE id = ANY($1)`, [skillIds]);
       }
       await pool.query(`DELETE FROM levels WHERE id = $1`, [foundationsId]);

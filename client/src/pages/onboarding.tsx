@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  useEffect(() => { document.title = "Get Started — Electric Thinking"; }, []);
 
   const { data: platforms } = useQuery<AiPlatform[]>({
     queryKey: ["/api/platforms"],

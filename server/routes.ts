@@ -337,29 +337,7 @@ export async function registerRoutes(
       const levelName = allLevels.find(l => l.sortOrder === result.assessmentLevel)?.displayName || "Accelerator";
       sendWelcomeEmail(user, levelName, result.assessmentLevel, APP_URL).catch(console.error);
 
-      (async () => {
-        try {
-          const firstSkillName = result.firstMove?.skillName;
-          const firstSkill = allSkills.find(s => s.name === firstSkillName)
-            || allSkills.find(s => s.name.toLowerCase() === firstSkillName?.toLowerCase());
-          if (firstSkill && user) {
-            const previousNudges = await storage.getNudgesByUserAndSkill(user.id, firstSkill.id);
-            const nudgeContent = await generateNudge(user, firstSkill, previousNudges);
-            if (nudgeContent) {
-              await storage.createNudge({
-                userId: user.id,
-                skillId: firstSkill.id,
-                contentJson: nudgeContent,
-                subjectLine: nudgeContent.subject_line,
-                isFirstChallenge: true,
-              });
-              console.log(`[first-challenge] Generated first challenge for user ${user.id}, skill: ${firstSkill.name}`);
-            }
-          }
-        } catch (err) {
-          console.error("[first-challenge] Failed to generate first challenge:", err);
-        }
-      })();
+      // Nudge generation disabled — assessment-only product (no Power Ups/challenges)
 
       return res.json({
         assessmentLevel: result.assessmentLevel,
@@ -482,35 +460,9 @@ export async function registerRoutes(
     return res.json(statuses);
   });
 
-  app.post("/api/user/challenge/generate-next", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const skillStatuses = await storage.getUserSkillStatuses(user.id);
-      const yellowSkills = skillStatuses.filter(s => s.status === "yellow");
-      if (yellowSkills.length === 0) {
-        return res.status(400).json({ message: "No active skills to generate a Power Up for" });
-      }
-
-      const targetSkillStatus = yellowSkills[0];
-      const skill = await storage.getSkill(targetSkillStatus.skillId);
-      if (!skill) return res.status(404).json({ message: "Skill not found" });
-
-      const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
-      const nudgeContent = await generateNudge(user, skill, previousNudges);
-      const created = await storage.createNudge({
-        userId: user.id,
-        skillId: skill.id,
-        contentJson: nudgeContent,
-        subjectLine: nudgeContent.subject_line,
-        isFirstChallenge: false,
-      });
-      return res.json(created);
-    } catch (e: any) {
-      console.error("Generate next challenge error:", e);
-      return res.status(500).json({ message: "Failed to generate Power Up" });
-    }
+  // generate-next endpoint disabled — assessment-only product (no Power Ups/challenges)
+  app.post("/api/user/challenge/generate-next", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature is no longer available" });
   });
 
   app.post("/api/user/journey-setup", requireAuth, async (req, res) => {
@@ -1203,6 +1155,13 @@ export async function registerRoutes(
     const members = await storage.getUsersByOrg(user.orgId);
     const allSkills = await storage.getSkills();
 
+    const escapeCsv = (val: string) => {
+      // Escape double quotes by doubling them, and prevent formula injection
+      let safe = val.replace(/"/g, '""');
+      if (/^[=+\-@\t\r]/.test(safe)) safe = "'" + safe;
+      return `"${safe}"`;
+    };
+
     let csv = "Name,Email,Role,Level," + allSkills.map(s => s.name).join(",") + "\n";
 
     for (const member of members) {
@@ -1215,7 +1174,7 @@ export async function registerRoutes(
         return ss?.status || "N/A";
       });
 
-      csv += `"${member.name || ""}","${member.email}","${member.roleTitle || ""}",${latest?.assessmentLevel ?? "N/A"},${skillValues.join(",")}\n`;
+      csv += `${escapeCsv(member.name || "")},${escapeCsv(member.email)},${escapeCsv(member.roleTitle || "")},${latest?.assessmentLevel ?? "N/A"},${skillValues.join(",")}\n`;
     }
 
     res.setHeader("Content-Type", "text/csv");
@@ -1480,47 +1439,13 @@ export async function registerRoutes(
     return res.json(analytics);
   });
 
-  app.post("/api/admin/nudge/generate", requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      if (userId) {
-        const user = await storage.getUser(userId);
-        if (!user) return res.status(404).json({ message: "User not found" });
-
-        const statuses = await storage.getUserSkillStatuses(user.id);
-        const yellowStatus = statuses.find(s => s.status === "yellow");
-        if (!yellowStatus) return res.status(400).json({ message: "No active yellow skill" });
-
-        const skill = await storage.getSkill(yellowStatus.skillId);
-        if (!skill) return res.status(400).json({ message: "Skill not found" });
-
-        const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
-        const content = await generateNudge(user, skill, previousNudges);
-        const nudge = await storage.createNudge({
-          userId: user.id,
-          skillId: skill.id,
-          contentJson: content,
-          subjectLine: content.subject_line,
-        });
-
-        return res.json(nudge);
-      } else {
-        const result = await runNudgeGeneration();
-        return res.json(result);
-      }
-    } catch (e: any) {
-      console.error("Admin nudge generation error:", e);
-      return res.status(500).json({ message: e.message });
-    }
+  // Admin nudge generate/deliver disabled — assessment-only product
+  app.post("/api/admin/nudge/generate", requireAdmin, async (_req, res) => {
+    return res.status(410).json({ message: "Nudge generation is disabled" });
   });
 
   app.post("/api/admin/nudge/deliver", requireAdmin, async (_req, res) => {
-    try {
-      const result = await runNudgeDelivery();
-      return res.json(result);
-    } catch (e: any) {
-      return res.status(500).json({ message: e.message });
-    }
+    return res.status(410).json({ message: "Nudge delivery is disabled" });
   });
 
   app.get("/api/admin/system-health", requireAdmin, async (_req, res) => {
@@ -1852,7 +1777,7 @@ export async function registerRoutes(
         description = `${userName} reached Level ${level} on Electric Thinking`;
       } else if (badge.badgeType === "ultimate_master") {
         title = "AI Fluency Master";
-        description = `${userName} mastered all 25 AI skills on Electric Thinking`;
+        description = `${userName} mastered all 20 AI skills on Electric Thinking`;
       }
 
       const badgeImageUrl = `${APP_URL}/api/badge/${badgeId}`;

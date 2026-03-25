@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -101,6 +101,8 @@ export default function SurveyPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [direction, setDirection] = useState(1);
   const [surveyComplete, setSurveyComplete] = useState(false);
+
+  useEffect(() => { document.title = "Survey — Electric Thinking"; }, []);
 
   const question = SURVEY_QUESTIONS[currentIndex];
   const currentAnswer = answers[question.skillName];

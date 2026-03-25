@@ -113,8 +113,8 @@ export default function SettingsPage() {
         <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>Email: {user.email}</p>
           <div className="flex items-center justify-center gap-4 mt-3">
-            <a href="/privacy" className="text-et-blue underline">Privacy Policy</a>
-            <a href="/terms" className="text-et-blue underline">Terms of Service</a>
+            <button onClick={() => navigate("/privacy")} className="text-et-blue underline">Privacy Policy</button>
+            <button onClick={() => navigate("/terms")} className="text-et-blue underline">Terms of Service</button>
           </div>
         </div>
       </div>

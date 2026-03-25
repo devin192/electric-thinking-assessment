@@ -48,7 +48,7 @@ export async function setupAuth(app: any) {
   };
 
   if (process.env.NODE_ENV === "production") {
-    app.set("trust proxy", true);
+    app.set("trust proxy", 1);
     sessionConfig.proxy = true;
     sessionConfig.cookie.secure = true;
   }

@@ -44,6 +44,7 @@ export default function ResultsPage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [phase, setPhase] = useState<Phase>("loading");
+  useEffect(() => { document.title = "Your Results — Electric Thinking"; }, []);
   const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
   const [showSkills, setShowSkills] = useState(false);
 
@@ -309,6 +310,7 @@ export default function ResultsPage() {
             >
               <Card className="rounded-2xl border border-border bg-gradient-to-br from-et-pink/5 to-transparent">
                 <CardContent className="pt-5 pb-5">
+                  <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-2">Where this leads</p>
                   <p className="text-sm italic text-muted-foreground leading-relaxed">{futureSelfText}</p>
                 </CardContent>
               </Card>
@@ -492,6 +494,13 @@ export default function ResultsPage() {
                 onClick={handleShare}
               >
                 <Link2 className="w-4 h-4 mr-2" /> Share results
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full rounded-2xl py-5"
+                onClick={() => navigate("/dashboard")}
+              >
+                Go to Dashboard
               </Button>
               <div className="text-center">
                 <button

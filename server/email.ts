@@ -178,9 +178,9 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
       </table>
       ${bodyText("<strong>What happens next:</strong>")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Your first Power Up is ready</td></tr>
-        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Each week you'll get one skill to practice</td></tr>
-        <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Complete it, prove it, level up</td></tr>
+        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Your personalized results are ready</td></tr>
+        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; See your skill breakdown and what to focus on next</td></tr>
+        <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; One thing you can try right now</td></tr>
       </table>
       ${ctaButton("Open Your Dashboard", `${appUrl}/dashboard`)}
     `), unsubscribeUrl);
@@ -261,7 +261,7 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill, app
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: content?.subject_line || nudge.subjectLine || `Your Power Up for ${skill.name}`,
+      subject: content?.subject_line || nudge.subjectLine || `Your challenge for ${skill.name}`,
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
@@ -368,7 +368,7 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
       </table>
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 26px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; text-align: center; mso-line-height-rule: exactly; line-height: 34px;" class="email-text">You're now a ${levelName}</h1>
       ${bodyText(`<strong>All five Level ${level + 1} skills: complete.</strong> That took real work.`)}
-      ${bodyText("The next level brings harder Power Ups and bigger thinking.")}
+      ${bodyText("The next level brings deeper challenges and bigger thinking.")}
       ${divider()}
       ${smallText(`Share your achievement: "I'm a Level ${level + 1} AI ${levelName}, certified by Electric Thinking."`)}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
@@ -416,11 +416,11 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
 
     const html = baseTemplate(card(`
       ${bodyText(`Hey ${user.name || "there"},`)}
-      ${bodyText("You have an open Power Up waiting. It takes about 2 minutes.")}
-      ${bodyText("One question to your AI tool about something you're working on right now. That's it.")}
+      ${bodyText("It's been a while since your assessment. A lot can change in a few weeks.")}
+      ${bodyText("Retake the assessment to see how your AI skills have grown.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 20px;" align="center">
-          ${ctaButton("Open Your Power Up", `${appUrl}/dashboard`)}
+          ${ctaButton("Retake the Assessment", `${appUrl}/dashboard`)}
         </td></tr>
       </table>
     `), unsubscribeUrl);
@@ -429,7 +429,7 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: "2 minutes. One Power Up. You in?",
+      subject: "Your AI skills may have changed. Find out.",
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,
@@ -551,9 +551,9 @@ export async function sendInviteEmail(email: string, inviterName: string, orgNam
       ${welcomeMessage ? `<p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.textLight}; font-style: italic; margin: 0 0 12px 0;" class="email-text-light">${welcomeMessage}</p>` : ""}
       ${bodyText("<strong>What you'll get:</strong>")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; A quick conversation to find your AI level</td></tr>
-        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Weekly Power Ups tailored to your work</td></tr>
-        <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; A skill map showing your progress</td></tr>
+        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; A quick survey and conversation to find your AI level</td></tr>
+        <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; Personalized outcomes tied to your actual work</td></tr>
+        <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; One thing you can try right now</td></tr>
       </table>
       ${ctaButton("Join Your Team", `${appUrl}/join?token=${token}`)}
     `));

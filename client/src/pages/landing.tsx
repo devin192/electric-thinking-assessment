@@ -10,6 +10,8 @@ export default function LandingPage() {
   const [, navigate] = useLocation();
   const { user, isLoading } = useAuth();
 
+  useEffect(() => { document.title = "Electric Thinking — AI Fluency Assessment"; }, []);
+
   useEffect(() => {
     if (!isLoading && user) {
       navigate(user.userRole === "system_admin" ? "/admin" : "/dashboard");
@@ -196,8 +198,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <Wordmark className="text-base" />
           <div className="flex items-center gap-6 flex-wrap">
-            <a href="/privacy" className="text-et-blue underline" data-testid="link-privacy">Privacy Policy</a>
-            <a href="/terms" className="text-et-blue underline" data-testid="link-terms">Terms of Service</a>
+            <button onClick={() => navigate("/privacy")} className="text-et-blue underline" data-testid="link-privacy">Privacy Policy</button>
+            <button onClick={() => navigate("/terms")} className="text-et-blue underline" data-testid="link-terms">Terms of Service</button>
           </div>
         </div>
       </footer>
