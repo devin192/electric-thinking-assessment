@@ -88,7 +88,7 @@ export default function AssessmentWarmup() {
                   <div className="font-medium text-sm">Your answers are private</div>
                   <div className="text-sm text-muted-foreground">
                     {user?.orgId
-                      ? "Your team lead sees your skill levels, not your conversation."
+                      ? "Your manager sees your skill levels, not your conversation."
                       : "Only you can see your conversation."}
                   </div>
                 </div>

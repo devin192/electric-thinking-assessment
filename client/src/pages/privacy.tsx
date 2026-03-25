@@ -35,7 +35,7 @@ export default function PrivacyPage() {
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Who Can See What</h2>
         <ul className="text-muted-foreground space-y-2">
           <li><strong>You:</strong> See all your own data, including transcript and scores.</li>
-          <li><strong>Your Manager:</strong> Can see your skill scores and levels. Cannot see your conversation transcript or specific answers. Your responses are private.</li>
+          <li><strong>Your Manager (if part of a team):</strong> Can see your skill levels. Cannot see your conversation transcript or specific answers. Your responses are private.</li>
           <li><strong>System Admin:</strong> Can see aggregate analytics and access individual data for support purposes.</li>
         </ul>
 

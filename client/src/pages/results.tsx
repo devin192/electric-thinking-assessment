@@ -232,9 +232,9 @@ export default function ResultsPage() {
                 <motion.div
                   key={lvl}
                   className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
-                    isCurrentLevel ? "ring-2 bg-card shadow-md" : "opacity-40"
+                    isCurrentLevel ? "bg-card shadow-md" : "opacity-40"
                   }`}
-                  style={isCurrentLevel ? { ringColor: color, borderColor: color } : {}}
+                  style={isCurrentLevel ? { boxShadow: `0 0 0 2px ${color}` } : {}}
                   initial={isCurrentLevel ? { scale: 0.95 } : {}}
                   animate={isCurrentLevel ? { scale: 1 } : {}}
                   transition={{ type: "spring", stiffness: 150, damping: 15 }}

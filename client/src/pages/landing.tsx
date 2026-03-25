@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
-import { MessageCircle, TrendingUp, Shield, ArrowRight, Brain, Target, Users } from "lucide-react";
+import { MessageCircle, TrendingUp, Shield, ArrowRight, Brain, Target } from "lucide-react";
 
 export default function LandingPage() {
   const [, navigate] = useLocation();
