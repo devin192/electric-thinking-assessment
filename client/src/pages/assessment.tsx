@@ -461,13 +461,13 @@ export default function AssessmentPage() {
         setVoiceError(msg);
       }
     }
-  }, [assessmentId]);
+  }, [assessmentId, activeAssessment, user]);
 
   useEffect(() => {
-    if (voiceMode === "full-duplex" && assessmentId && !voiceConnected && !voiceConnecting && !voiceError) {
+    if (voiceMode === "full-duplex" && assessmentId && activeAssessment && !voiceConnected && !voiceConnecting && !voiceError) {
       connectVoice();
     }
-  }, [voiceMode, assessmentId]);
+  }, [voiceMode, assessmentId, activeAssessment]);
 
   const playAudioChunk = (base64Audio: string) => {
     if (!base64Audio || !audioContextRef.current) return;
