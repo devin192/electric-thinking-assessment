@@ -36,7 +36,7 @@ const SURVEY_QUESTIONS = [
   { skillName: "Continuous Improvement", text: "I monitor, measure, and refine my automated AI systems over time", level: 3 },
 ];
 
-type Answer = 0 | 1 | 2; // 0=Never, 1=Sometimes, 2=Always
+type Answer = 0 | 1 | 2; // 0=Not yet, 1=Sometimes, 2=Always
 
 // Adaptive cutoff: after completing a level's 5 questions, check if we should continue.
 // If the user scored low on this level, they've found their growth edge — stop.
@@ -48,7 +48,7 @@ function shouldContinueToNextLevel(answers: Record<string, number>, completedLev
 
   const levelScore = levelQuestions.reduce((sum, q) => sum + (answers[q.skillName] ?? 0), 0);
   // Max score per level = 10 (5 questions × 2)
-  // Score ≤ 3: mostly Never — this is below their edge, stop here
+  // Score ≤ 3: mostly Not yet — this is below their edge, stop here
   // Score 4-5: mixed but leaning low — show one more level to find the edge, then stop
   // Score ≥ 6: solid — continue to next level
   return levelScore >= 4;
@@ -80,7 +80,7 @@ function buildSurveySummary(answers: Record<string, number>): string {
     lines.push(`${levelNames[lvl]} (${score}/10):`);
     if (strong.length > 0) lines.push(`  Always: ${strong.join(", ")}`);
     if (sometimes.length > 0) lines.push(`  Sometimes: ${sometimes.join(", ")}`);
-    if (never.length > 0) lines.push(`  Never: ${never.join(", ")}`);
+    if (never.length > 0) lines.push(`  Not yet: ${never.join(", ")}`);
   }
   return lines.join("\n");
 }
@@ -232,7 +232,7 @@ export default function SurveyPage() {
                 <div className="grid grid-cols-[1fr_auto] gap-x-2 items-end mb-3">
                   <div /> {/* spacer for question column */}
                   <div className="grid grid-cols-3 gap-1 text-center">
-                    <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Never</span>
+                    <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Not yet</span>
                     <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Sometimes</span>
                     <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Always</span>
                   </div>
@@ -267,7 +267,7 @@ export default function SurveyPage() {
                                     ? "border-et-pink bg-et-pink/15"
                                     : "border-muted-foreground/20 hover:border-muted-foreground/40"
                                 }`}
-                                aria-label={["Never", "Sometimes", "Always"][value]}
+                                aria-label={["Not yet", "Sometimes", "Always"][value]}
                               >
                                 {isSelected && (
                                   <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-et-pink" />

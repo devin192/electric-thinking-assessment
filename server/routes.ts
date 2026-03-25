@@ -3,11 +3,11 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
 import { getAssessmentResponse, scoreAssessment } from "./assessment-ai";
-import { generateNudge, generateVerificationQuestions } from "./nudge-ai";
-import Anthropic from "@anthropic-ai/sdk";
+// nudge-ai imports removed — assessment-only product (no Power Ups/challenges)
+// Anthropic SDK import removed — coach conversation feature removed (assessment-only product)
 import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail, sendPasswordResetEmail } from "./email";
 import { seedDatabase } from "./seed";
-import { startCronJobs, runNudgeGeneration, runNudgeDelivery } from "./cron";
+import { startCronJobs } from "./cron";
 import { generateBadgeSVG } from "./badge-svg";
 import { getConversationSignedUrl } from "./elevenlabs";
 import { randomUUID } from "crypto";
@@ -646,267 +646,31 @@ export async function registerRoutes(
     }
   });
 
-  // ========== NUDGES ==========
-  app.get("/api/user/nudges", requireAuth, async (req, res) => {
-    const user = await getCurrentUser(req);
-    if (!user) return res.status(401).json({ message: "Not authenticated" });
-    const userNudges = await storage.getUserNudges(user.id);
-    return res.json(userNudges);
+  // ========== NUDGES (removed — assessment-only product) ==========
+  app.get("/api/user/nudges", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.patch("/api/nudges/:id/read", requireAuth, async (req, res) => {
-    const user = await getCurrentUser(req);
-    if (!user) return res.status(401).json({ message: "Not authenticated" });
-    const nudgeId = parseInt(req.params.id);
-    const nudge = await storage.getNudge(nudgeId);
-    if (!nudge || nudge.userId !== user.id) return res.status(404).json({ message: "Power Up not found" });
-    await storage.updateNudge(nudgeId, { inAppRead: true });
-    return res.json({ message: "Marked as read" });
+  app.patch("/api/nudges/:id/read", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  // ========== NUDGE FEEDBACK ==========
-  // POST endpoint for programmatic feedback
-  app.post("/api/nudges/:id/feedback", async (req, res) => {
-    try {
-      const nudgeId = parseInt(req.params.id);
-      const nudge = await storage.getNudge(nudgeId);
-      if (!nudge) return res.status(404).json({ message: "Power Up not found" });
-
-      // Auth check: either logged in user owns it, or valid unsubscribe token
-      const token = req.query.token as string;
-      if (token) {
-        const tokenUser = await storage.getUserByUnsubscribeToken(token);
-        if (!tokenUser || tokenUser.id !== nudge.userId) {
-          return res.status(403).json({ message: "Invalid token" });
-        }
-      } else {
-        const user = await getCurrentUser(req);
-        if (!user || user.id !== nudge.userId) {
-          return res.status(403).json({ message: "Not authorized" });
-        }
-      }
-
-      const { relevant, feedback } = req.body;
-      const updates: Record<string, any> = {};
-      if (relevant !== undefined) updates.feedbackRelevant = relevant;
-      if (feedback) updates.feedbackText = feedback;
-
-      await storage.updateNudge(nudgeId, updates);
-      return res.json({ message: "Thanks for the feedback" });
-    } catch (e: any) {
-      console.error("Nudge feedback error:", e);
-      return res.status(500).json({ message: "Failed to save feedback" });
-    }
+  // ========== NUDGE FEEDBACK (removed — assessment-only product) ==========
+  app.post("/api/nudges/:id/feedback", async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  // GET endpoint for email link simplicity (idempotent)
-  app.get("/api/nudges/:id/feedback", async (req, res) => {
-    try {
-      const nudgeId = parseInt(req.params.id);
-      const nudge = await storage.getNudge(nudgeId);
-      if (!nudge) {
-        return res.status(404).send(feedbackResponseHtml("Power Up not found", false));
-      }
-
-      const token = req.query.token as string;
-      if (!token) {
-        return res.status(403).send(feedbackResponseHtml("Missing token", false));
-      }
-
-      const tokenUser = await storage.getUserByUnsubscribeToken(token);
-      if (!tokenUser || tokenUser.id !== nudge.userId) {
-        return res.status(403).send(feedbackResponseHtml("Invalid token", false));
-      }
-
-      const relevant = req.query.relevant === "true";
-      await storage.updateNudge(nudgeId, { feedbackRelevant: relevant });
-
-      const message = relevant
-        ? "Thanks! We'll keep sending Power Ups like this."
-        : "Got it. We'll adjust future Power Ups to be more relevant to your work.";
-
-      return res.send(feedbackResponseHtml(message, true));
-    } catch (e: any) {
-      console.error("Nudge feedback GET error:", e);
-      return res.status(500).send(feedbackResponseHtml("Something went wrong", false));
-    }
+  app.get("/api/nudges/:id/feedback", async (_req, res) => {
+    return res.status(410).send(feedbackResponseHtml("This feature has been removed", false));
   });
 
-  // ========== SKILL VERIFICATION ==========
-  const pendingVerifications = new Map<string, any[]>();
-
-  app.post("/api/skills/:id/verify/start", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const skillId = parseInt(req.params.id);
-      const skill = await storage.getSkill(skillId);
-      if (!skill) return res.status(404).json({ message: "Skill not found" });
-
-      const questions = await generateVerificationQuestions(user, skill);
-
-      const verificationKey = `${user.id}-${skillId}`;
-      pendingVerifications.set(verificationKey, questions);
-      setTimeout(() => pendingVerifications.delete(verificationKey), 30 * 60 * 1000);
-
-      const clientQuestions = questions.map(q => ({
-        question: q.question,
-        options: q.options,
-      }));
-
-      return res.json({ questions: clientQuestions });
-    } catch (e: any) {
-      console.error("Verification question generation error:", e);
-      return res.status(500).json({ message: "Failed to generate questions" });
-    }
+  // ========== SKILL VERIFICATION (removed — assessment-only product) ==========
+  app.post("/api/skills/:id/verify/start", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.post("/api/skills/:id/verify/submit", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const skillId = parseInt(req.params.id);
-      const skill = await storage.getSkill(skillId);
-      if (!skill) return res.status(404).json({ message: "Skill not found" });
-
-      const { answers } = req.body;
-      if (!answers) return res.status(400).json({ message: "Answers required" });
-
-      const verificationKey = `${user.id}-${skillId}`;
-      const questions = pendingVerifications.get(verificationKey);
-      if (!questions) return res.status(400).json({ message: "No pending verification. Please start again." });
-
-      pendingVerifications.delete(verificationKey);
-
-      let correctCount = 0;
-      for (let i = 0; i < questions.length; i++) {
-        if (answers[i] === questions[i].correctIndex) {
-          correctCount++;
-        }
-      }
-
-      const passed = correctCount >= 2;
-
-      await storage.createVerificationAttempt({
-        userId: user.id,
-        skillId,
-        questionsJson: questions,
-        answersJson: answers,
-        passed,
-      });
-
-      if (passed) {
-        await storage.upsertUserSkillStatus({
-          userId: user.id,
-          skillId,
-          status: "green",
-          explanation: `Verified via quiz (${correctCount}/3 correct)`,
-          completedAt: new Date(),
-        });
-
-        await storage.createBadge({
-          userId: user.id,
-          badgeType: "skill_complete",
-          badgeDataJson: { skillId, skillName: skill.name },
-        });
-
-        await storage.createActivityFeedEntry({
-          orgId: user.orgId || undefined,
-          userId: user.id,
-          eventType: "skill_complete",
-          eventDataJson: { skillId, skillName: skill.name },
-        });
-
-        const allSkills = await storage.getSkills();
-        const allStatuses = await storage.getUserSkillStatuses(user.id);
-
-        const nextSkill = allSkills
-          .filter(s => s.sortOrder > skill.sortOrder)
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .find(s => {
-            const st = allStatuses.find(ss => ss.skillId === s.id);
-            return !st || st.status !== "green";
-          });
-
-        if (nextSkill) {
-          const existingStatus = allStatuses.find(ss => ss.skillId === nextSkill.id);
-          if (!existingStatus || existingStatus.status === "red") {
-            await storage.upsertUserSkillStatus({
-              userId: user.id,
-              skillId: nextSkill.id,
-              status: "yellow",
-              explanation: "Now active for development",
-            });
-          }
-        }
-
-        const levelSkills = allSkills.filter(s => s.levelId === skill.levelId);
-        const levelStatuses = allStatuses.filter(ss => levelSkills.some(ls => ls.id === ss.skillId));
-        const greenInLevel = levelStatuses.filter(ss => ss.status === "green" || ss.skillId === skillId).length;
-
-        let levelUp = false;
-        let levelUpInfo = null;
-
-        if (greenInLevel >= levelSkills.length) {
-          const allLevels = await storage.getLevels();
-          const currentLevel = allLevels.find(l => l.id === skill.levelId);
-          if (currentLevel) {
-            levelUp = true;
-            levelUpInfo = { level: currentLevel.sortOrder, name: currentLevel.displayName };
-
-            await storage.createBadge({
-              userId: user.id,
-              badgeType: "level_up",
-              badgeDataJson: { level: currentLevel.sortOrder, levelName: currentLevel.displayName },
-            });
-
-            await storage.createActivityFeedEntry({
-              orgId: user.orgId || undefined,
-              userId: user.id,
-              eventType: "level_up",
-              eventDataJson: { level: currentLevel.sortOrder, levelName: currentLevel.displayName },
-            });
-
-            sendLevelUpEmail(user, currentLevel.displayName, currentLevel.sortOrder, APP_URL).catch(console.error);
-          }
-        }
-
-        sendSkillCompleteEmail(user, skill.name, nextSkill?.name || null, APP_URL).catch(console.error);
-
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const recentBadges = (await storage.getUserBadges(user.id))
-          .filter(b => b.badgeType === "skill_complete" && b.earnedAt >= todayStart);
-        if (recentBadges.length >= 5) {
-          await storage.createActivityFeedEntry({
-            orgId: user.orgId || undefined,
-            userId: user.id,
-            eventType: "speedrun_detected",
-            eventDataJson: { skillsCompletedToday: recentBadges.length },
-          });
-        }
-
-        return res.json({
-          passed: true,
-          correctCount,
-          levelUp,
-          levelUpInfo,
-          nextSkillName: nextSkill?.name || null,
-          message: `Nice. ${skill.name}: locked in.`,
-        });
-      } else {
-        return res.json({
-          passed: false,
-          correctCount,
-          message: "Not quite. Revisit this week's challenge and try again when you're ready.",
-        });
-      }
-    } catch (e: any) {
-      console.error("Verification submit error:", e);
-      return res.status(500).json({ message: "Verification failed" });
-    }
+  app.post("/api/skills/:id/verify/submit", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
   // ========== BADGES ==========
@@ -925,27 +689,9 @@ export async function registerRoutes(
     return res.json(feed);
   });
 
-  // ========== SOCIAL PROOF ==========
-  app.get("/api/social/skill-completion", requireAuth, async (req, res) => {
-    const user = await getCurrentUser(req);
-    if (!user || !user.orgId) return res.json({});
-
-    const members = await storage.getUsersByOrg(user.orgId);
-    const memberIds = members.map(m => m.id);
-    const allSkills = await storage.getSkills();
-
-    const completionRates: Record<number, { completed: number; total: number }> = {};
-    for (const skill of allSkills) {
-      let completed = 0;
-      for (const memberId of memberIds) {
-        const statuses = await storage.getUserSkillStatuses(memberId);
-        const ss = statuses.find(s => s.skillId === skill.id);
-        if (ss?.status === "green") completed++;
-      }
-      completionRates[skill.id] = { completed, total: memberIds.length };
-    }
-
-    return res.json(completionRates);
+  // ========== SOCIAL PROOF (removed — assessment-only product, no client consumer) ==========
+  app.get("/api/social/skill-completion", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
   // ========== UNSUBSCRIBE ==========
@@ -1559,137 +1305,21 @@ export async function registerRoutes(
   });
 
   // ========== ADMIN TESTING ==========
-  app.post("/api/admin/test/generate-challenge", requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ message: "userId required" });
-      const targetUser = await storage.getUser(userId);
-      if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-      const skillStatuses = await storage.getUserSkillStatuses(userId);
-      const yellowSkills = skillStatuses.filter(s => s.status === "yellow");
-      if (yellowSkills.length === 0) return res.status(400).json({ message: "No active (yellow) skills" });
-
-      const skill = await storage.getSkill(yellowSkills[0].skillId);
-      if (!skill) return res.status(404).json({ message: "Skill not found" });
-
-      const previousNudges = await storage.getNudgesByUserAndSkill(userId, skill.id);
-      const nudgeContent = await generateNudge(targetUser, skill, previousNudges);
-      const created = await storage.createNudge({
-        userId,
-        skillId: skill.id,
-        contentJson: nudgeContent,
-        subjectLine: nudgeContent.subject_line,
-      });
-      return res.json({ message: "Challenge generated", nudge: created, skillName: skill.name });
-    } catch (e: any) {
-      return res.status(500).json({ message: e.message });
-    }
+  // Challenge/nudge admin test endpoints removed — assessment-only product
+  app.post("/api/admin/test/generate-challenge", requireAdmin, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.post("/api/admin/test/simulate-skill-completion", requireAdmin, async (req, res) => {
-    try {
-      const { userId, skillId } = req.body;
-      if (!userId || !skillId) return res.status(400).json({ message: "userId and skillId required" });
-
-      const skill = await storage.getSkill(skillId);
-      if (!skill) return res.status(404).json({ message: "Skill not found" });
-      const targetUser = await storage.getUser(userId);
-      if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-      await storage.upsertUserSkillStatus({ userId, skillId, status: "green", explanation: "Simulated completion via admin testing" });
-
-      const allSkills = await storage.getSkills();
-      const levelSkills = allSkills.filter(s => s.levelId === skill.levelId);
-      const userStatuses = await storage.getUserSkillStatuses(userId);
-      const greenCount = levelSkills.filter(ls =>
-        userStatuses.some(us => us.skillId === ls.id && us.status === "green")
-      ).length;
-
-      let leveledUp = false;
-      if (greenCount === levelSkills.length) {
-        leveledUp = true;
-        const levels = await storage.getLevels();
-        const currentLevel = levels.find(l => l.id === skill.levelId);
-        if (currentLevel) {
-          sendLevelUpEmail(targetUser, currentLevel.displayName, currentLevel.sortOrder, APP_URL).catch(console.error);
-          await storage.createBadge({ userId, badgeType: "level_up", badgeDataJson: { levelId: skill.levelId, levelName: currentLevel.displayName } });
-        }
-      }
-
-      await storage.createBadge({ userId, badgeType: "skill_complete", badgeDataJson: { skillId, skillName: skill.name } });
-      if (targetUser.orgId) {
-        await storage.createActivityFeedEntry({ orgId: targetUser.orgId, userId, eventType: "skill_complete", eventDataJson: { skillName: skill.name } });
-      }
-
-      const nextYellow = userStatuses.find(s => s.status !== "green" && s.skillId !== skillId);
-      if (nextYellow) {
-        const nextSkill = allSkills.find(s => s.id === nextYellow.skillId);
-        if (nextSkill) {
-          sendSkillCompleteEmail(targetUser, skill.name, nextSkill.name, APP_URL).catch(console.error);
-        }
-      }
-
-      return res.json({ message: "Skill completed", skillName: skill.name, leveledUp, greenInLevel: greenCount, totalInLevel: levelSkills.length });
-    } catch (e: any) {
-      return res.status(500).json({ message: e.message });
-    }
+  app.post("/api/admin/test/simulate-skill-completion", requireAdmin, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.post("/api/admin/test/trigger-level-up", requireAdmin, async (req, res) => {
-    try {
-      const { userId, levelId } = req.body;
-      if (!userId || !levelId) return res.status(400).json({ message: "userId and levelId required" });
-
-      const targetUser = await storage.getUser(userId);
-      if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-      const allSkills = await storage.getSkills();
-      const levelSkills = allSkills.filter(s => s.levelId === levelId);
-      for (const skill of levelSkills) {
-        await storage.upsertUserSkillStatus({ userId, skillId: skill.id, status: "green", explanation: "Simulated via admin level-up trigger" });
-        await storage.createBadge({ userId, badgeType: "skill_complete", badgeDataJson: { skillId: skill.id, skillName: skill.name } });
-      }
-
-      const levels = await storage.getLevels();
-      const level = levels.find(l => l.id === levelId);
-      if (level) {
-        sendLevelUpEmail(targetUser, level.displayName, level.sortOrder, APP_URL).catch(console.error);
-        await storage.createBadge({ userId, badgeType: "level_up", badgeDataJson: { levelId, levelName: level.displayName } });
-      }
-
-      if (targetUser.orgId) {
-        await storage.createActivityFeedEntry({ orgId: targetUser.orgId, userId, eventType: "level_up", eventDataJson: { levelName: level?.displayName || "Unknown" } });
-      }
-
-      return res.json({ message: `Level-up triggered: ${level?.displayName}`, skillsCompleted: levelSkills.length });
-    } catch (e: any) {
-      return res.status(500).json({ message: e.message });
-    }
+  app.post("/api/admin/test/trigger-level-up", requireAdmin, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.post("/api/admin/test/preview-challenge-email", requireAdmin, async (req, res) => {
-    try {
-      const { userId } = req.body;
-      if (!userId) return res.status(400).json({ message: "userId required" });
-
-      const targetUser = await storage.getUser(userId);
-      if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-      const nudges = await storage.getUserNudges(userId);
-      const latestNudge = nudges[0];
-      if (!latestNudge) return res.status(404).json({ message: "No Power Ups found for this user" });
-
-      const skill = latestNudge.skillId ? await storage.getSkill(latestNudge.skillId) : null;
-      return res.json({
-        to: targetUser.email,
-        subject: latestNudge.subjectLine,
-        skillName: skill?.name || "Unknown",
-        content: latestNudge.contentJson,
-      });
-    } catch (e: any) {
-      return res.status(500).json({ message: e.message });
-    }
+  app.post("/api/admin/test/preview-challenge-email", requireAdmin, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
   app.post("/api/admin/test/reset-user", requireAdmin, async (req, res) => {
@@ -1877,137 +1507,17 @@ export async function registerRoutes(
     }
   });
 
-  // ========== CHALLENGE COACH ==========
-  app.post("/api/challenge/:nudgeId/coach", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const { message } = req.body;
-      if (!message || typeof message !== "string" || !message.trim()) {
-        return res.status(400).json({ message: "Message is required" });
-      }
-
-      const nudgeId = parseInt(req.params.nudgeId);
-      const nudge = await storage.getNudge(nudgeId);
-      if (!nudge || nudge.userId !== user.id) {
-        return res.status(404).json({ message: "Power Up not found" });
-      }
-
-      // Look up or create conversation
-      let conversation = await storage.getCoachConversation(user.id, nudgeId);
-      if (!conversation) {
-        conversation = await storage.createCoachConversation({
-          userId: user.id,
-          nudgeId,
-          messagesJson: [],
-        });
-      }
-
-      const existingMessages = (conversation.messagesJson || []) as Array<{ role: string; content: string }>;
-
-      const contentJson = nudge.contentJson as any;
-      const challengeContext = contentJson
-        ? `Opener: ${contentJson.opener || ""}\nIdea: ${contentJson.idea || ""}\nAction: ${contentJson.action || ""}\nReflection: ${contentJson.reflection || ""}\nUse Case: ${contentJson.use_case || ""}\nStory: ${contentJson.story || ""}`
-        : "No challenge content available.";
-
-      const systemPrompt = `You are a helpful AI coach embedded inside a learning challenge. The user is trying to complete a specific challenge and needs help.
-
-CHALLENGE CONTEXT:
-${challengeContext}
-
-USER CONTEXT:
-Name: ${user.name || "Unknown"}
-Role: ${user.roleTitle || "Unknown"}
-AI Platform: ${user.aiPlatform || "Unknown"}
-
-YOUR ROLE:
-- Help them work through the challenge step by step
-- If they're stuck, ask what specifically isn't working
-- Give specific, actionable advice for their AI platform
-- Don't do the work for them. Guide them.
-- Keep responses to 2-3 sentences max. Be direct and helpful.
-- If they share a screenshot description or error, diagnose the issue
-- Celebrate when they succeed. Be genuine, not over the top.
-
-IMPORTANT: You are teaching the meta-skill of "when stuck with AI, describe the problem and ask for help." Model this behavior.`;
-
-      const apiMessages = [
-        ...existingMessages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
-        { role: "user" as const, content: message.trim() },
-      ];
-
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-      const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 300,
-        system: systemPrompt,
-        messages: apiMessages,
-      });
-
-      const textBlock = response.content.find(b => b.type === "text");
-      const assistantMessage = textBlock?.text || "I'm having trouble responding right now. Try again in a moment.";
-
-      const updatedMessages = [
-        ...existingMessages,
-        { role: "user", content: message.trim() },
-        { role: "assistant", content: assistantMessage },
-      ];
-
-      await storage.updateCoachConversation(conversation.id, updatedMessages);
-
-      return res.json({ response: assistantMessage, conversationId: conversation.id });
-    } catch (e: any) {
-      console.error("Coach conversation error:", e);
-      return res.status(500).json({ message: "Failed to get coaching response" });
-    }
+  // ========== CHALLENGE COACH & REFLECTIONS (removed — assessment-only product) ==========
+  app.post("/api/challenge/:nudgeId/coach", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.get("/api/challenge/:nudgeId/coach", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const nudgeId = parseInt(req.params.nudgeId);
-      const conversation = await storage.getCoachConversation(user.id, nudgeId);
-
-      return res.json({ messages: conversation?.messagesJson || [] });
-    } catch (e: any) {
-      console.error("Get coach conversation error:", e);
-      return res.status(500).json({ message: "Failed to load conversation" });
-    }
+  app.get("/api/challenge/:nudgeId/coach", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  app.post("/api/challenge/:nudgeId/reflect", requireAuth, async (req, res) => {
-    try {
-      const user = await getCurrentUser(req);
-      if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-      const { note } = req.body;
-      if (!note || typeof note !== "string" || !note.trim()) {
-        return res.status(400).json({ message: "Reflection note is required" });
-      }
-
-      const nudgeId = parseInt(req.params.nudgeId);
-      const nudge = await storage.getNudge(nudgeId);
-      if (!nudge || nudge.userId !== user.id) {
-        return res.status(404).json({ message: "Power Up not found" });
-      }
-
-      await storage.createChallengeReflection({
-        userId: user.id,
-        nudgeId,
-        note: note.trim(),
-      });
-
-      await storage.updateNudge(nudgeId, { inAppRead: true });
-
-      return res.json({ success: true });
-    } catch (e: any) {
-      console.error("Challenge reflection error:", e);
-      return res.status(500).json({ message: "Failed to save reflection" });
-    }
+  app.post("/api/challenge/:nudgeId/reflect", requireAuth, async (_req, res) => {
+    return res.status(410).json({ message: "This feature has been removed" });
   });
 
   // ========== VOICE ASSESSMENT ==========

@@ -720,10 +720,10 @@ export default function AssessmentPage() {
           <Wordmark className="text-xl mb-8 block" />
           <AlertCircle className="w-12 h-12 text-et-orange mx-auto mb-4" />
           <p className="font-heading text-xl font-semibold mb-3">
-            Scoring is taking longer than expected
+            Something went wrong with scoring
           </p>
           <p className="text-muted-foreground text-sm mb-6">
-            Your conversation has been saved. Let's try getting your results again.
+            Your conversation has been saved. You can try again and we'll rebuild your results.
           </p>
           <div className="flex flex-col gap-3">
             <Button
@@ -739,9 +739,9 @@ export default function AssessmentPage() {
             <Button
               variant="ghost"
               className="min-h-[44px]"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/results")}
             >
-              Go to Dashboard
+              View results anyway
             </Button>
           </div>
         </div>

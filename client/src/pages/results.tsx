@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 const LEVEL_COLORS: Record<number, string> = {
   0: "#FFD236", 1: "#FF2F86", 2: "#FF6A2B", 3: "#1C4BFF",
@@ -47,6 +51,7 @@ export default function ResultsPage() {
   useEffect(() => { document.title = "Your Results — Electric Thinking"; }, []);
   const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
   const [showSkills, setShowSkills] = useState(false);
+  const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
@@ -189,9 +194,11 @@ export default function ResultsPage() {
     );
   }
 
-  // Build skill breakdown by level
+  // Build skill breakdown by level — only show skills through user's level + 1
+  const maxVisibleSortOrder = Math.min(assessmentLevel + 1, 3);
   const skillsByLevel = levels
     .sort((a, b) => a.sortOrder - b.sortOrder)
+    .filter(level => level.sortOrder <= maxVisibleSortOrder)
     .map(level => {
       const levelSkills = (allSkills || []).filter(s => s.levelId === level.id);
       return {
@@ -497,7 +504,7 @@ export default function ResultsPage() {
               </Button>
               <div className="text-center">
                 <button
-                  onClick={() => navigate("/survey")}
+                  onClick={() => setShowRetakeConfirm(true)}
                   className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
                 >
                   Retake assessment
@@ -508,6 +515,23 @@ export default function ResultsPage() {
         </AnimatePresence>
 
       </div>
+
+      <AlertDialog open={showRetakeConfirm} onOpenChange={setShowRetakeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-heading">Start a new assessment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your current results will be replaced with new ones once you complete the assessment again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => navigate("/survey")}>
+              Start over
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
