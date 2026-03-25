@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, count, inArray, isNull, lt, gte } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, count, inArray, isNull, lt, gte } from "drizzle-orm";
 import { db } from "./db";
 import {
   users, organizations, assessments, levels, skills, assessmentQuestions,
@@ -213,7 +213,10 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveAssessment(userId: number): Promise<Assessment | undefined> {
     const [a] = await db.select().from(assessments)
-      .where(and(eq(assessments.userId, userId), eq(assessments.status, "in_progress")));
+      .where(and(
+        eq(assessments.userId, userId),
+        or(eq(assessments.status, "in_progress"), eq(assessments.status, "scoring"))
+      ));
     return a;
   }
 

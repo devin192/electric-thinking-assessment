@@ -715,6 +715,67 @@ function AssessmentsTab() {
                           </div>
                         </div>
                       )}
+                      {(viewingAssessment as any).outcomeOptionsJson && (
+                        <div className="p-4 rounded-xl bg-accent/30">
+                          <p className="text-xs font-medium mb-2">Outcomes</p>
+                          <div className="space-y-2">
+                            {(() => {
+                              try {
+                                const outcomes = typeof (viewingAssessment as any).outcomeOptionsJson === 'string'
+                                  ? JSON.parse((viewingAssessment as any).outcomeOptionsJson)
+                                  : (viewingAssessment as any).outcomeOptionsJson;
+                                return (outcomes || []).map((o: any, i: number) => (
+                                  <div key={i} className="text-sm p-3 rounded-lg bg-background">
+                                    <p className="font-medium text-xs">{o.outcomeHeadline}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{o.action}</p>
+                                    <p className="text-xs text-et-green mt-1 italic">{o.whatYoullSee}</p>
+                                  </div>
+                                ));
+                              } catch { return null; }
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                      {(viewingAssessment as any).firstMoveJson && (
+                        <div className="p-4 rounded-xl bg-accent/30">
+                          <p className="text-xs font-medium mb-1">First Move</p>
+                          {(() => {
+                            try {
+                              const fm = typeof (viewingAssessment as any).firstMoveJson === 'string'
+                                ? JSON.parse((viewingAssessment as any).firstMoveJson)
+                                : (viewingAssessment as any).firstMoveJson;
+                              return (
+                                <div className="text-sm">
+                                  <p className="text-xs text-muted-foreground"><strong>{fm.skillName}:</strong> {fm.suggestion}</p>
+                                </div>
+                              );
+                            } catch { return null; }
+                          })()}
+                        </div>
+                      )}
+                      {(viewingAssessment as any).brightSpotsText && (
+                        <div className="p-4 rounded-xl bg-accent/30">
+                          <p className="text-xs font-medium mb-1">Bright Spots</p>
+                          {(() => {
+                            try {
+                              const spots = JSON.parse((viewingAssessment as any).brightSpotsText);
+                              return (
+                                <ul className="text-sm text-muted-foreground space-y-1">
+                                  {(Array.isArray(spots) ? spots : [spots]).map((s: string, i: number) => (
+                                    <li key={i} className="text-xs">• {s}</li>
+                                  ))}
+                                </ul>
+                              );
+                            } catch { return <p className="text-xs text-muted-foreground">{(viewingAssessment as any).brightSpotsText}</p>; }
+                          })()}
+                        </div>
+                      )}
+                      {(viewingAssessment as any).futureSelfText && (
+                        <div className="p-4 rounded-xl bg-accent/30">
+                          <p className="text-xs font-medium mb-1">Future Self</p>
+                          <p className="text-sm text-muted-foreground italic">{(viewingAssessment as any).futureSelfText}</p>
+                        </div>
+                      )}
                       <div className="space-y-3">
                         <p className="text-xs font-medium">Transcript</p>
                         {(() => {

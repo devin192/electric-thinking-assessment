@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getSharedAudioContext, getSharedMediaStream, clearSharedAudio } from "@/lib/audio-context";
 import {
@@ -669,6 +669,9 @@ export default function AssessmentPage() {
       const scored = await completeScoring(assessmentId);
       phaseTimers.forEach(clearTimeout);
 
+      // Invalidate cached queries so results page fetches fresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/assessment/latest"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/assessment/active"] });
       setIsScoring(false);
       navigate("/results");
     } catch {
@@ -681,6 +684,8 @@ export default function AssessmentPage() {
         if (retryData && retryData.status === "completed") {
           phaseTimers.forEach(clearTimeout);
 
+          queryClient.invalidateQueries({ queryKey: ["/api/assessment/latest"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/assessment/active"] });
           setIsScoring(false);
           navigate("/results");
           return;

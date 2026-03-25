@@ -206,10 +206,22 @@ export async function registerRoutes(
     const user = await getCurrentUser(req);
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
-    const existing = await storage.getActiveAssessment(user.id);
-    if (existing) return res.json(existing);
-
     const { surveyResponsesJson, surveyLevel } = req.body || {};
+
+    const existing = await storage.getActiveAssessment(user.id);
+    if (existing) {
+      // If new survey data was submitted (retake), update the existing assessment
+      if (surveyResponsesJson) {
+        await storage.updateAssessment(existing.id, {
+          surveyResponsesJson,
+          ...(typeof surveyLevel === "number" ? { surveyLevel } : {}),
+          transcript: JSON.stringify([]), // Reset transcript for fresh conversation
+        });
+        const updated = await storage.getAssessment(existing.id);
+        return res.json(updated);
+      }
+      return res.json(existing);
+    }
 
     const assessment = await storage.createAssessment({
       userId: user.id,
@@ -299,15 +311,49 @@ export async function registerRoutes(
         return res.status(200).json({ message: "Assessment already completed" });
       }
 
+      if (assessment.status === "scoring") {
+        return res.status(409).json({ message: "Scoring is already in progress" });
+      }
+
+      // Optimistic lock: atomically set status to "scoring" to prevent double-complete
+      const { db: dbInstance } = await import("./db");
+      const { assessments: assessmentsTable } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const [locked] = await dbInstance.update(assessmentsTable)
+        .set({ status: "scoring" })
+        .where(and(eq(assessmentsTable.id, assessmentId), eq(assessmentsTable.status, "in_progress")))
+        .returning();
+      if (!locked) {
+        return res.status(409).json({ message: "Scoring is already in progress" });
+      }
+
       let messages: Array<{ role: string; content: string }> = [];
       try { messages = JSON.parse(assessment.transcript || "[]"); } catch { messages = []; }
 
       const transcriptText = messages.map(m => `${m.role}: ${m.content}`).join("\n\n");
 
+      // Build survey context for scoring (so the model sees self-assessment data too)
+      let surveyContext: string | undefined;
+      if (assessment.surveyResponsesJson) {
+        const surveyData = assessment.surveyResponsesJson as Record<string, number>;
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+        const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
+        const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
+        const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
+        surveyContext = [
+          `Self-assessment survey level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
+          strong.length > 0 ? `Skills they self-reported as always doing: ${strong.join(", ")}` : "",
+          sometimes.length > 0 ? `Skills they self-reported as sometimes doing: ${sometimes.join(", ")}` : "",
+          never.length > 0 ? `Skills they self-reported as never doing: ${never.join(", ")}` : "",
+        ].filter(Boolean).join("\n");
+      }
+
       const result = await scoreAssessment(transcriptText, {
         name: user.name || undefined,
         roleTitle: user.roleTitle || undefined,
         aiPlatform: user.aiPlatform || undefined,
+        surveyContext,
       });
 
       const allSkills = await storage.getSkills();
@@ -368,7 +414,13 @@ export async function registerRoutes(
       });
     } catch (e: any) {
       console.error("Scoring error:", e);
-      return res.status(500).json({ message: "Scoring is taking longer than expected. We'll notify you when ready." });
+      // Reset status so user can retry
+      try {
+        await storage.updateAssessment(parseInt(req.params.id), { status: "in_progress" });
+      } catch (resetErr) {
+        console.error("Failed to reset assessment status:", resetErr);
+      }
+      return res.status(500).json({ message: "Scoring is taking longer than expected. Please try again." });
     }
   });
 

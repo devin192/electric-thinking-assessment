@@ -43,7 +43,7 @@ export async function getAssessmentResponse(
 
 export async function scoreAssessment(
   transcript: string,
-  userContext: { name?: string; roleTitle?: string; aiPlatform?: string }
+  userContext: { name?: string; roleTitle?: string; aiPlatform?: string; surveyContext?: string }
 ): Promise<{
   scores: Record<string, { status: string; explanation: string }>;
   assessmentLevel: number;
@@ -131,6 +131,7 @@ USER INFO:
 Name: ${userContext.name || "Unknown"}
 Role: ${userContext.roleTitle || "Unknown"}
 AI Platform: ${userContext.aiPlatform || "Unknown"}
+${userContext.surveyContext ? `\nSELF-ASSESSMENT SURVEY DATA:\n${userContext.surveyContext}\n\nUse this survey data as additional signal alongside the conversation. The survey shows what the user believes about their own habits. The conversation provides evidence of actual practice. When they conflict, weight the conversation evidence more heavily, but note the discrepancy.` : ""}
 
 Respond in this exact JSON format (no markdown, just raw JSON):
 {

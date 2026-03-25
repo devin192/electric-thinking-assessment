@@ -311,10 +311,10 @@ export async function sendSkillCompleteEmail(user: User, skillName: string, next
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 12px 0; text-align: center; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">${skillName}: Locked In</h1>
       ${bodyText("You proved it in practice. That skill is yours now.")}
       ${nextSkillName
-        ? `${bodyText(`<strong>Next up:</strong> ${nextSkillName}. Your Power Ups will focus here.`)}`
+        ? `${bodyText(`<strong>Next up:</strong> ${nextSkillName}. Keep building on this momentum.`)}`
         : `${bodyText("Keep going. Every skill you lock in changes how you work.")}`
       }
-      ${ctaButton("See Your Skill Map", `${appUrl}/dashboard`)}
+      ${ctaButton("See Your Results", `${appUrl}/results`)}
     `), unsubscribeUrl);
 
     await client.emails.send({
@@ -368,12 +368,12 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
       </table>
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 26px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; text-align: center; mso-line-height-rule: exactly; line-height: 34px;" class="email-text">You're now a ${levelName}</h1>
       ${bodyText(`<strong>All five Level ${level + 1} skills: complete.</strong> That took real work.`)}
-      ${bodyText("The next level brings deeper challenges and bigger thinking.")}
+      ${bodyText("You're building real fluency. The next level unlocks new ways of thinking about AI.")}
       ${divider()}
-      ${smallText(`Share your achievement: "I'm a Level ${level + 1} AI ${levelName}, certified by Electric Thinking."`)}
+      ${smallText(`Share your achievement: "I'm a Level ${level + 1} AI ${levelName}, assessed by Electric Thinking."`)}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
-          ${ctaButton("Explore Your New Territory", `${appUrl}/dashboard`)}
+          ${ctaButton("See Your Results", `${appUrl}/results`)}
         </td></tr>
       </table>
     `), unsubscribeUrl);
@@ -467,7 +467,7 @@ export async function sendReAssessmentEmail(user: User, appUrl: string): Promise
       ${bodyText("Your AI skills have grown since your last conversation. A re-assessment takes a few minutes and can only move you up.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
-          ${ctaButton("Take Re-Assessment", `${appUrl}/assessment/warmup`)}
+          ${ctaButton("Take Re-Assessment", `${appUrl}/survey`)}
         </td></tr>
       </table>
     `), unsubscribeUrl);
@@ -596,20 +596,20 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Level distribution</strong> across your team</td></tr>
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Individual skill profiles</strong> for each member</td></tr>
-         <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Toggle Power Ups</strong> on or off per person</td></tr>
+         <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Export data</strong> for your team</td></tr>
        </table>
        ${bodyText("You can see skill scores and levels, but not conversation transcripts. That's by design.")}
-       ${ctaButton("Open Manager Dashboard", `${appUrl}/manager`)}`,
+       ${ctaButton("Open Dashboard", `${appUrl}/dashboard`)}`,
       `${bodyText(`Hey ${user.name || "there"},`)}
        ${bodyText("<strong>How to frame it with your team:</strong>")}
        ${bodyText("This isn't a test. It's a conversation with an AI that helps people understand where they are with AI tools. No wrong answers, no grades.")}
-       ${bodyText('The best framing: "We\'re all learning this together. The conversation gives each person a personalized learning path."')}`,
+       ${bodyText('The best framing: "We\'re all figuring this out together. The assessment gives each person a personalized snapshot of where they are and what to try next."')}`,
       `${bodyText(`Hey ${user.name || "there"},`)}
        ${bodyText("<strong>How to use your dashboard data:</strong>")}
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; If most of the team is red on one skill, that's a workshop topic</td></tr>
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; If one person is way ahead, they might be an internal champion</td></tr>
-         <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; The weekly Power Ups handle individual coaching. You focus on patterns.</td></tr>
+         <tr><td style="padding: 0 0 16px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; The assessment handles individual insights. You focus on patterns.</td></tr>
        </table>`,
     ];
 
