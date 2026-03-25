@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
-import { ArrowRight, ArrowLeft } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // 20 survey questions — 5 per level, shown sequentially without level labels
@@ -37,11 +37,6 @@ const SURVEY_QUESTIONS = [
 ];
 
 type Answer = 0 | 1 | 2; // 0=Never, 1=Sometimes, 2=Always
-const ANSWER_LABELS: { value: Answer; label: string; description: string }[] = [
-  { value: 0, label: "Never", description: "I don't do this" },
-  { value: 1, label: "Sometimes", description: "I do this occasionally" },
-  { value: 2, label: "Always", description: "This is a regular habit" },
-];
 
 // Adaptive cutoff: after completing a level's 5 questions, check if we should continue.
 // If the user scored low on this level, they've found their growth edge — stop.
@@ -95,92 +90,50 @@ export { calculateSurveyLevel, buildSurveySummary, SURVEY_QUESTIONS };
 export default function SurveyPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentLevel, setCurrentLevel] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [direction, setDirection] = useState(1);
   const [surveyComplete, setSurveyComplete] = useState(false);
 
   useEffect(() => { document.title = "Survey — Electric Thinking"; }, []);
 
-  const question = SURVEY_QUESTIONS[currentIndex];
-  const currentAnswer = answers[question.skillName];
+  const levelQuestions = useMemo(
+    () => SURVEY_QUESTIONS.filter(q => q.level === currentLevel),
+    [currentLevel]
+  );
 
-  // Compute how many questions are active (factoring in adaptive cutoff)
-  const activeQuestions = useMemo(() => {
-    const active: typeof SURVEY_QUESTIONS = [];
+  const levelAllAnswered = levelQuestions.every(q => q.skillName in answers);
+
+  // How many total levels will be shown (for progress display)
+  const totalLevels = useMemo(() => {
     for (let lvl = 0; lvl <= 3; lvl++) {
       const levelQs = SURVEY_QUESTIONS.filter(q => q.level === lvl);
-      active.push(...levelQs);
-      // After adding a level's questions, check if we have enough answers to decide cutoff
-      if (lvl < 3) {
-        const allAnswered = levelQs.every(q => q.skillName in answers);
-        if (allAnswered && !shouldContinueToNextLevel(answers, lvl)) {
-          break; // Stop — found the growth edge
-        }
+      const allAnswered = levelQs.every(q => q.skillName in answers);
+      if (allAnswered && lvl < 3 && !shouldContinueToNextLevel(answers, lvl)) {
+        return lvl + 1;
+      }
+      if (!allAnswered) {
+        return lvl + 1; // we're still on this level, assume at least this many
       }
     }
-    return active;
+    return 4;
   }, [answers]);
 
-  const totalActive = activeQuestions.length;
-  const answeredCount = activeQuestions.filter(q => q.skillName in answers).length;
-
-  // Check if the survey is done after each answer
-  const checkComplete = useCallback((updatedAnswers: Record<string, Answer>) => {
-    // Walk through levels and check adaptive cutoff
-    for (let lvl = 0; lvl <= 3; lvl++) {
-      const levelQs = SURVEY_QUESTIONS.filter(q => q.level === lvl);
-      const allLevelAnswered = levelQs.every(q => q.skillName in updatedAnswers);
-      if (!allLevelAnswered) return false; // still have questions in this level
-
-      if (lvl < 3 && !shouldContinueToNextLevel(updatedAnswers, lvl)) {
-        return true; // cutoff — survey is done
-      }
-    }
-    // If we got through all 4 levels with answers, we're done
-    const allQs = SURVEY_QUESTIONS;
-    return allQs.every(q => q.skillName in updatedAnswers);
+  const handleAnswer = useCallback((skillName: string, value: Answer) => {
+    setAnswers(prev => ({ ...prev, [skillName]: value }));
   }, []);
 
-  const handleAnswer = useCallback((value: Answer) => {
-    const updated = { ...answers, [question.skillName]: value };
-    setAnswers(updated);
+  const handleContinue = useCallback(() => {
+    if (!levelAllAnswered) return;
 
-    const done = checkComplete(updated);
-    if (done) {
+    // Check adaptive cutoff
+    if (currentLevel < 3 && shouldContinueToNextLevel(answers, currentLevel)) {
+      setCurrentLevel(prev => prev + 1);
+    } else {
       setSurveyComplete(true);
-      return;
     }
-
-    // Auto-advance to next question
-    setTimeout(() => {
-      // Find next unanswered question in active set
-      const nextIdx = currentIndex + 1;
-      if (nextIdx < SURVEY_QUESTIONS.length) {
-        // Check if this next question is still within the active range
-        const nextQ = SURVEY_QUESTIONS[nextIdx];
-        const nextLevel = nextQ.level;
-        // Only advance if the next level is still active
-        if (nextLevel === question.level || shouldContinueToNextLevel(updated, question.level)) {
-          setDirection(1);
-          setCurrentIndex(nextIdx);
-        } else {
-          // We just completed a level and the cutoff says stop
-          setSurveyComplete(true);
-        }
-      }
-    }, 300);
-  }, [currentIndex, question, answers, checkComplete]);
-
-  const goBack = useCallback(() => {
-    if (currentIndex > 0) {
-      setDirection(-1);
-      setCurrentIndex(prev => prev - 1);
-      setSurveyComplete(false); // re-open if going back
-    }
-  }, [currentIndex]);
+  }, [currentLevel, answers, levelAllAnswered]);
 
   const handleSubmit = useCallback(async () => {
     setSubmitting(true);
@@ -214,113 +167,144 @@ export default function SurveyPage() {
           <Wordmark className="text-lg" />
         </button>
         <span className="text-sm text-muted-foreground">
-          {answeredCount} of {totalActive}
+          Part {currentLevel + 1}{!surveyComplete ? ` of ${totalLevels}` : ""}
         </span>
       </header>
 
-      {/* Progress bar */}
-      <div className="px-6">
-        <div className="h-1 bg-muted rounded-full overflow-hidden">
-          <motion.div
-            className="h-full bg-et-pink rounded-full"
-            initial={false}
-            animate={{ width: `${Math.min(100, (answeredCount / totalActive) * 100)}%` }}
-            transition={{ duration: 0.3 }}
+      {/* Progress dots */}
+      <div className="px-6 flex items-center justify-center gap-2 mb-2">
+        {Array.from({ length: totalLevels }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              i < currentLevel
+                ? "bg-et-pink w-8"
+                : i === currentLevel && !surveyComplete
+                  ? "bg-et-pink w-12"
+                  : i === currentLevel && surveyComplete
+                    ? "bg-et-pink w-8"
+                    : "bg-muted w-8"
+            }`}
           />
-        </div>
+        ))}
       </div>
 
-      {/* Question area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
-        <div className="w-full max-w-lg">
-          {answeredCount === 0 && !surveyComplete && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-sm text-muted-foreground text-center mb-4"
-            >
-              How often do you do each of these? No right or wrong answers.
-            </motion.p>
-          )}
-          {surveyComplete ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center space-y-6"
-            >
-              <p className="text-2xl font-heading font-bold">Got it.</p>
-              <p className="text-muted-foreground">
-                Now you'll have a quick conversation with Lex, an AI guide who'll dig into how AI fits your actual work.
-              </p>
-              {submitError && (
-                <p className="text-sm text-red-500">{submitError}</p>
-              )}
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="rounded-2xl px-8 py-6 text-base"
-              >
-                {submitting ? "Saving..." : "Continue to conversation"} <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </motion.div>
-          ) : (
-            <AnimatePresence mode="wait" initial={false}>
+      {/* Content */}
+      <div className="flex-1 flex flex-col items-center px-6 py-6">
+        <div className="w-full max-w-2xl">
+          <AnimatePresence mode="wait">
+            {surveyComplete ? (
               <motion.div
-                key={currentIndex}
-                initial={{ opacity: 0, x: direction * 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: direction * -40 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-8"
+                key="complete"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center space-y-6 mt-12"
               >
-                <p className="text-xl md:text-2xl font-heading font-semibold leading-snug text-center">
-                  {question.text}
+                <p className="text-2xl font-heading font-bold">Got it.</p>
+                <p className="text-muted-foreground">
+                  Now you'll have a quick conversation with Lex, an AI guide who'll dig into how AI fits your actual work. Your personalized results are on the other side.
+                </p>
+                {submitError && (
+                  <p className="text-sm text-red-500">{submitError}</p>
+                )}
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="rounded-2xl px-8 py-6 text-base"
+                >
+                  {submitting ? "Saving..." : "Continue to conversation"} <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key={`level-${currentLevel}`}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Instruction text */}
+                <p className="text-sm text-muted-foreground text-center mb-6">
+                  How often do you do each of these? No right or wrong answers.
                 </p>
 
-                <div className="space-y-3">
-                  {ANSWER_LABELS.map(({ value, label, description }) => {
-                    const isSelected = currentAnswer === value;
+                {/* Grid header */}
+                <div className="grid grid-cols-[1fr_auto] gap-x-2 items-end mb-3">
+                  <div /> {/* spacer for question column */}
+                  <div className="grid grid-cols-3 gap-1 text-center">
+                    <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Never</span>
+                    <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Sometimes</span>
+                    <span className="text-xs font-medium text-muted-foreground px-2 md:px-4">Always</span>
+                  </div>
+                </div>
+
+                {/* Question rows */}
+                <div className="space-y-2">
+                  {levelQuestions.map((q, idx) => {
+                    const selected = answers[q.skillName];
                     return (
-                      <button
-                        key={value}
-                        onClick={() => handleAnswer(value)}
-                        className={`
-                          w-full text-left px-5 py-4 rounded-2xl border-2 transition-all duration-150
-                          ${isSelected
-                            ? "border-et-pink bg-et-pink/10 shadow-sm"
-                            : "border-border bg-card hover:border-muted-foreground/30"
-                          }
-                        `}
+                      <motion.div
+                        key={q.skillName}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className={`grid grid-cols-[1fr_auto] gap-x-3 items-center p-3 md:p-4 rounded-xl border transition-colors ${
+                          selected !== undefined ? "border-border bg-card" : "border-border bg-card"
+                        }`}
                       >
-                        <span className={`text-base font-medium ${isSelected ? "text-et-pink" : "text-foreground"}`}>
-                          {label}
-                        </span>
-                        <span className="text-sm text-muted-foreground ml-2">{description}</span>
-                      </button>
+                        <p className="text-sm md:text-base leading-snug pr-2">
+                          {q.text}
+                        </p>
+                        <div className="grid grid-cols-3 gap-1">
+                          {([0, 1, 2] as Answer[]).map(value => {
+                            const isSelected = selected === value;
+                            return (
+                              <button
+                                key={value}
+                                onClick={() => handleAnswer(q.skillName, value)}
+                                className={`w-9 h-9 md:w-10 md:h-10 rounded-full border-2 transition-all duration-150 flex items-center justify-center mx-auto ${
+                                  isSelected
+                                    ? "border-et-pink bg-et-pink/15"
+                                    : "border-muted-foreground/20 hover:border-muted-foreground/40"
+                                }`}
+                                aria-label={["Never", "Sometimes", "Always"][value]}
+                              >
+                                {isSelected && (
+                                  <div className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-et-pink" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
                     );
                   })}
                 </div>
+
+                {/* Continue button — appears when all 5 answered */}
+                <div className="mt-6 flex justify-center">
+                  <AnimatePresence>
+                    {levelAllAnswered && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <Button
+                          onClick={handleContinue}
+                          className="rounded-2xl px-8 py-5 text-base"
+                        >
+                          Continue <ArrowRight className="w-5 h-5 ml-2" />
+                        </Button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </motion.div>
-            </AnimatePresence>
-          )}
+            )}
+          </AnimatePresence>
         </div>
       </div>
-
-      {/* Navigation footer */}
-      {!surveyComplete && (
-        <div className="px-6 py-4 flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={goBack}
-            disabled={currentIndex === 0}
-            className="min-h-[44px]"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" /> Back
-          </Button>
-          <div className="min-h-[44px]" />{/* spacer to keep Back aligned left */}
-        </div>
-      )}
     </div>
   );
 }

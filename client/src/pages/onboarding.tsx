@@ -35,7 +35,13 @@ export default function OnboardingPage() {
         aiPlatform: selectedPlatform,
         onboardingComplete: true,
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Optimistically update cache so survey page sees onboardingComplete: true immediately
+      queryClient.setQueryData(["/api/auth/me"], (old: any) => ({
+        ...old,
+        roleTitle,
+        aiPlatform: selectedPlatform,
+        onboardingComplete: true,
+      }));
       navigate("/survey");
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
