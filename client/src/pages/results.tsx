@@ -495,13 +495,6 @@ export default function ResultsPage() {
               >
                 <Link2 className="w-4 h-4 mr-2" /> Share results
               </Button>
-              <Button
-                variant="ghost"
-                className="w-full rounded-2xl py-5"
-                onClick={() => navigate("/dashboard")}
-              >
-                Go to Dashboard
-              </Button>
               <div className="text-center">
                 <button
                   onClick={() => navigate("/survey")}

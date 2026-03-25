@@ -31,6 +31,8 @@ export default function UnsubscribePage() {
   const [emailPrefsReminders, setEmailPrefsReminders] = useState(true);
   const [email, setEmail] = useState("");
 
+  useEffect(() => { document.title = "Email Preferences — Electric Thinking"; }, []);
+
   useEffect(() => {
     if (!token) return;
     const fetchPrefs = async () => {

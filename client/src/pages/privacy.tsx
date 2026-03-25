@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Wordmark } from "@/components/wordmark";
 import { ArrowLeft } from "lucide-react";
 
 export default function PrivacyPage() {
   const [, navigate] = useLocation();
+
+  useEffect(() => { document.title = "Privacy Policy — Electric Thinking"; }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,8 +61,8 @@ export default function PrivacyPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">Your Rights</h2>
         <ul className="text-muted-foreground space-y-2">
-          <li>Request a copy of your data by contacting support</li>
-          <li>Request deletion of your account and data (processed within 30 days)</li>
+          <li>Request a copy of your data by emailing <a href="mailto:support@electricthinking.ai" className="text-et-blue underline">support@electricthinking.ai</a></li>
+          <li>Request deletion of your account and data (processed within 30 days) by emailing <a href="mailto:support@electricthinking.ai" className="text-et-blue underline">support@electricthinking.ai</a></li>
           <li>Opt out of email notifications at any time</li>
         </ul>
 

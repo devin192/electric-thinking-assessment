@@ -48,6 +48,8 @@ export default function SettingsPage() {
     }
   };
 
+  useEffect(() => { document.title = "Settings — Electric Thinking"; }, []);
+
   if (!user) return null;
 
   return (

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { setSharedAudioContext, setSharedMediaStream } from "@/lib/audio-context";
 import { Mic, Shield, Clock, ArrowRight, Loader2, MessageSquare } from "lucide-react";
+import { useEffect } from "react";
 
 export default function AssessmentWarmup() {
   const [, navigate] = useLocation();
@@ -19,6 +20,8 @@ export default function AssessmentWarmup() {
     queryKey: ["/api/assessment/voice-available"],
     enabled: !!user,
   });
+
+  useEffect(() => { document.title = "Get Ready — Electric Thinking"; }, []);
 
   const voiceAvailable = voiceStatus?.available ?? false;
 

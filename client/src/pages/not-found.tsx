@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,6 +7,8 @@ import { Home } from "lucide-react";
 
 export default function NotFound() {
   const [, navigate] = useLocation();
+
+  useEffect(() => { document.title = "Page Not Found — Electric Thinking"; }, []);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">

@@ -17,6 +17,8 @@ export default function JoinPage() {
   const [, navigate] = useLocation();
   const search = useSearch();
 
+  useEffect(() => { document.title = "Join Your Team — Electric Thinking"; }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(search);
     const t = params.get("token");

@@ -1168,7 +1168,7 @@ export async function registerRoutes(
       return `"${safe}"`;
     };
 
-    let csv = "Name,Email,Role,Level," + allSkills.map(s => s.name).join(",") + "\n";
+    let csv = "Name,Email,Role,Level," + allSkills.map(s => escapeCsv(s.name)).join(",") + "\n";
 
     for (const member of members) {
       const statuses = await storage.getUserSkillStatuses(member.id);

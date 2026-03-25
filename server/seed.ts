@@ -385,9 +385,7 @@ async function ensureSystemConfig() {
       currentGuide.includes("She does not") ||
       // V3 -> V4 detection: V3 had the old flow structure
       !currentGuide.includes("PHASE 1 - WORK CONTEXT") ||
-      // V4 -> V5 detection: V5 has PHASE 3 - ASSESSMENT DELIVERY
-      !currentGuide.includes("PHASE 3 - ASSESSMENT DELIVERY") ||
-      // V5 -> V6 detection: V6 has level-based calibration and truncated input handling
+      // V4/V5 -> V6 detection: V6 has level-based calibration and truncated input handling
       !currentGuide.includes("CALIBRATION:")
     )) {
       await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);

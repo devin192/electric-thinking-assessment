@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,8 @@ export function LoginPage() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
+
+  useEffect(() => { document.title = "Sign In — Electric Thinking"; }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,6 +209,8 @@ export function RegisterPage() {
   const [, navigate] = useLocation();
 
   const inviteToken = new URLSearchParams(window.location.search).get("invite");
+
+  useEffect(() => { document.title = "Create Account — Electric Thinking"; }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

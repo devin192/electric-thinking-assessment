@@ -1,9 +1,12 @@
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Wordmark } from "@/components/wordmark";
 import { ArrowLeft } from "lucide-react";
 
 export default function TermsPage() {
   const [, navigate] = useLocation();
+
+  useEffect(() => { document.title = "Terms of Service — Electric Thinking"; }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,7 +65,8 @@ export default function TermsPage() {
 
         <h2 className="font-heading text-xl font-semibold mt-8 mb-3">8. Account Deletion</h2>
         <p className="text-muted-foreground">
-          You may request deletion of your account and all associated data at any time by contacting us.
+          You may request deletion of your account and all associated data at any time by emailing{" "}
+          <a href="mailto:support@electricthinking.ai" className="text-et-blue underline">support@electricthinking.ai</a>.
           Deletion will be completed within 30 days.
         </p>
 

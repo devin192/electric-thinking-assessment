@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function ResetPasswordPage() {
+  useEffect(() => { document.title = "Reset Password — Electric Thinking"; }, []);
+
   const token = new URLSearchParams(window.location.search).get("token");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

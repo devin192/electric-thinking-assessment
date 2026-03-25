@@ -160,7 +160,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>Request a copy or deletion of your data by contacting us.</span>
+                <span>Request a copy or deletion of your data by emailing <a href="mailto:support@electricthinking.ai" className="text-et-blue underline">support@electricthinking.ai</a>.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
