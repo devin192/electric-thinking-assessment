@@ -479,7 +479,14 @@ export default function ResultsPage() {
               className="space-y-4 pt-4"
             >
               <Button
-                className="w-full rounded-2xl py-6 text-base"
+                className="w-full rounded-2xl py-5"
+                onClick={handleShare}
+              >
+                <Link2 className="w-4 h-4 mr-2" /> Share results
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full rounded-2xl py-5"
                 onClick={() => {
                   const url = encodeURIComponent(window.location.origin);
                   window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, "_blank", "noopener");
@@ -487,13 +494,6 @@ export default function ResultsPage() {
               >
                 <Share2 className="w-5 h-5 mr-2" />
                 Share on LinkedIn
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full rounded-2xl py-5"
-                onClick={handleShare}
-              >
-                <Link2 className="w-4 h-4 mr-2" /> Share results
               </Button>
               <div className="text-center">
                 <button

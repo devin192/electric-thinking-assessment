@@ -62,6 +62,10 @@ export async function registerRoutes(
         userRole: "member",
         unsubscribeToken,
       });
+      // Regenerate session to prevent session fixation
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => (err ? reject(err) : resolve()));
+      });
       req.session.userId = user.id;
       const { password: _, ...userWithoutPassword } = user;
       await new Promise<void>((resolve, reject) => {
@@ -84,6 +88,10 @@ export async function registerRoutes(
       if (!valid) {
         return res.status(401).json({ message: "Invalid email or password" });
       }
+      // Regenerate session to prevent session fixation
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => (err ? reject(err) : resolve()));
+      });
       req.session.userId = user.id;
       const { password: _, ...userWithoutPassword } = user;
       await new Promise<void>((resolve, reject) => {
@@ -102,6 +110,8 @@ export async function registerRoutes(
       // Always return success to avoid leaking whether email exists
       const user = await storage.getUserByEmail(email);
       if (user) {
+        // Invalidate any existing unused tokens for this user
+        await storage.invalidateUserResetTokens(user.id);
         const token = randomUUID();
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
         await storage.createPasswordResetToken({ userId: user.id, token, expiresAt });
@@ -134,6 +144,7 @@ export async function registerRoutes(
   });
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy(() => {
+      res.clearCookie("connect.sid");
       res.json({ message: "Logged out" });
     });
   });
@@ -889,8 +900,12 @@ export async function registerRoutes(
   app.get("/api/unsubscribe/:token", async (req, res) => {
     const user = await storage.getUserByUnsubscribeToken(req.params.token);
     if (!user) return res.status(404).json({ message: "Invalid token" });
-    const { password: _, ...safe } = user;
-    return res.json(safe);
+    return res.json({
+      email: user.email,
+      emailPrefsNudges: user.emailPrefsNudges,
+      emailPrefsProgress: user.emailPrefsProgress,
+      emailPrefsReminders: user.emailPrefsReminders,
+    });
   });
 
   app.post("/api/unsubscribe/:token", async (req, res) => {
@@ -921,6 +936,7 @@ export async function registerRoutes(
       if (!user) return res.status(401).json({ message: "Not authenticated" });
       const { name, industry, size } = req.body;
       if (!name) return res.status(400).json({ message: "Organization name required" });
+      if (user.orgId) return res.status(400).json({ message: "You already belong to an organization" });
 
       const org = await storage.createOrganization({ name, industry, size });
       await storage.updateUser(user.id, { orgId: org.id, userRole: "org_admin" });

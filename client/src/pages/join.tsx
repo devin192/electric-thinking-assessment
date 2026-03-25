@@ -88,6 +88,11 @@ export default function JoinPage() {
             </div>
           </CardContent>
         </Card>
+        <div className="text-center mt-6">
+          <button onClick={() => navigate("/")} className="text-sm text-muted-foreground inline-flex items-center gap-1">
+            {"\u2190"} Back to home
+          </button>
+        </div>
       </div>
     </div>
   );

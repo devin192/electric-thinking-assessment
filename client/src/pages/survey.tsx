@@ -210,7 +210,9 @@ export default function SurveyPage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="px-6 py-4 flex items-center justify-between">
-        <Wordmark className="text-lg" />
+        <button onClick={() => navigate("/dashboard")} className="opacity-80 hover:opacity-100 transition-opacity" aria-label="Exit survey">
+          <Wordmark className="text-lg" />
+        </button>
         <span className="text-sm text-muted-foreground">
           {answeredCount} of {totalActive}
         </span>

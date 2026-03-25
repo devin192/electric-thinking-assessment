@@ -75,10 +75,21 @@ export default function UnsubscribePage() {
     }
   };
 
-  const handleUnsubscribeAll = () => {
+  const handleUnsubscribeAll = async () => {
+    if (!token) return;
     setEmailPrefsNudges(false);
     setEmailPrefsProgress(false);
     setEmailPrefsReminders(false);
+    setSaving(true);
+    try {
+      await apiRequest("POST", `/api/unsubscribe/${token}`, { unsubscribeAll: true });
+      setSaved(true);
+      toast({ title: "You've been unsubscribed from all emails" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

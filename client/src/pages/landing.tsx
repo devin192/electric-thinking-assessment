@@ -164,7 +164,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-et-green mt-2 shrink-0" />
-                <span>Full privacy policy and terms available for review.</span>
+                <span>Full <button onClick={() => navigate("/privacy")} className="text-et-blue underline">privacy policy</button> and <button onClick={() => navigate("/terms")} className="text-et-blue underline">terms</button> available for review.</span>
               </li>
             </ul>
           </div>
