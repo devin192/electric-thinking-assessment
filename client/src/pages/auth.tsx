@@ -234,7 +234,7 @@ export function RegisterPage() {
         <Card className="rounded-2xl border border-border">
           <CardHeader className="text-center pb-2">
             <h1 className="font-heading text-2xl font-bold">Create your account</h1>
-            <p className="text-muted-foreground text-sm mt-1">Create your account to get started</p>
+            <p className="text-muted-foreground text-sm mt-1">Free AI fluency assessment — takes under 15 minutes</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -284,8 +284,8 @@ export function RegisterPage() {
             </form>
             <p className="text-xs text-center text-muted-foreground mt-4">
               By creating an account, you agree to our{" "}
-              <a href="/terms" className="text-et-blue underline">Terms</a> and{" "}
-              <a href="/privacy" className="text-et-blue underline">Privacy Policy</a>.
+              <button onClick={() => navigate("/terms")} className="text-et-blue underline">Terms</button> and{" "}
+              <button onClick={() => navigate("/privacy")} className="text-et-blue underline">Privacy Policy</button>.
             </p>
             <div className="mt-4 text-center text-sm text-muted-foreground">
               Already have an account?{" "}

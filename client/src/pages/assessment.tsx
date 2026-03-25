@@ -1092,16 +1092,18 @@ export default function AssessmentPage() {
     <div className="h-dvh-safe flex flex-col bg-background">
       <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
         <Wordmark className="text-lg" />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowEndConfirm(true)}
-          className="text-muted-foreground min-h-[44px] min-w-[44px]"
-          data-testid="button-end-conversation"
-        >
-          <CheckCircle2 className="w-4 h-4 mr-2" />
-          End Conversation
-        </Button>
+        {canEndConversation && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowEndConfirm(true)}
+            className="text-muted-foreground min-h-[44px] min-w-[44px]"
+            data-testid="button-end-conversation"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            End Conversation
+          </Button>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-6" style={{ WebkitOverflowScrolling: "touch" }}>

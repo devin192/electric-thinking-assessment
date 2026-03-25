@@ -162,7 +162,8 @@ export async function registerRoutes(
       const { password: _, ...userWithoutPassword } = updated;
       return res.json(userWithoutPassword);
     } catch (e: any) {
-      return res.status(400).json({ message: e.message });
+      console.error("Profile update error:", e);
+      return res.status(400).json({ message: "Failed to update profile" });
     }
   });
 
@@ -577,7 +578,8 @@ export async function registerRoutes(
         recentLevelUps,
       });
     } catch (e: any) {
-      return res.status(500).json({ message: e.message });
+      console.error("Team snapshot error:", e);
+      return res.status(500).json({ message: "Failed to load team data" });
     }
   });
 
@@ -924,7 +926,8 @@ export async function registerRoutes(
       await storage.updateUser(user.id, { orgId: org.id, userRole: "org_admin" });
       return res.json(org);
     } catch (e: any) {
-      return res.status(400).json({ message: e.message });
+      console.error("Org creation error:", e);
+      return res.status(400).json({ message: "Failed to create organization" });
     }
   });
 
@@ -958,7 +961,8 @@ export async function registerRoutes(
 
       return res.json(invite);
     } catch (e: any) {
-      return res.status(400).json({ message: e.message });
+      console.error("Invite error:", e);
+      return res.status(400).json({ message: "Failed to send invite" });
     }
   });
 
@@ -1006,7 +1010,8 @@ export async function registerRoutes(
 
       return res.json(updated);
     } catch (e: any) {
-      return res.status(400).json({ message: e.message });
+      console.error("Org settings error:", e);
+      return res.status(400).json({ message: "Failed to update settings" });
     }
   });
 
@@ -1032,7 +1037,8 @@ export async function registerRoutes(
       await storage.updateInvite(invite.id, { accepted: true });
       return res.json({ message: "Successfully joined organization" });
     } catch (e: any) {
-      return res.status(400).json({ message: e.message });
+      console.error("Invite accept error:", e);
+      return res.status(400).json({ message: "Failed to join organization" });
     }
   });
 
