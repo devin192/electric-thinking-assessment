@@ -239,6 +239,7 @@ export async function registerRoutes(
       if (!user) return res.status(401).json({ message: "Not authenticated" });
 
       const assessmentId = parseInt(req.params.id);
+      if (isNaN(assessmentId)) return res.status(400).json({ message: "Invalid assessment ID" });
       const assessment = await storage.getAssessment(assessmentId);
       if (!assessment || assessment.userId !== user.id) {
         return res.status(404).json({ message: "Assessment not found" });
@@ -302,6 +303,7 @@ export async function registerRoutes(
       if (!user) return res.status(401).json({ message: "Not authenticated" });
 
       const assessmentId = parseInt(req.params.id);
+      if (isNaN(assessmentId)) return res.status(400).json({ message: "Invalid assessment ID" });
       const assessment = await storage.getAssessment(assessmentId);
       if (!assessment || assessment.userId !== user.id) {
         return res.status(404).json({ message: "Assessment not found" });
