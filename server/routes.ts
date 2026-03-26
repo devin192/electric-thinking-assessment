@@ -379,8 +379,14 @@ export async function registerRoutes(
         triggerMoment: result.triggerMoment || null,
       });
 
+      // Build case-insensitive lookup for AI-returned scores
+      const scoresLower: Record<string, { status: string; explanation: string }> = {};
+      for (const [key, val] of Object.entries(result.scores)) {
+        scoresLower[key.toLowerCase()] = val;
+      }
+
       for (const skill of allSkills) {
-        const scoreData = result.scores[skill.name];
+        const scoreData = result.scores[skill.name] || scoresLower[skill.name.toLowerCase()];
         if (scoreData) {
           await storage.upsertUserSkillStatus({
             userId: user.id,
