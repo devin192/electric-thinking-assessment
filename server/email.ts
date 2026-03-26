@@ -2,6 +2,10 @@ import { getUncachableResendClient } from "./resend-client";
 import { storage } from "./storage";
 import type { User, Nudge, Skill, Level } from "@shared/schema";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 const DEFAULT_FROM = "Electric Thinking <hello@electricthinking.ai>";
 const DEFAULT_REPLY_TO = "support@electricthinking.ai";
 
@@ -162,7 +166,7 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
 
     const html = baseTemplate(card(`
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 32px;" class="email-text">You're in.</h1>
-      ${bodyText(`Hey ${user.name || "there"},`)}
+      ${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
       ${bodyText("Your AI fluency conversation is done. Here's what we found:")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr>
@@ -415,7 +419,7 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
     const unsubscribeUrl = `${appUrl}/unsubscribe/${user.unsubscribeToken}`;
 
     const html = baseTemplate(card(`
-      ${bodyText(`Hey ${user.name || "there"},`)}
+      ${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
       ${bodyText("It's been a while since your assessment. A lot can change in a few weeks.")}
       ${bodyText("Retake the assessment to see how your AI skills have grown.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
@@ -463,7 +467,7 @@ export async function sendReAssessmentEmail(user: User, appUrl: string): Promise
 
     const html = baseTemplate(card(`
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">Time for a check-in</h1>
-      ${bodyText(`Hey ${user.name || "there"},`)}
+      ${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
       ${bodyText("Your AI skills have grown since your last conversation. A re-assessment takes a few minutes and can only move you up.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
@@ -506,7 +510,7 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
 
     const html = baseTemplate(card(`
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">Pick up where you left off</h1>
-      ${bodyText(`Hey ${user.name || "there"},`)}
+      ${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
       ${bodyText("Your conversation is still open. A few more minutes and you'll have your results.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
@@ -547,8 +551,8 @@ export async function sendInviteEmail(email: string, inviterName: string, orgNam
 
     const html = baseTemplate(card(`
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">You're invited</h1>
-      ${bodyText(`${inviterName} has invited you to join ${orgName}'s AI fluency program.`)}
-      ${welcomeMessage ? `<p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.textLight}; font-style: italic; margin: 0 0 12px 0;" class="email-text-light">${welcomeMessage}</p>` : ""}
+      ${bodyText(`${escapeHtml(inviterName)} has invited you to join ${escapeHtml(orgName)}'s AI fluency program.`)}
+      ${welcomeMessage ? `<p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.textLight}; font-style: italic; margin: 0 0 12px 0;" class="email-text-light">${escapeHtml(welcomeMessage)}</p>` : ""}
       ${bodyText("<strong>What you'll get:</strong>")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; A quick survey and conversation to find your AI level</td></tr>
@@ -562,7 +566,7 @@ export async function sendInviteEmail(email: string, inviterName: string, orgNam
       from: fromEmail || from,
       to: email,
       replyTo,
-      subject: `${inviterName} invited you to Electric Thinking`,
+      subject: `${escapeHtml(inviterName)} invited you to Electric Thinking`,
       html,
     });
   } catch (e) {
@@ -591,7 +595,7 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
     ];
 
     const bodies = [
-      `${bodyText(`Hey ${user.name || "there"},`)}
+      `${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
        ${bodyText("You now have access to the Manager Dashboard. Here's what you can see:")}
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Level distribution</strong> across your team</td></tr>
@@ -600,11 +604,11 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
        </table>
        ${bodyText("You can see skill scores and levels, but not conversation transcripts. That's by design.")}
        ${ctaButton("Open Dashboard", `${appUrl}/dashboard`)}`,
-      `${bodyText(`Hey ${user.name || "there"},`)}
+      `${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
        ${bodyText("<strong>How to frame it with your team:</strong>")}
        ${bodyText("This isn't a test. It's a conversation with an AI that helps people understand where they are with AI tools. No wrong answers, no grades.")}
        ${bodyText('The best framing: "We\'re all figuring this out together. The assessment gives each person a personalized snapshot of where they are and what to try next."')}`,
-      `${bodyText(`Hey ${user.name || "there"},`)}
+      `${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
        ${bodyText("<strong>How to use your dashboard data:</strong>")}
        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
          <tr><td style="padding: 0 0 6px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: ${BRAND.charcoal};" class="email-text">&#8226; If most of the team is red on one skill, that's a workshop topic</td></tr>

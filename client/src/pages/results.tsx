@@ -60,12 +60,13 @@ export default function ResultsPage() {
   const [showSkills, setShowSkills] = useState(false);
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
-  const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
+  const { data: assessment, isLoading: assessmentLoading, isError: assessmentError } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
     enabled: !!user,
   });
-  const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/levels"] });
-  const { data: allSkills } = useQuery<Skill[]>({ queryKey: ["/api/skills"] });
+  const { data: levels, isError: levelsError } = useQuery<Level[]>({ queryKey: ["/api/levels"] });
+  const { data: allSkills, isError: skillsError } = useQuery<Skill[]>({ queryKey: ["/api/skills"] });
+  const dataError = assessmentError || levelsError || skillsError;
   const { data: userSkills } = useQuery<UserSkillStatus[]>({
     queryKey: ["/api/user/skills"],
     enabled: !!user && phase === "results",
@@ -156,7 +157,16 @@ export default function ResultsPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="text-center">
           <Wordmark className="text-xl mb-4 block" />
-          <Loader2 className="w-8 h-8 animate-spin text-et-pink mx-auto" />
+          {dataError ? (
+            <>
+              <p className="text-muted-foreground text-sm mb-4">Couldn't load your results. Check your connection and try again.</p>
+              <Button variant="outline" className="rounded-2xl" onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            </>
+          ) : (
+            <Loader2 className="w-8 h-8 animate-spin text-et-pink mx-auto" />
+          )}
         </div>
       </div>
     );

@@ -377,6 +377,7 @@ export default function AssessmentPage() {
       };
 
       ws.onclose = (event) => {
+        if (connectTimerRef.current) { clearInterval(connectTimerRef.current); connectTimerRef.current = null; }
         setVoiceConnected(false);
         voiceConnectedRef.current = false;
         setIsListening(false);
@@ -416,6 +417,7 @@ export default function AssessmentPage() {
       const timeout = setTimeout(() => {
         if (!voiceConnectedRef.current && ws.readyState !== WebSocket.OPEN) {
           reconnectAttemptsRef.current = maxReconnectAttempts; // prevent onclose from reconnecting
+          if (connectTimerRef.current) { clearInterval(connectTimerRef.current); connectTimerRef.current = null; }
           ws.close();
           setVoiceConnecting(false);
           stream.getTracks().forEach(t => t.stop());
