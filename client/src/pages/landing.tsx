@@ -106,9 +106,12 @@ export default function LandingPage() {
 
       <section className="max-w-6xl mx-auto px-6 py-16">
         <div className="max-w-3xl mx-auto">
-          <h2 className="font-heading text-2xl md:text-3xl font-bold text-center mb-12">
+          <h2 className="font-heading text-2xl md:text-3xl font-bold text-center mb-3">
             Four levels of AI fluency
           </h2>
+          <p className="text-center text-muted-foreground mb-12">
+            Most people start at Level 1 or 2 — that's completely normal. This is about finding your starting point.
+          </p>
           <div className="space-y-4">
             {[
               { level: 0, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
@@ -117,7 +120,7 @@ export default function LandingPage() {
               { level: 3, name: "Agentic Workflow", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
             ].map(item => (
               <div key={item.level} className="flex items-center gap-4 p-4 rounded-xl bg-card">
-                <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center text-white font-heading font-bold text-sm shrink-0`}>
+                <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center ${item.color === "bg-et-gold" ? "text-foreground" : "text-white"} font-heading font-bold text-sm shrink-0`}>
                   {item.level + 1}
                 </div>
                 <div className="min-w-0">
@@ -180,7 +183,7 @@ export default function LandingPage() {
             Under 15 minutes to know where you're at and what to focus on next
           </h2>
           <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            No trick questions. Just a short survey and a real conversation about how you work.
+            No trick questions. No judgment. Just clarity about what to focus on next.
           </p>
           <Button
             size="lg"

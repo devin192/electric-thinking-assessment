@@ -58,6 +58,7 @@ export default function AssessmentPage() {
   const [isListening, setIsListening] = useState(false);
   const [showFallbackConfirm, setShowFallbackConfirm] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   useEffect(() => { document.title = "Conversation — Electric Thinking"; }, []);
   const [showTranscript, setShowTranscript] = useState(requestedMode !== "voice");
 
@@ -739,9 +740,9 @@ export default function AssessmentPage() {
             <Button
               variant="ghost"
               className="min-h-[44px]"
-              onClick={() => navigate("/results")}
+              onClick={() => navigate("/dashboard")}
             >
-              View results anyway
+              Go to dashboard
             </Button>
           </div>
         </div>
@@ -791,7 +792,7 @@ export default function AssessmentPage() {
       <div className="h-dvh-safe flex flex-col bg-background">
         <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
           <Wordmark className="text-lg" />
-          {canEndConversation && (
+          {canEndConversation ? (
             <Button
               variant="ghost"
               size="sm"
@@ -801,6 +802,16 @@ export default function AssessmentPage() {
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               End Conversation
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowLeaveConfirm(true)}
+              className="text-muted-foreground min-h-[44px] min-w-[44px]"
+              data-testid="button-leave"
+            >
+              Leave
             </Button>
           )}
         </header>
@@ -957,6 +968,25 @@ export default function AssessmentPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Leave the conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your progress has been saved. You can come back and continue later, but we need at least 3 responses for accurate results.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
+                Stay
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+                Leave
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -966,7 +996,7 @@ export default function AssessmentPage() {
       <div className="h-dvh-safe flex flex-col bg-background">
         <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
           <Wordmark className="text-lg" />
-          {canEndConversation && (
+          {canEndConversation ? (
             <Button
               variant="ghost"
               size="sm"
@@ -976,6 +1006,16 @@ export default function AssessmentPage() {
             >
               <CheckCircle2 className="w-4 h-4 mr-2" />
               End Conversation
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowLeaveConfirm(true)}
+              className="text-muted-foreground min-h-[44px] min-w-[44px]"
+              data-testid="button-leave"
+            >
+              Leave
             </Button>
           )}
         </header>
@@ -1028,6 +1068,7 @@ export default function AssessmentPage() {
                 className="rounded-xl resize-none min-h-[48px] max-h-[40vh] overflow-y-auto"
                 rows={1}
                 disabled={isTyping}
+                aria-label="Message to Lex"
                 data-testid="input-message"
               />
               <Button
@@ -1089,6 +1130,25 @@ export default function AssessmentPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Leave the conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your progress has been saved. You can come back and continue later, but we need at least 3 responses for accurate results.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
+                Stay
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+                Leave
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -1097,7 +1157,7 @@ export default function AssessmentPage() {
     <div className="h-dvh-safe flex flex-col bg-background">
       <header className="border-b border-border/50 px-4 py-3 flex items-center justify-between gap-4 shrink-0 bg-background">
         <Wordmark className="text-lg" />
-        {canEndConversation && (
+        {canEndConversation ? (
           <Button
             variant="ghost"
             size="sm"
@@ -1107,6 +1167,16 @@ export default function AssessmentPage() {
           >
             <CheckCircle2 className="w-4 h-4 mr-2" />
             End Conversation
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowLeaveConfirm(true)}
+            className="text-muted-foreground min-h-[44px] min-w-[44px]"
+            data-testid="button-leave"
+          >
+            Leave
           </Button>
         )}
       </header>
@@ -1160,6 +1230,7 @@ export default function AssessmentPage() {
             className="rounded-xl resize-none min-h-[48px] max-h-[40vh] overflow-y-auto"
             rows={1}
             disabled={isTyping}
+            aria-label="Message to Lex"
             data-testid="input-message"
           />
           <Button
@@ -1188,6 +1259,25 @@ export default function AssessmentPage() {
               </Button>
               <Button className="flex-1 min-h-[44px]" onClick={() => { setShowEndConfirm(false); handleEndConversation(); }}>
                 End & see results
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showLeaveConfirm} onOpenChange={setShowLeaveConfirm}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Leave the conversation?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground mb-4">
+              Your progress has been saved. You can come back and continue later, but we need at least 3 responses for accurate results.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
+                Stay
+              </Button>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+                Leave
               </Button>
             </div>
           </DialogContent>

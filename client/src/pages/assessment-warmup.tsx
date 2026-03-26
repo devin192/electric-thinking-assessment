@@ -66,7 +66,8 @@ export default function AssessmentWarmup() {
               Got it. Now let's talk.
             </h1>
             <p className="text-muted-foreground text-center text-sm mb-6">
-              Your personalized results are on the other side.
+              Your personalized results are on the other side.<br />
+              Lex will ask about your actual work, not test your AI knowledge. There are no wrong answers here either.
             </p>
 
             <div className="space-y-4 mb-8">

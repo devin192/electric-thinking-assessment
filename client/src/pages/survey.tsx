@@ -6,6 +6,7 @@ import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 // 20 survey questions — 5 per level, shown sequentially without level labels
 // The survey is ADAPTIVE: it stops when it finds your growth edge
@@ -87,8 +88,30 @@ export { calculateSurveyLevel, buildSurveySummary, SURVEY_QUESTIONS };
 export default function SurveyPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
-  const [currentLevel, setCurrentLevel] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, Answer>>({});
+  const { toast } = useToast();
+  const [currentLevel, setCurrentLevel] = useState(() => {
+    try {
+      const saved = localStorage.getItem("et-survey-level");
+      return saved ? parseInt(saved, 10) : 0;
+    } catch { return 0; }
+  });
+  const [answers, setAnswers] = useState<Record<string, Answer>>(() => {
+    try {
+      const saved = localStorage.getItem("et-survey-answers");
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+      // Validate: only keep keys that match known skill names with valid values (0, 1, 2)
+      const validSkills = new Set(SURVEY_QUESTIONS.map(q => q.skillName));
+      const validated: Record<string, Answer> = {};
+      for (const [key, val] of Object.entries(parsed)) {
+        if (validSkills.has(key) && (val === 0 || val === 1 || val === 2)) {
+          validated[key] = val as Answer;
+        }
+      }
+      return validated;
+    } catch { return {}; }
+  });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => { document.title = "Survey — Electric Thinking"; }, []);
@@ -116,7 +139,11 @@ export default function SurveyPage() {
   }, [answers]);
 
   const handleAnswer = useCallback((skillName: string, value: Answer) => {
-    setAnswers(prev => ({ ...prev, [skillName]: value }));
+    setAnswers(prev => {
+      const next = { ...prev, [skillName]: value };
+      try { localStorage.setItem("et-survey-answers", JSON.stringify(next)); } catch {}
+      return next;
+    });
   }, []);
 
   const handleContinue = useCallback(async () => {
@@ -124,7 +151,11 @@ export default function SurveyPage() {
 
     // Check adaptive cutoff
     if (currentLevel < 3 && shouldContinueToNextLevel(answers, currentLevel)) {
-      setCurrentLevel(prev => prev + 1);
+      setCurrentLevel(prev => {
+        const next = prev + 1;
+        try { localStorage.setItem("et-survey-level", String(next)); } catch {}
+        return next;
+      });
     } else {
       // Survey is done — submit and go straight to warmup
       setSubmitting(true);
@@ -134,9 +165,11 @@ export default function SurveyPage() {
           surveyResponsesJson: answers,
           surveyLevel,
         });
+        try { localStorage.removeItem("et-survey-answers"); localStorage.removeItem("et-survey-level"); } catch {}
         navigate("/assessment/warmup");
       } catch (err) {
         console.error("Failed to save survey:", err);
+        toast({ title: "Couldn't save your answers", description: "Please try again.", variant: "destructive" });
         setSubmitting(false);
       }
     }
@@ -211,12 +244,18 @@ export default function SurveyPage() {
             >
               {/* Instruction text */}
               <p className="text-base text-muted-foreground text-center mb-8">
-                How often do you do each of these? No right or wrong answers.
+                {currentLevel === 0
+                  ? "How often do you do each of these? Be honest — most people are strong in some areas and still building in others. That's the whole point."
+                  : currentLevel === 1
+                  ? "Nice. Now a few about using AI as a thinking partner."
+                  : currentLevel === 2
+                  ? "These are about building reusable AI tools. If they're unfamiliar, that's completely normal."
+                  : "Last set — these are about designing systems. Very few people are here yet."}
               </p>
 
               {/* Column headers — sticky on scroll */}
               <div
-                className="grid items-end mb-3 gap-x-4"
+                className="hidden sm:grid items-end mb-3 gap-x-4 sticky top-0 z-10 bg-background py-2"
                 style={{ gridTemplateColumns: "1fr 64px 80px 64px" }}
               >
                 <div />
@@ -237,31 +276,71 @@ export default function SurveyPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="grid items-center gap-x-4 p-4 rounded-xl border border-border bg-card"
-                      style={{ gridTemplateColumns: "1fr 64px 80px 64px" }}
+                      className="p-4 rounded-xl border border-border bg-card"
                     >
-                      <p className="text-sm md:text-base leading-snug">
-                        {q.text}
-                      </p>
-                      {([0, 1, 2] as Answer[]).map(value => {
-                        const isSelected = selected === value;
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => handleAnswer(q.skillName, value)}
-                            className={`w-10 h-10 md:w-11 md:h-11 rounded-full border-2 transition-all duration-150 flex items-center justify-center mx-auto ${
-                              isSelected
-                                ? "border-et-pink bg-et-pink/15 shadow-sm"
-                                : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-accent/30"
-                            }`}
-                            aria-label={COLUMN_LABELS[value]}
-                          >
-                            {isSelected && (
-                              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-et-pink" />
-                            )}
-                          </button>
-                        );
-                      })}
+                      {/* Desktop: grid layout */}
+                      <div
+                        className="hidden sm:grid items-center gap-x-4"
+                        style={{ gridTemplateColumns: "1fr 64px 80px 64px" }}
+                        role="radiogroup"
+                        aria-label={q.text}
+                      >
+                        <p className="text-sm md:text-base leading-snug">
+                          {q.text}
+                        </p>
+                        {([0, 1, 2] as Answer[]).map(value => {
+                          const isSelected = selected === value;
+                          return (
+                            <button
+                              key={value}
+                              onClick={() => handleAnswer(q.skillName, value)}
+                              role="radio"
+                              aria-checked={isSelected}
+                              className={`w-10 h-10 md:w-11 md:h-11 rounded-full border-2 transition-all duration-150 flex items-center justify-center mx-auto ${
+                                isSelected
+                                  ? "border-et-pink bg-et-pink/15 shadow-sm"
+                                  : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-accent/30"
+                              }`}
+                              aria-label={COLUMN_LABELS[value]}
+                            >
+                              {isSelected && (
+                                <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-et-pink" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Mobile: stacked layout */}
+                      <div className="sm:hidden" role="radiogroup" aria-label={q.text}>
+                        <p className="text-sm leading-snug mb-3">
+                          {q.text}
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          {([0, 1, 2] as Answer[]).map(value => {
+                            const isSelected = selected === value;
+                            return (
+                              <button
+                                key={value}
+                                onClick={() => handleAnswer(q.skillName, value)}
+                                role="radio"
+                                aria-checked={isSelected}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border-2 transition-all duration-150 min-h-[44px] ${
+                                  isSelected
+                                    ? "border-et-pink bg-et-pink/15"
+                                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                                }`}
+                              >
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                  isSelected ? "border-et-pink" : "border-muted-foreground/40"
+                                }`}>
+                                  {isSelected && <div className="w-2 h-2 rounded-full bg-et-pink" />}
+                                </div>
+                                <span className="text-xs font-medium">{COLUMN_LABELS[value]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </motion.div>
                   );
                 })}

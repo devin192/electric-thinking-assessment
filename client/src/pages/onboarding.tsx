@@ -66,7 +66,7 @@ export default function OnboardingPage() {
                 Welcome, {user.name}!
               </h1>
               <p className="text-muted-foreground text-center mb-8">
-                Let's set up your profile before the assessment.
+                This helps us make your results specific to your actual work.
               </p>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -100,7 +100,7 @@ export default function OnboardingPage() {
                 Your AI platform
               </h1>
               <p className="text-muted-foreground text-center mb-8">
-                Which AI tool do you use most? You can change this later.
+                Have you tried any of these? Pick the one you use most.
               </p>
               <div className="grid grid-cols-1 gap-3 mb-6">
                 {(platforms || []).filter(p => p.isActive).map(platform => (

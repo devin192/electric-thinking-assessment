@@ -33,6 +33,13 @@ const LEVEL_SUBTITLES: Record<number, string> = {
   3: "Design autonomous systems",
 };
 
+const LEVEL_IDENTITY: Record<number, string> = {
+  0: "You're using AI to move faster. That's where most people start — and it's a great foundation.",
+  1: "You're past the basics and using AI as a real thinking partner. That's a meaningful shift most people haven't made yet.",
+  2: "You're building tools and workflows others can use. That puts you ahead of most professionals.",
+  3: "You're designing systems that run without you. Very few people operate at this level.",
+};
+
 type OutcomeOption = {
   outcomeHeadline: string;
   timeEstimate?: string;
@@ -248,7 +255,7 @@ export default function ResultsPage() {
                   transition={{ type: "spring", stiffness: 150, damping: 15 }}
                 >
                   <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-bold text-lg shrink-0"
+                    className={`w-10 h-10 rounded-full flex items-center justify-center font-heading font-bold text-lg shrink-0 ${lvl === 0 ? "text-foreground" : "text-white"}`}
                     style={{ backgroundColor: color }}
                   >
                     {lvl + 1}
@@ -276,6 +283,9 @@ export default function ResultsPage() {
               You're a Level {assessmentLevel + 1}{" "}
               <span style={{ color: levelColor }}>{currentLevelInfo?.displayName || levelName}</span>
             </h1>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+              {LEVEL_IDENTITY[assessmentLevel]}
+            </p>
             {signatureSkill && (
               <p className="text-sm text-muted-foreground mt-1">
                 Your strongest skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
@@ -398,11 +408,11 @@ export default function ResultsPage() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-1">
-                        Try this right now
+                        Try this when you're ready
                       </p>
                       <p className="text-sm">{tryItNow.suggestion}</p>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Turn on voice-to-text and say a version of this into your AI tool.
+                        Open your AI tool and try a version of this with your own work.
                       </p>
                     </div>
                   </div>
@@ -526,7 +536,10 @@ export default function ResultsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => navigate("/survey")}>
+            <AlertDialogAction onClick={() => {
+              try { localStorage.removeItem("et-survey-answers"); localStorage.removeItem("et-survey-level"); } catch {}
+              navigate("/survey");
+            }}>
               Start over
             </AlertDialogAction>
           </AlertDialogFooter>
