@@ -112,16 +112,15 @@ export default function ResultsPage() {
     if (assessment && allSkills && levels && phase === "loading") {
       const animKey = `results-animated-${assessment.id}`;
       const alreadySeen = sessionStorage.getItem(animKey) === "true";
-      if (alreadySeen) {
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (alreadySeen || prefersReduced) {
         setPhase("results");
+        sessionStorage.setItem(animKey, "true");
       } else {
         setTimeout(() => {
           setPhase("reveal");
           sessionStorage.setItem(animKey, "true");
-          const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          if (!prefersReduced) {
-            setTimeout(() => confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } }), 800);
-          }
+          setTimeout(() => confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } }), 800);
           setTimeout(() => setPhase("results"), 3000);
         }, 2000);
       }
@@ -141,8 +140,12 @@ export default function ResultsPage() {
         await navigator.share({ title: "My AI Level", text: shareText, url: shareUrl });
       } catch {}
     } else {
-      await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-      toast({ title: "Link copied to clipboard" });
+      try {
+        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
+        toast({ title: "Link copied to clipboard" });
+      } catch {
+        toast({ title: "Couldn't copy link", description: "Try copying the URL from your browser.", variant: "destructive" });
+      }
     }
   };
 
@@ -203,7 +206,7 @@ export default function ResultsPage() {
 
   // Build skill breakdown by level — only show skills through user's level + 1
   const maxVisibleSortOrder = Math.min(assessmentLevel + 1, 3);
-  const skillsByLevel = levels
+  const skillsByLevel = [...levels]
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .filter(level => level.sortOrder <= maxVisibleSortOrder)
     .map(level => {
@@ -351,7 +354,11 @@ export default function ResultsPage() {
                   <Card
                     key={i}
                     className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/50 transition-colors"
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={expandedOutcome === i}
                     onClick={() => setExpandedOutcome(expandedOutcome === i ? null : i)}
+                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedOutcome(expandedOutcome === i ? null : i); } }}
                   >
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-start justify-between gap-3">

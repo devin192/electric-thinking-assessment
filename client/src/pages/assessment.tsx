@@ -602,9 +602,18 @@ export default function AssessmentPage() {
       const data = await res.json();
       setMessages(data.messages);
     } catch (err: any) {
+      // Roll back the optimistic message — it never reached the server
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "user" && last.content === userMessage) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      setInput(userMessage);
       toast({
-        title: "Connection issue",
-        description: "Your progress has been saved. Try sending again.",
+        title: "Couldn't send message",
+        description: "Your earlier progress is saved. Try sending again.",
         variant: "destructive",
       });
     } finally {
@@ -767,9 +776,11 @@ export default function AssessmentPage() {
               <div className="w-4 h-4 rounded-full bg-et-pink" />
             </div>
           </div>
-          <p className="font-heading text-xl font-semibold mb-3 animate-fade-up" key={scoringPhase}>
-            {scoringMessages[scoringPhase]}
-          </p>
+          <div aria-live="polite" aria-atomic="true">
+            <p className="font-heading text-xl font-semibold mb-3 animate-fade-up" key={scoringPhase}>
+              {scoringMessages[scoringPhase]}
+            </p>
+          </div>
           <p className="text-muted-foreground text-sm">
             This takes about 30-60 seconds
           </p>
@@ -882,6 +893,7 @@ export default function AssessmentPage() {
                     size="icon"
                     className="rounded-full w-12 h-12"
                     onClick={() => setIsMuted(!isMuted)}
+                    aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
                     data-testid="button-mute"
                   >
                     {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -891,6 +903,7 @@ export default function AssessmentPage() {
                     size="icon"
                     className="rounded-full w-12 h-12 border-destructive text-destructive hover:bg-destructive/10"
                     onClick={() => canEndConversation ? setShowEndConfirm(true) : setShowLeaveConfirm(true)}
+                    aria-label={canEndConversation ? "End conversation" : "Leave conversation"}
                     data-testid="button-end-voice"
                   >
                     <Phone className="w-5 h-5" />
