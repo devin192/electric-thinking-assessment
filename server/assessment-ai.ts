@@ -85,6 +85,7 @@ SCORING RULES:
 - For each skill, write a one-sentence explanation of WHY it got that score, referencing specific evidence from the transcript.
 - Assessment Level: The highest level where the user has 3+ green skills
 - Active Level: The lowest level where they have any non-green skills
+- CRITICAL — CONVERSATIONAL LEVEL OVERRIDE: If the transcript contains the assessor (Lex) explicitly stating a specific level (e.g., "I'd put you at Level 2" or "you're a Thought Partner") and the user confirmed or did not object, that level MUST be the assessmentLevel. The conversational level call takes priority over the skill-counting formula. Only use the formula result if the user explicitly disagreed with the level Lex stated during the conversation.
 
 WORK CONTEXT IS PRIMARY DATA:
 The conversation spent significant time understanding this person's actual work. Use that context heavily:
