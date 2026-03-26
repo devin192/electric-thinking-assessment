@@ -21,6 +21,14 @@ export default function AssessmentWarmup() {
     enabled: !!user,
   });
 
+  const { data: activeAssessment } = useQuery<any>({
+    queryKey: ["/api/assessment/active"],
+    enabled: !!user,
+  });
+
+  // If user is returning after leaving, show different copy
+  const isReturning = activeAssessment && JSON.parse(activeAssessment.transcript || "[]").length > 0;
+
   useEffect(() => { document.title = "Get Ready — Electric Thinking"; }, []);
 
   const voiceAvailable = voiceStatus?.available ?? false;
@@ -63,11 +71,14 @@ export default function AssessmentWarmup() {
               <Mic className="w-7 h-7 text-et-pink" />
             </div>
             <h1 className="font-heading text-2xl font-bold text-center mb-2" data-testid="text-warmup-title">
-              Got it. Now let's talk.
+              {isReturning ? "Ready to jump back in?" : "Got it. Now let's talk."}
             </h1>
             <p className="text-muted-foreground text-center text-sm mb-6">
-              Your personalized results are on the other side.<br />
-              Lex will ask about your actual work, not test your AI knowledge. There are no wrong answers here either.
+              {isReturning
+                ? "Your earlier progress is saved. Pick up where you left off with Lex."
+                : <>Your personalized results are on the other side.<br />
+                    Lex will ask about your actual work, not test your AI knowledge. There are no wrong answers here either.</>
+              }
             </p>
 
             <div className="space-y-4 mb-8">

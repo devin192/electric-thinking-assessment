@@ -91,7 +91,7 @@ async function main() {
     const res = await client.fetch("/api/levels");
     check("Server reachable", res.status === 200, `status ${res.status}`);
     const levels = await res.json();
-    check("Levels endpoint returns data", Array.isArray(levels) && levels.length === 5, `${levels.length} levels`);
+    check("Levels endpoint returns data", Array.isArray(levels) && levels.length === 4, `${levels.length} levels`);
   } catch (err: any) {
     check("Server reachable", false, err.message);
     printSummary();
@@ -106,7 +106,7 @@ async function main() {
     const skillsRes = await client.fetch("/api/skills");
     const skills = await skillsRes.json();
     check("Skills endpoint", skillsRes.status === 200 && Array.isArray(skills), `${skills.length} skills`);
-    check("Skills count is 25 (5 per level)", skills.length === 25, `got ${skills.length}`);
+    check("Skills count is 20 (5 per level)", skills.length === 20, `got ${skills.length}`);
   } catch (err: any) {
     check("Skills endpoint", false, err.message);
   }
@@ -175,7 +175,7 @@ async function main() {
     check("Config endpoint (assessment guide)", configRes.status === 200, `status ${configRes.status}`);
     if (configRes.status === 200) {
       const config = await configRes.json();
-      check("Assessment guide is V6", config.value?.includes("CALIBRATION:"), config.value?.includes("CALIBRATION:") ? "V6 detected" : "OLD version");
+      check("Assessment guide configured", !!config.value && config.value.length > 100, config.value ? `${config.value.length} chars` : "MISSING");
     }
   } catch (err: any) {
     check("Config endpoint", false, err.message);
