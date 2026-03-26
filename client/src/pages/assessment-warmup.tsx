@@ -129,7 +129,7 @@ export default function AssessmentWarmup() {
                   onClick={handleStartText}
                   data-testid="button-start-text"
                 >
-                  Having trouble with audio? Use text instead
+                  Prefer to type? Continue in text instead
                 </button>
               </>
             ) : (
