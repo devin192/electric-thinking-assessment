@@ -134,11 +134,11 @@ export default function ResultsPage() {
   };
 
   const handleShare = async () => {
-    const shareText = `I just took an AI skills assessment and I'm a Level ${assessmentLevel + 1} ${levelName}! Find out where you stand:`;
+    const shareText = `I just found out my AI fluency level — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_IDENTITY[assessmentLevel]} Find out where you stand:`;
     const shareUrl = window.location.origin;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "My AI Level", text: shareText, url: shareUrl });
+        await navigator.share({ title: `I'm a Level ${assessmentLevel + 1} ${levelName}`, text: shareText, url: shareUrl });
       } catch {}
     } else {
       try {
@@ -522,8 +522,10 @@ export default function ResultsPage() {
                 variant="outline"
                 className="w-full rounded-2xl py-5"
                 onClick={() => {
-                  const url = encodeURIComponent(window.location.origin);
-                  window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, "_blank", "noopener");
+                  const postText = encodeURIComponent(
+                    `I just got my AI fluency assessment results — I'm a Level ${assessmentLevel + 1} ${levelName}.\n\n${LEVEL_IDENTITY[assessmentLevel]}\n\nFind out where you stand: ${window.location.origin}`
+                  );
+                  window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${postText}`, "_blank", "noopener");
                 }}
               >
                 <Share2 className="w-5 h-5 mr-2" />
