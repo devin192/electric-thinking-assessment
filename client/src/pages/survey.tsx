@@ -92,7 +92,9 @@ export default function SurveyPage() {
   const [currentLevel, setCurrentLevel] = useState(() => {
     try {
       const saved = localStorage.getItem("et-survey-level");
-      return saved ? parseInt(saved, 10) : 0;
+      if (!saved) return 0;
+      const parsed = parseInt(saved, 10);
+      return (parsed >= 0 && parsed <= 3) ? parsed : 0;
     } catch { return 0; }
   });
   const [answers, setAnswers] = useState<Record<string, Answer>>(() => {
@@ -147,15 +149,18 @@ export default function SurveyPage() {
   }, []);
 
   const handleContinue = useCallback(async () => {
-    if (!levelAllAnswered) return;
+    if (!levelAllAnswered || submitting) return;
 
     // Check adaptive cutoff
     if (currentLevel < 3 && shouldContinueToNextLevel(answers, currentLevel)) {
+      setSubmitting(true);
       setCurrentLevel(prev => {
         const next = prev + 1;
         try { localStorage.setItem("et-survey-level", String(next)); } catch {}
         return next;
       });
+      // Re-enable after level transition animation completes
+      setTimeout(() => setSubmitting(false), 350);
     } else {
       // Survey is done — submit and go straight to warmup
       setSubmitting(true);
@@ -173,7 +178,7 @@ export default function SurveyPage() {
         setSubmitting(false);
       }
     }
-  }, [currentLevel, answers, levelAllAnswered, navigate]);
+  }, [currentLevel, answers, levelAllAnswered, submitting, navigate, toast]);
 
   // Guard: redirect to onboarding if not complete
   if (user && !user.onboardingComplete) {

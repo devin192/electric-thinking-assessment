@@ -784,7 +784,7 @@ export default function AssessmentPage() {
     );
   }
 
-  const userMessageCount = messages.filter(m => m.role === "user").length;
+  const userMessageCount = messages.filter(m => m.role === "user" && m.content !== "Hi, I'm ready to start my assessment.").length;
   const canEndConversation = userMessageCount >= 3;
 
   if (voiceMode === "full-duplex") {
@@ -890,7 +890,7 @@ export default function AssessmentPage() {
                     variant="outline"
                     size="icon"
                     className="rounded-full w-12 h-12 border-destructive text-destructive hover:bg-destructive/10"
-                    onClick={() => setShowEndConfirm(true)}
+                    onClick={() => canEndConversation ? setShowEndConfirm(true) : setShowLeaveConfirm(true)}
                     data-testid="button-end-voice"
                   >
                     <Phone className="w-5 h-5" />

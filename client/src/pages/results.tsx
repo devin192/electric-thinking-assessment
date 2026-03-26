@@ -456,7 +456,7 @@ export default function ResultsPage() {
                         <div key={level.id}>
                           <div className="flex items-center gap-2 mb-2">
                             <div
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                              className={`w-5 h-5 rounded-full flex items-center justify-center ${level.sortOrder === 0 ? "text-foreground" : "text-white"} text-[10px] font-bold`}
                               style={{ backgroundColor: LEVEL_COLORS[level.sortOrder] }}
                             >
                               {level.sortOrder + 1}
