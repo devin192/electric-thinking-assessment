@@ -21,7 +21,7 @@ Katrina ran a QA session — walking through the assessment as a real user acros
 - Share Results link (was generic homepage, now user-specific)
 - Warmup copy: "Having trouble with audio?" → "Prefer to type? Continue in text instead"
 
-## PENDING MANUAL ACTION — REQUIRED
+## PENDING MANUAL ACTION — DONE
 **Katrina or Devin must update ElevenLabs manually** to make the Level 5 fix live:
 1. Open `working-notes/lex-elevenlabs-prompt-v8.md`
 2. Copy everything below the `---` line
