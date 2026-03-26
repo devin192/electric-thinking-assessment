@@ -247,15 +247,24 @@ export default function SurveyPage() {
               exit={{ opacity: 0, x: -40 }}
               transition={{ duration: 0.25 }}
             >
-              {/* Instruction text */}
-              <p className="text-base text-muted-foreground text-center mb-8">
+              {/* Headline + instruction text */}
+              <h1 className="font-heading text-2xl font-bold text-center mb-3">
                 {currentLevel === 0
-                  ? "How often do you do each of these? Be honest — most people are strong in some areas and still building in others. That's the whole point."
+                  ? "How often do you do each of these with AI?"
                   : currentLevel === 1
-                  ? "Nice. Now a few about using AI as a thinking partner."
+                  ? "Now, using AI as a thinking partner"
                   : currentLevel === 2
-                  ? "These are about building reusable AI tools. If they're unfamiliar, that's completely normal."
-                  : "Last set — these are about designing systems. Very few people are here yet."}
+                  ? "Building reusable AI tools"
+                  : "Designing AI systems"}
+              </h1>
+              <p className="text-sm text-muted-foreground text-center mb-8">
+                {currentLevel === 0
+                  ? "Be honest — there are no wrong answers. We're all building these skills together."
+                  : currentLevel === 1
+                  ? "Nice work. A few more — same vibe, just a step up."
+                  : currentLevel === 2
+                  ? "If these are unfamiliar, that's completely normal."
+                  : "Last set — very few people are here yet."}
               </p>
 
               {/* Column headers — sticky on scroll */}

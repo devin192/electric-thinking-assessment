@@ -7,7 +7,7 @@ import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import type { Assessment } from "@shared/schema";
 import {
-  ArrowRight, BarChart3, Settings, LogOut, Loader2
+  ArrowRight, BarChart3, Settings, LogOut, Loader2, Mic
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -16,6 +16,11 @@ export default function DashboardPage() {
 
   const { data: assessment, isLoading: assessmentLoading } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
+    enabled: !!user,
+  });
+
+  const { data: activeAssessment, isLoading: activeLoading } = useQuery<Assessment | null>({
+    queryKey: ["/api/assessment/active"],
     enabled: !!user,
   });
 
@@ -43,8 +48,8 @@ export default function DashboardPage() {
     navigate("/");
   };
 
-  // If still loading assessment, show spinner
-  if (assessmentLoading) {
+  // If still loading, show spinner
+  if (assessmentLoading || activeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -52,7 +57,9 @@ export default function DashboardPage() {
     );
   }
 
-  // No assessment yet — show the start prompt
+  // Has an active (in-progress) assessment — let them continue
+  const hasActiveAssessment = activeAssessment && (activeAssessment.status === "in_progress" || activeAssessment.status === "scoring");
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 px-6 py-4 flex items-center justify-between gap-4 sticky top-0 z-50 bg-background/80 backdrop-blur-sm">
@@ -76,18 +83,37 @@ export default function DashboardPage() {
       <div className="max-w-lg mx-auto px-6 py-16">
         <Card className="rounded-2xl border border-border text-center">
           <CardContent className="pt-12 pb-12">
-            <div className="w-16 h-16 rounded-2xl bg-et-pink/15 flex items-center justify-center mx-auto mb-6">
-              <BarChart3 className="w-8 h-8 text-et-pink" />
-            </div>
-            <h2 className="font-heading text-2xl font-bold mb-3">
-              Ready to discover your AI fluency?
-            </h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              A quick survey and a conversation that maps your AI skills across four levels.
-            </p>
-            <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/survey")} data-testid="button-start-assessment">
-              Take the Assessment <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
+            {hasActiveAssessment ? (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-et-pink/15 flex items-center justify-center mx-auto mb-6">
+                  <Mic className="w-8 h-8 text-et-pink" />
+                </div>
+                <h2 className="font-heading text-2xl font-bold mb-3">
+                  Pick up where you left off
+                </h2>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Your survey answers are saved. Jump back into your conversation with Lex.
+                </p>
+                <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/assessment/warmup")} data-testid="button-continue-assessment">
+                  Continue Assessment <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-et-pink/15 flex items-center justify-center mx-auto mb-6">
+                  <BarChart3 className="w-8 h-8 text-et-pink" />
+                </div>
+                <h2 className="font-heading text-2xl font-bold mb-3">
+                  Ready to discover your AI fluency?
+                </h2>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  A quick survey and a conversation that maps your AI skills across four levels.
+                </p>
+                <Button className="rounded-2xl px-8 py-5" onClick={() => navigate("/survey")} data-testid="button-start-assessment">
+                  Take the Assessment <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

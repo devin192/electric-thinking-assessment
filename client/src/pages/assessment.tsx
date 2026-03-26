@@ -81,7 +81,7 @@ export default function AssessmentPage() {
     messagesRef.current = messages;
   }, [messages]);
 
-  const { data: activeAssessment } = useQuery<Assessment | null>({
+  const { data: activeAssessment, isLoading: activeLoading } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/active"],
     enabled: !!user,
   });
@@ -106,6 +106,8 @@ export default function AssessmentPage() {
   });
 
   useEffect(() => {
+    // Don't make redirect decisions until the active assessment query has loaded
+    if (activeLoading) return;
     if (!activeAssessment && user && assessmentId === null) {
       // If the user already has a completed assessment, redirect to results
       // instead of starting a new one (they likely refreshed during sliders/validation)
@@ -119,7 +121,7 @@ export default function AssessmentPage() {
         navigate("/survey");
       }
     }
-  }, [activeAssessment, user, latestCompleted]);
+  }, [activeAssessment, activeLoading, user, latestCompleted]);
 
   // When loading an existing empty assessment in text-only mode, send the initial greeting
   const greetingSentRef = useRef(false);
@@ -996,7 +998,7 @@ export default function AssessmentPage() {
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
                 Stay
               </Button>
-              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/assessment/warmup"); }}>
                 Leave
               </Button>
             </div>
@@ -1158,7 +1160,7 @@ export default function AssessmentPage() {
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
                 Stay
               </Button>
-              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/assessment/warmup"); }}>
                 Leave
               </Button>
             </div>
@@ -1291,7 +1293,7 @@ export default function AssessmentPage() {
               <Button variant="outline" className="flex-1 min-h-[44px]" onClick={() => setShowLeaveConfirm(false)}>
                 Stay
               </Button>
-              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/dashboard"); }}>
+              <Button className="flex-1 min-h-[44px]" onClick={() => { setShowLeaveConfirm(false); disconnectVoice(); navigate("/assessment/warmup"); }}>
                 Leave
               </Button>
             </div>
