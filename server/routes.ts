@@ -332,6 +332,23 @@ export async function registerRoutes(
       let messages: Array<{ role: string; content: string }> = [];
       try { messages = JSON.parse(assessment.transcript || "[]"); } catch { messages = []; }
 
+      const userMessages = messages.filter(m => m.role === "user" && m.content !== "Hi, I'm ready to start my assessment.");
+      if (userMessages.length < 2) {
+        // Not enough conversation data to score meaningfully — complete with survey-based defaults
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        await storage.updateAssessment(assessmentId, {
+          status: "completed",
+          completedAt: new Date(),
+          scoresJson: {},
+          assessmentLevel: surveyLevel,
+          activeLevel: surveyLevel,
+          contextSummary: "Assessment completed with limited conversation data. Level based on survey responses.",
+          workContextSummary: user.roleTitle || null,
+          brightSpotsText: JSON.stringify(["You took the first step by starting the assessment."]),
+        });
+        return res.json({ assessmentLevel: surveyLevel, activeLevel: surveyLevel, scores: {} });
+      }
+
       const transcriptText = messages.map(m => `${m.role}: ${m.content}`).join("\n\n");
 
       // Build survey context for scoring (so the model sees self-assessment data too)
@@ -351,12 +368,30 @@ export async function registerRoutes(
         ].filter(Boolean).join("\n");
       }
 
-      const result = await scoreAssessment(transcriptText, {
-        name: user.name || undefined,
-        roleTitle: user.roleTitle || undefined,
-        aiPlatform: user.aiPlatform || undefined,
-        surveyContext,
-      });
+      let result;
+      try {
+        result = await scoreAssessment(transcriptText, {
+          name: user.name || undefined,
+          roleTitle: user.roleTitle || undefined,
+          aiPlatform: user.aiPlatform || undefined,
+          surveyContext,
+        });
+      } catch (scoreErr: any) {
+        console.error("Scoring failed:", scoreErr.message);
+        // Fall back to survey-based level rather than crashing
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        await storage.updateAssessment(assessmentId, {
+          status: "completed",
+          completedAt: new Date(),
+          scoresJson: {},
+          assessmentLevel: surveyLevel,
+          activeLevel: surveyLevel,
+          contextSummary: "Scoring encountered an issue. Level based on survey responses.",
+          workContextSummary: user.roleTitle || null,
+          brightSpotsText: JSON.stringify(["You completed the assessment conversation."]),
+        });
+        return res.json({ assessmentLevel: surveyLevel, activeLevel: surveyLevel, scores: {} });
+      }
 
       const allSkills = await storage.getSkills();
 
