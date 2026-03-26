@@ -18,11 +18,19 @@ export function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
-  const { login } = useAuth();
+  const { login, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
   useEffect(() => { document.title = "Sign In — Electric Thinking"; }, []);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (user.userRole === "system_admin") navigate("/admin");
+      else if (!user.onboardingComplete) navigate("/onboarding");
+      else navigate("/dashboard");
+    }
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
