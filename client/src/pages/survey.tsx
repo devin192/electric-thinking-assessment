@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import { ArrowRight } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 // 20 survey questions — 5 per level, shown sequentially without level labels
@@ -166,10 +166,12 @@ export default function SurveyPage() {
       setSubmitting(true);
       try {
         const surveyLevel = calculateSurveyLevel(answers);
-        await apiRequest("POST", "/api/assessment/start", {
+        const res = await apiRequest("POST", "/api/assessment/start", {
           surveyResponsesJson: answers,
           surveyLevel,
         });
+        const assessment = await res.json();
+        queryClient.setQueryData(["/api/assessment/active"], assessment);
         try { localStorage.removeItem("et-survey-answers"); localStorage.removeItem("et-survey-level"); } catch {}
         navigate("/assessment/warmup");
       } catch (err) {
