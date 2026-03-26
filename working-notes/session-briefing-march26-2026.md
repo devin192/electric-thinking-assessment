@@ -40,7 +40,6 @@ The code repo has the fix — but ElevenLabs is a separate system that must be u
 - Warmup copy updated
 
 ### Known Remaining Issues (carried forward from March 25)
-- **Admin login**: `admin@electricthinking.com` + Railway `ADMIN_PASSWORD` not working for Katrina. Devin may need to verify Railway env var or reset.
 - **Security**: `__TRANSCRIPT_SAVE__` transcript overwrite, no rate limiting on AI endpoints
 - **UX**: Voice connecting no cancel for first 15s, no warmup back button, no escape before End Conversation (3+ messages)
 - **Lex guardrails**: No topic drift or jailbreak protection for text mode
