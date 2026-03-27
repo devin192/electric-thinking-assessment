@@ -1057,6 +1057,31 @@ function OrganizationsList() {
   const { toast } = useToast();
   const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
   const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgIndustry, setNewOrgIndustry] = useState("");
+  const [newOrgSize, setNewOrgSize] = useState("");
+
+  const createOrg = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/admin/organizations", {
+        name: newOrgName.trim(),
+        industry: newOrgIndustry.trim() || undefined,
+        size: newOrgSize.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
+      toast({ title: "Organization created" });
+      setShowCreate(false);
+      setNewOrgName("");
+      setNewOrgIndustry("");
+      setNewOrgSize("");
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   const setJoinCode = useMutation({
     mutationFn: async ({ orgId, joinCode }: { orgId: number; joinCode: string | null }) => {
@@ -1074,7 +1099,42 @@ function OrganizationsList() {
   });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
+      {showCreate ? (
+        <div className="p-4 rounded-xl border border-border space-y-3">
+          <div className="text-sm font-medium">New Organization</div>
+          <Input
+            placeholder="Organization name (required)"
+            value={newOrgName}
+            onChange={e => setNewOrgName(e.target.value)}
+            className="h-8 text-sm"
+          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Industry (optional)"
+              value={newOrgIndustry}
+              onChange={e => setNewOrgIndustry(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <Input
+              placeholder="Size (optional)"
+              value={newOrgSize}
+              onChange={e => setNewOrgSize(e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => createOrg.mutate()} disabled={!newOrgName.trim() || createOrg.isPending}>
+              <Plus className="w-3 h-3 mr-1" /> Create
+            </Button>
+            <button className="text-xs text-muted-foreground underline" onClick={() => setShowCreate(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowCreate(true)}>
+          <Plus className="w-3 h-3 mr-1" /> Add Organization
+        </Button>
+      )}
       {(orgs || []).map(org => (
         <div key={org.id} className="p-3 rounded-xl bg-accent/30 space-y-2">
           <div className="flex items-center justify-between">
@@ -1120,8 +1180,8 @@ function OrganizationsList() {
           </div>
         </div>
       ))}
-      {(!orgs || orgs.length === 0) && (
-        <p className="text-sm text-muted-foreground">No organizations yet</p>
+      {(!orgs || orgs.length === 0) && !showCreate && (
+        <p className="text-sm text-muted-foreground">No organizations yet — click "Add Organization" above to create one.</p>
       )}
     </div>
   );

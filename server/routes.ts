@@ -1246,6 +1246,24 @@ export async function registerRoutes(
     return res.json(orgs);
   });
 
+  app.post("/api/admin/organizations", requireAdmin, async (req, res) => {
+    try {
+      const { name, industry, size } = req.body;
+      if (!name || typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ message: "Organization name required" });
+      }
+      const org = await storage.createOrganization({
+        name: name.trim(),
+        industry: industry?.trim() || null,
+        size: size?.trim() || null,
+      });
+      return res.json(org);
+    } catch (e: any) {
+      console.error("Create org error:", e);
+      return res.status(400).json({ message: "Failed to create organization" });
+    }
+  });
+
   app.put("/api/admin/organizations/:id/join-code", requireAdmin, async (req, res) => {
     try {
       const orgId = parseInt(req.params.id);
