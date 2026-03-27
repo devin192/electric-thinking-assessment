@@ -77,8 +77,7 @@ export default function AssessmentWarmup() {
             <p className="text-muted-foreground text-center text-sm mb-6">
               {isReturning
                 ? "Your earlier progress is saved. Pick up where you left off with Lex."
-                : <>Your personalized results are on the other side.<br />
-                    Lex will ask about your actual work, not test your AI knowledge. There are no wrong answers here either.</>
+                : "Lex will ask about your actual work, not test your AI knowledge. There are no wrong answers here either."
               }
             </p>
 
