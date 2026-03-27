@@ -116,8 +116,8 @@ export default function LandingPage() {
             {[
               { level: 0, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
               { level: 1, name: "Thought Partner", color: "bg-et-pink", desc: "AI as a collaborative thinking partner" },
-              { level: 2, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building reusable AI tools" },
-              { level: 3, name: "Agentic Workflow", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
+              { level: 2, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building dedicated AI specialists" },
+              { level: 3, name: "Systems Designer", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
             ].map(item => (
               <div key={item.level} className="flex items-center gap-4 p-4 rounded-xl bg-card">
                 <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center ${item.color === "bg-et-gold" ? "text-foreground" : "text-white"} font-heading font-bold text-sm shrink-0`}>

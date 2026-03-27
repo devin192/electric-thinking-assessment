@@ -23,13 +23,13 @@ const LEVEL_COLORS: Record<number, string> = {
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Accelerator", 1: "Thought Partner", 2: "Specialized Teammates", 3: "Agentic Workflow",
+  0: "Accelerator", 1: "Thought Partner", 2: "Specialized Teammates", 3: "Systems Designer",
 };
 
 const LEVEL_SUBTITLES: Record<number, string> = {
   0: "Speed up everyday work",
   1: "Think better with AI",
-  2: "Build reusable AI tools",
+  2: "Build dedicated AI specialists",
   3: "Design autonomous systems",
 };
 

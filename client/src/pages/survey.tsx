@@ -12,29 +12,29 @@ import { useToast } from "@/hooks/use-toast";
 // The survey is ADAPTIVE: it stops when it finds your growth edge
 const SURVEY_QUESTIONS = [
   // Level 1 — Accelerator
-  { skillName: "Context Setting", text: "I brief AI with my role, the task, and relevant background before asking it to do something", level: 0 },
-  { skillName: "Quick Drafting", text: "I use AI to create first drafts of emails, docs, or written content", level: 0 },
-  { skillName: "Output Editing & Direction", text: "When AI output isn't right, I redirect it — adjusting tone, structure, or specificity", level: 0 },
-  { skillName: "Voice-First Capture", text: "I use voice to capture thoughts, dictate drafts, or recap meetings with AI", level: 0 },
-  { skillName: "In-the-Moment Support", text: "When I hit friction at work, my reflex is to reach for AI", level: 0 },
+  { skillName: "Role, Task, Context", text: "Before I ask AI to do something, I give it a role, the task, and the context it needs to do a good job.", level: 0 },
+  { skillName: "Voice-to-Text", text: "I talk to AI using voice instead of typing.", level: 0 },
+  { skillName: "Show It What Good Looks Like", text: "I give AI examples, reference docs, or past work so it knows what good output looks like.", level: 0 },
+  { skillName: "Back-and-Forth", text: "When AI gives me something, I give it feedback and keep going for multiple rounds instead of accepting the first response.", level: 0 },
+  { skillName: "Screenshot + Explain", text: "When I'm stuck on something, I screenshot it, open AI, and talk through what I need help with.", level: 0 },
   // Level 2 — Thought Partner
-  { skillName: "Interview Me", text: "I let AI lead with questions to surface my assumptions before I commit to a direction", level: 1 },
-  { skillName: "Rapid Ideation", text: "I use AI to generate multiple options before picking one", level: 1 },
-  { skillName: "Challenge Me", text: "I ask AI to find holes, counterarguments, or blind spots in my thinking", level: 1 },
-  { skillName: "Decision Mapping", text: "I use AI to structure trade-offs, run scenarios, or apply decision frameworks", level: 1 },
-  { skillName: "Operationalize This", text: "I use AI to turn strategy into concrete execution plans with steps and owners", level: 1 },
+  { skillName: "Interview Me", text: "I ask AI to interview me — to ask me questions one at a time before I commit to a direction.", level: 1 },
+  { skillName: "Rapid Ideation", text: "I use AI to generate multiple options, framings, or approaches before I pick one.", level: 1 },
+  { skillName: "Challenge Me", text: "I ask AI to poke holes in my thinking and find what could go wrong.", level: 1 },
+  { skillName: "Decision Mapping", text: "When I'm stuck between options, I use AI to lay out the trade-offs and play out different scenarios.", level: 1 },
+  { skillName: "Execute and Iterate", text: "After working through a problem with AI, I have it make a first version, then I give feedback on voice-to-text to keep tightening it.", level: 1 },
   // Level 3 — Specialized Teammates
-  { skillName: "Pattern Spotting", text: "I notice when a repeating task should become a reusable AI tool", level: 2 },
-  { skillName: "Workflow Scoping", text: "I break tasks into inputs, steps, and expected outputs before building an AI tool", level: 2 },
-  { skillName: "Instruction Design", text: "I write system prompts or instructions that produce consistent, reliable AI output", level: 2 },
-  { skillName: "Testing & Refinement", text: "I test my AI tools with real inputs and iterate through edge cases", level: 2 },
-  { skillName: "Knowledge Embedding", text: "I attach reference docs or domain context so AI has what it needs to be accurate", level: 2 },
-  // Level 4 — Agentic Workflow
-  { skillName: "Systems Mapping", text: "I design end-to-end workflows, not just individual AI tasks", level: 3 },
-  { skillName: "Automation Design", text: "I build workflows where AI handles steps without me", level: 3 },
-  { skillName: "Independent Judgment", text: "I know which steps in a workflow need a human decision vs. can run autonomously", level: 3 },
-  { skillName: "Cross-Workflow Integration", text: "I connect multiple AI-powered processes together", level: 3 },
-  { skillName: "Continuous Improvement", text: "I monitor, measure, and refine my automated AI systems over time", level: 3 },
+  { skillName: "See the Specialist", text: "I can look at my work and see where a dedicated AI teammate should exist.", level: 2 },
+  { skillName: "Onboard the Teammate", text: "I've built dedicated AI teammates — writing instructions, attaching examples, and giving them what they need to do the job well.", level: 2 },
+  { skillName: "Refine Inputs, Not Outputs", text: "When my AI teammate's output isn't right, I fix the instructions rather than just fixing the output myself.", level: 2 },
+  { skillName: "Expand Your Toolkit", text: "I know what my AI platform can really do, and I know when to reach for a different one.", level: 2 },
+  { skillName: "Manage the Roster", text: "I have multiple AI teammates I work with regularly, and I know which one to reach for and when.", level: 2 },
+  // Level 4 — Systems Designer
+  { skillName: "Systems Mapping", text: "I can map my work as a system — what triggers it, what steps happen, what feeds into what, and where the decision points are.", level: 3 },
+  { skillName: "Human in the Loop", text: "I know which steps in my workflows need a human and which ones can run on their own.", level: 3 },
+  { skillName: "Proactive vs. Reactive", text: "I have AI workflows that run on their own — on a schedule or triggered by an event — without me starting them.", level: 3 },
+  { skillName: "Self-Improving Systems", text: "When I give feedback on my AI system's output, I make sure the system itself gets updated so it's better next time.", level: 3 },
+  { skillName: "What Wasn't Possible Before", text: "I've built AI systems that create entirely new outputs or capabilities that didn't exist before — not just faster versions of old processes.", level: 3 },
 ];
 
 type Answer = 0 | 1 | 2; // 0=Not yet, 1=Sometimes, 2=Always
@@ -65,7 +65,7 @@ function calculateSurveyLevel(answers: Record<string, number>): number {
 }
 
 function buildSurveySummary(answers: Record<string, number>): string {
-  const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+  const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
   const lines: string[] = [];
   for (let lvl = 0; lvl <= 3; lvl++) {
     const questions = SURVEY_QUESTIONS.filter(q => q.level === lvl);
@@ -256,7 +256,7 @@ export default function SurveyPage() {
                   : currentLevel === 1
                   ? "Now, using AI as a thinking partner"
                   : currentLevel === 2
-                  ? "Building reusable AI tools"
+                  ? "Building dedicated AI teammates"
                   : "Designing AI systems"}
               </h1>
               <p className="text-sm text-muted-foreground text-center mb-8">

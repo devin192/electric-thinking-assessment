@@ -6,38 +6,38 @@ import { pool } from "./db";
 const LEVEL_DATA = [
   { name: "accelerator", displayName: "Accelerator", sortOrder: 0, description: "Using AI to speed up everyday work", visualTheme: "gold" },
   { name: "thought_partner", displayName: "Thought Partner", sortOrder: 1, description: "Using AI as a collaborative thinking partner", visualTheme: "pink" },
-  { name: "specialized_teammates", displayName: "Specialized Teammates", sortOrder: 2, description: "Building reusable AI tools and workflows", visualTheme: "orange" },
-  { name: "agentic_workflow", displayName: "Agentic Workflow", sortOrder: 3, description: "Designing autonomous AI-powered systems", visualTheme: "blue" },
+  { name: "specialized_teammates", displayName: "Specialized Teammates", sortOrder: 2, description: "Building dedicated AI specialists for your work", visualTheme: "orange" },
+  { name: "systems_designer", displayName: "Systems Designer", sortOrder: 3, description: "Designing autonomous AI-powered systems", visualTheme: "blue" },
 ];
 
 const SKILLS_DATA: Record<number, Array<{ name: string; description: string; sortOrder: number }>> = {
   0: [
-    { name: "Context Setting", description: "Briefing AI with role, task, and relevant inputs", sortOrder: 0 },
-    { name: "Quick Drafting", description: "Using AI for first drafts of written content", sortOrder: 1 },
-    { name: "Output Editing & Direction", description: "Redirecting AI output -- tone, structure, specificity", sortOrder: 2 },
-    { name: "Voice-First Capture", description: "Using voice to externalize thinking, capture recaps, dictate drafts", sortOrder: 3 },
-    { name: "In-the-Moment Support", description: "Reflexively reaching for AI when you hit friction", sortOrder: 4 },
+    { name: "Role, Task, Context", description: "Giving AI a defined role, a clear task, and relevant context before every interaction", sortOrder: 0 },
+    { name: "Voice-to-Text", description: "Using voice-to-text as the primary way to communicate with AI, giving richer context and faster input", sortOrder: 1 },
+    { name: "Show It What Good Looks Like", description: "Providing AI with examples of finished work, transcripts, reference docs, and other context so output matches your standards", sortOrder: 2 },
+    { name: "Back-and-Forth", description: "Engaging AI in multi-turn conversation, pushing back on output and iterating through feedback rather than accepting the first response", sortOrder: 3 },
+    { name: "Screenshot + Explain", description: "Using screenshots paired with voice or text explanation to get AI help navigating problems, errors, or unfamiliar situations", sortOrder: 4 },
   ],
   1: [
-    { name: "Interview Me", description: "Letting AI lead with questions to surface your assumptions", sortOrder: 5 },
-    { name: "Rapid Ideation", description: "Generating multiple options before committing to one", sortOrder: 6 },
-    { name: "Challenge Me", description: "Asking AI to find holes, counterarguments, blind spots in your thinking", sortOrder: 7 },
-    { name: "Decision Mapping", description: "Structuring trade-offs, running scenarios, applying frameworks", sortOrder: 8 },
-    { name: "Operationalize This", description: "Converting strategy into concrete execution plans", sortOrder: 9 },
+    { name: "Interview Me", description: "Having AI lead with questions to surface assumptions, clarify thinking, and pull out what you haven't considered before starting work", sortOrder: 5 },
+    { name: "Rapid Ideation", description: "Using AI to produce a range of alternatives so you can compare and choose rather than going with the first idea", sortOrder: 6 },
+    { name: "Challenge Me", description: "Asking AI to stress-test your ideas by finding weak arguments, missing perspectives, blind spots, and risks before you commit", sortOrder: 7 },
+    { name: "Decision Mapping", description: "Using AI to structure decisions by mapping trade-offs, running scenarios, and making the options visible so you can choose with clarity", sortOrder: 8 },
+    { name: "Execute and Iterate", description: "After using AI as a thought partner, asking it to produce a deliverable and then iterating through rounds of voice-to-text feedback until it's right", sortOrder: 9 },
   ],
   2: [
-    { name: "Pattern Spotting", description: "Recognizing when a repeating task should become a reusable tool", sortOrder: 10 },
-    { name: "Workflow Scoping", description: "Breaking a task into inputs, steps, and expected outputs", sortOrder: 11 },
-    { name: "Instruction Design", description: "Writing system prompts that produce consistent, reliable output", sortOrder: 12 },
-    { name: "Testing & Refinement", description: "Testing tools with real inputs and iterating through edge cases", sortOrder: 13 },
-    { name: "Knowledge Embedding", description: "Curating and attaching reference docs so AI has domain context", sortOrder: 14 },
+    { name: "See the Specialist", description: "Developing the instinct to recognize when part of your work is important and specific enough to deserve its own dedicated AI specialist", sortOrder: 10 },
+    { name: "Onboard the Teammate", description: "Going from idea to working AI specialist by writing instructions, providing examples of good output, and uploading reference docs", sortOrder: 11 },
+    { name: "Refine Inputs, Not Outputs", description: "Improving AI teammates by diagnosing and fixing the instructions rather than manually polishing each output", sortOrder: 12 },
+    { name: "Expand Your Toolkit", description: "Discovering advanced platform capabilities and recognizing that different AI tools have different strengths for different jobs", sortOrder: 13 },
+    { name: "Manage the Roster", description: "Managing multiple AI specialists as a team: maintaining instructions, identifying gaps, and knowing which teammate to reach for and when", sortOrder: 14 },
   ],
   3: [
-    { name: "Systems Mapping", description: "Designing end-to-end flows, not just individual tasks", sortOrder: 15 },
-    { name: "Automation Design", description: "Building workflows where AI handles steps without you", sortOrder: 16 },
-    { name: "Independent Judgment", description: "Knowing which steps require human decision-making", sortOrder: 17 },
-    { name: "Cross-Workflow Integration", description: "Connecting multiple AI-powered processes together", sortOrder: 18 },
-    { name: "Continuous Improvement", description: "Monitoring, measuring, and refining automated systems", sortOrder: 19 },
+    { name: "Systems Mapping", description: "Thinking about work as a system and mapping the end-to-end flow: triggers, steps, dependencies, decision points, and which humans need to be consulted", sortOrder: 15 },
+    { name: "Human in the Loop", description: "Assigning trust levels to workflow steps based on consequence of failure, knowing where human judgment is required versus where AI can operate autonomously", sortOrder: 16 },
+    { name: "Proactive vs. Reactive", description: "Shifting from workflows you trigger manually to workflows that run proactively on schedules or events, producing results before you sit down to work", sortOrder: 17 },
+    { name: "Self-Improving Systems", description: "Building feedback loops into AI workflows so that accumulated feedback updates the system's instructions, making it improve over time", sortOrder: 18 },
+    { name: "What Wasn't Possible Before", description: "Moving beyond optimizing existing processes to designing new systems, outputs, and capabilities that couldn't have existed without AI", sortOrder: 19 },
   ],
 };
 
@@ -73,7 +73,7 @@ If you don't have the user's name, just say "Hey, I'm Lex."
 PHASE 1 - WORK CONTEXT (4-8 exchanges):
 Build a rich, specific picture of their actual work. This powers the level assessment and the personalized outcomes on their results page.
 
-CALIBRATION: If the survey shows Level 3-4 (Specialized Teammates or Agentic Workflow), skip basic work context. Pivot to: "Your survey shows you're deep in this — building tools, designing workflows. Where are you hitting limits right now?" Match their altitude.
+CALIBRATION: If the survey shows Level 3-4 (Specialized Teammates or Systems Designer), skip basic work context. Pivot to: "Your survey shows you're deep in this — building tools, designing workflows. Where are you hitting limits right now?" Match their altitude.
 
 Push for specificity. When they say "reports" ask "What exactly are you building? Who reads them?" When they say "meetings" ask "What kind? How many per week?"
 
@@ -162,10 +162,40 @@ From the conversation, make sure you've captured:
 - Seeds planted during curiosity-stoking (these power the personalized outcomes)
 
 SKILL FRAMEWORK (4 levels):
-Level 1 - Accelerator: Context Setting, Quick Drafting, Output Editing & Direction, Voice-First Capture, In-the-Moment Support
-Level 2 - Thought Partner: Interview Me, Rapid Ideation, Challenge Me, Decision Mapping, Operationalize This
-Level 3 - Specialized Teammates: Pattern Spotting, Workflow Scoping, Instruction Design, Testing & Refinement, Knowledge Embedding
-Level 4 - Agentic Workflow: Systems Mapping, Automation Design, Independent Judgment, Cross-Workflow Integration, Continuous Improvement`;
+
+Level 1 - Accelerator (using AI to speed up everyday work):
+- Role, Task, Context: Giving AI a role, task, and context before every interaction
+- Voice-to-Text: Talking to AI instead of typing
+- Show It What Good Looks Like: Providing examples, reference docs, and past work
+- Back-and-Forth: Iterating through multiple rounds of feedback
+- Screenshot + Explain: Using screenshots paired with voice to get help navigating problems
+
+Level 2 - Thought Partner (using AI as a collaborative thinking partner):
+- Interview Me: Having AI lead with questions to surface assumptions
+- Rapid Ideation: Generating multiple options before picking one
+- Challenge Me: Asking AI to stress-test your thinking
+- Decision Mapping: Using AI to lay out trade-offs and scenarios
+- Execute and Iterate: Producing a deliverable and tightening it through voice-to-text feedback rounds
+
+Level 3 - Specialized Teammates (building dedicated AI specialists for your work):
+- See the Specialist: Recognizing when part of your work deserves its own dedicated AI teammate
+- Onboard the Teammate: Building a working AI specialist with instructions, examples, and reference docs
+- Refine Inputs, Not Outputs: Fixing the instructions rather than polishing each output
+- Expand Your Toolkit: Discovering advanced platform capabilities and exploring other AI tools
+- Manage the Roster: Managing multiple AI specialists as a team
+
+Level 4 - Systems Designer (designing autonomous AI-powered systems):
+- Systems Mapping: Mapping work as a system with triggers, steps, dependencies, and decision points
+- Human in the Loop: Knowing which steps need a human based on consequence of failure
+- Proactive vs. Reactive: Setting up workflows that run on schedules or events without you starting them
+- Self-Improving Systems: Building feedback loops so the system gets better over time
+- What Wasn't Possible Before: Building new capabilities that couldn't have existed without AI
+
+THRESHOLD EXPERIENCES (what "they get it" sounds like at each level):
+- Level 1: "I keep finding myself reaching for AI, and the output is actually good enough to use."
+- Level 2: "I'm bringing my hardest, most important work to AI now, not just the quick stuff."
+- Level 3: "I have a roster of AI teammates I use every week that actually work."
+- Level 4: "I think in systems. I'm designing, managing, and improving AI workflows that run without me."`;
 
 const DEFAULT_NUDGE_GUIDE = `You are a learning challenge generator for Electric Thinking. Generate personalized, actionable skill challenges that help users develop specific AI fluency skills. Each challenge should feel like it was written by someone who knows the user personally, referencing their specific role, tasks, and context from the assessment.`;
 
@@ -285,7 +315,7 @@ async function ensureMigrations() {
   }
 
   // Clean up old "Foundations" level from pre-pivot 5-level framework
-  // The pivot dropped it to 4 levels (Accelerator through Agentic Workflow)
+  // The pivot dropped it to 4 levels (Accelerator through Systems Designer)
   try {
     const foundationsLevel = await pool.query(
       `SELECT id FROM levels WHERE display_name = 'Foundations' OR (sort_order = 0 AND display_name != 'Accelerator')`
@@ -376,7 +406,7 @@ async function ensureSystemConfig() {
       log("Set default ElevenLabs agent ID", "seed");
     }
 
-    // Update conversation guide if it's outdated (pre-V5: check for V5 markers)
+    // Update conversation guide if it's outdated
     const currentGuide = await storage.getSystemConfig("assessment_conversation_guide");
     if (currentGuide && (
       // V3 or older detection
@@ -386,10 +416,13 @@ async function ensureSystemConfig() {
       // V3 -> V4 detection: V3 had the old flow structure
       !currentGuide.includes("PHASE 1 - WORK CONTEXT") ||
       // V4/V5 -> V6 detection: V6 has level-based calibration and truncated input handling
-      !currentGuide.includes("CALIBRATION:")
+      !currentGuide.includes("CALIBRATION:") ||
+      // V6 -> V7 detection: V7 has updated skill names and threshold experiences
+      !currentGuide.includes("THRESHOLD EXPERIENCES") ||
+      currentGuide.includes("Agentic Workflow")
     )) {
       await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
-      log("Updated assessment conversation guide to V6 (level-based calibration, truncated input rescue, meta-conversation handling)", "seed");
+      log("Updated assessment conversation guide (new skill framework + threshold experiences)", "seed");
     }
   } catch (error) {
     log(`Config sync error: ${error}`, "seed");

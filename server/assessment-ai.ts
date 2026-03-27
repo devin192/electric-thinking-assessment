@@ -81,7 +81,7 @@ ${frameworkDescription}
 SCORING RULES:
 - Green: The user described this skill as a regular, habitual part of their workflow AND gave at least one specific example. They do this consistently, not occasionally.
 - Yellow: The user mentioned trying this, described inconsistent use, or showed awareness without clear evidence of regular practice. "I've done that a few times" or "I know I should" both land here.
-- Red: The user never mentioned this skill, explicitly said they don't do it, or the transcript contains no evidence. When in doubt between red and yellow, choose red. Do not give yellow for vague mentions.
+- Red: The user never mentioned this skill, explicitly said they don't do it, or the transcript contains no evidence. When in doubt between red and yellow, choose yellow. An 8-10 minute conversation can't cover every skill. Yellow means "not enough signal," which is better than incorrectly marking someone red.
 - For each skill, write a one-sentence explanation of WHY it got that score, referencing specific evidence from the transcript.
 - Assessment Level: The highest level where the user has 3+ green skills
 - Active Level: The lowest level where they have any non-green skills
@@ -108,7 +108,7 @@ ADDITIONAL ANALYSIS (generate these carefully):
 - signatureSkillRationale: One sentence explaining why this is their signature skill, framed as a compliment. Example: "You showed real depth here. Your approach to prompt iteration is more sophisticated than most people at your level."
 - brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned about their work. Frame as strengths. Example: ["You've figured out voice-first drafting for meeting recaps, which most people at your level skip entirely", "Your instinct to iterate on AI output for client proposals instead of accepting the first response puts you ahead"]
 - futureSelfText: ONE sentence painting the next level identity using their actual job context. Example: "Imagine your Monday morning planning sessions already have a draft agenda pulled from last week's action items, ready for you to review."
-- nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 3 (Agentic Workflow), return "You've reached the top level."
+- nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 3 (Systems Designer), return "You've reached the top level."
 - outcomeOptions: An array of exactly 3 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
   Each option has:
   - outcomeHeadline: A tantalizing outcome in one sentence tied to their actual work. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."

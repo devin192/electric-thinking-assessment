@@ -9,7 +9,7 @@ const LEVEL_NAMES: Record<number, string> = {
   0: "Accelerator",
   1: "Thought Partner",
   2: "Specialized",
-  3: "Agentic Workflow",
+  3: "Systems Designer",
 };
 
 export function generateBadgeSVG(

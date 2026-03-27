@@ -265,7 +265,7 @@ export async function registerRoutes(
       if (assessment.surveyResponsesJson) {
         const surveyData = assessment.surveyResponsesJson as Record<string, number>;
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
         const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
         const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
@@ -356,7 +356,7 @@ export async function registerRoutes(
       if (assessment.surveyResponsesJson) {
         const surveyData = assessment.surveyResponsesJson as Record<string, number>;
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
         const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
         const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);

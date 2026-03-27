@@ -242,7 +242,7 @@ export default function AssessmentPage() {
             const roleTitle = user?.roleTitle || "";
             const aiPlatform = user?.aiPlatform || "";
             const surveyLevel = (activeAssessment as any).surveyLevel ?? 0;
-            const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Agentic Workflow"];
+            const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
 
             // Build readable survey summary
             const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
