@@ -44,6 +44,29 @@ export default function AdminPage() {
         </button>
         <Wordmark className="text-lg" />
         <Badge variant="secondary" className="ml-2">Admin</Badge>
+        <div className="ml-auto">
+          <Select
+            onValueChange={async (level) => {
+              try {
+                await apiRequest("POST", "/api/admin/test-complete", { level: parseInt(level) });
+                toast({ title: `Test assessment created (Level ${parseInt(level) + 1})` });
+                navigate("/results");
+              } catch (err: any) {
+                toast({ title: "Error", description: err.message, variant: "destructive" });
+              }
+            }}
+          >
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue placeholder="Test results page..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">Level 1 Accelerator</SelectItem>
+              <SelectItem value="1">Level 2 Thought Partner</SelectItem>
+              <SelectItem value="2">Level 3 Specialized</SelectItem>
+              <SelectItem value="3">Level 4 Systems</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-8">

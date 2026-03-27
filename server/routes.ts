@@ -1203,6 +1203,65 @@ export async function registerRoutes(
     }
   });
 
+  // Admin shortcut: fast-complete an assessment for testing the results page
+  app.post("/api/admin/test-complete", requireAdmin, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const level = typeof req.body.level === "number" ? req.body.level : 1;
+      const allSkills = await storage.getSkills();
+      const levels = await storage.getLevels();
+      const targetLevel = levels.find(l => l.sortOrder === level);
+      const signatureSkill = allSkills.find(s => s.levelId === targetLevel?.id);
+
+      // Create a completed assessment with sample data
+      const assessment = await storage.createAssessment({
+        userId: user.id,
+        status: "in_progress",
+        surveyLevel: level,
+        surveyResponsesJson: {},
+      });
+
+      const sampleOutcomes = [
+        { outcomeHeadline: "Your meeting prep becomes a 2-minute conversation with an AI that knows your style." },
+        { outcomeHeadline: "Your client deliverables get a first draft before you even open the doc." },
+        { outcomeHeadline: "Your weekly reporting writes itself from your notes and data." },
+      ];
+
+      const sampleBrightSpots = [
+        "You're already using AI as a thinking partner for complex decisions",
+        "Your instinct to iterate and refine shows real AI fluency",
+      ];
+
+      await storage.updateAssessment(assessment.id, {
+        status: "completed",
+        completedAt: new Date(),
+        assessmentLevel: level,
+        transcript: JSON.stringify([
+          { role: "assistant", content: "Test conversation for results page preview." },
+          { role: "user", content: "This is a test assessment." },
+        ]),
+        brightSpotsText: JSON.stringify(sampleBrightSpots),
+        outcomeOptionsJson: sampleOutcomes,
+        signatureSkillId: signatureSkill?.id || null,
+        signatureSkillRationale: "Test assessment",
+      } as any);
+
+      // Set skill statuses
+      for (const skill of allSkills) {
+        const skillLevel = levels.find(l => l.id === skill.levelId);
+        const status = skillLevel && skillLevel.sortOrder <= level ? (skillLevel.sortOrder < level ? "green" : "yellow") : "red";
+        await storage.upsertUserSkillStatus({ userId: user.id, skillId: skill.id, status });
+      }
+
+      return res.json({ message: "Test assessment created", assessmentId: assessment.id });
+    } catch (e: any) {
+      console.error("Test complete error:", e);
+      return res.status(400).json({ message: e.message });
+    }
+  });
+
   app.post("/api/admin/users/:id/reset", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

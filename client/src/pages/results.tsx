@@ -9,10 +9,9 @@ import { useAuth } from "@/lib/auth";
 import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
 import {
   ArrowRight, Sparkles, Loader2, Crown, ChevronDown, ChevronUp,
-  CheckCircle2, BarChart3, Settings, LogOut, Mic, Share2, Link2
+  CheckCircle2, BarChart3, Settings, LogOut, Share2
 } from "lucide-react";
 import confetti from "canvas-confetti";
-import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -34,18 +33,21 @@ const LEVEL_SUBTITLES: Record<number, string> = {
 };
 
 const LEVEL_IDENTITY: Record<number, string> = {
-  0: "You're using AI to move faster. That's where most people start — and it's a great foundation.",
-  1: "You're past the basics and using AI as a real thinking partner. That's a meaningful shift most people haven't made yet.",
-  2: "You're building tools and workflows others can use. That puts you ahead of most professionals.",
-  3: "You're designing systems that run without you. Very few people operate at this level.",
+  0: "You're using AI to move faster on everyday work. That's where it all starts.",
+  1: "You're past the basics and using AI as a real thinking partner.",
+  2: "You're building dedicated AI tools and workflows that others can use.",
+  3: "You're designing AI systems that run without you. Very few people are here yet.",
+};
+
+const LEVEL_SHARE_TEXT: Record<number, string> = {
+  0: "I'm using AI to move faster on everyday work.",
+  1: "I'm past the basics and using AI as a real thinking partner.",
+  2: "I'm building dedicated AI tools and workflows.",
+  3: "I'm designing AI systems that run without me.",
 };
 
 type OutcomeOption = {
   outcomeHeadline: string;
-  timeEstimate?: string;
-  skillName?: string;
-  action?: string;
-  whatYoullSee?: string;
 };
 
 type Phase = "loading" | "reveal" | "results";
@@ -53,10 +55,8 @@ type Phase = "loading" | "reveal" | "results";
 export default function ResultsPage() {
   const [, navigate] = useLocation();
   const { user, logout } = useAuth();
-  const { toast } = useToast();
   const [phase, setPhase] = useState<Phase>("loading");
   useEffect(() => { document.title = "Your Results — Electric Thinking"; }, []);
-  const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
@@ -100,14 +100,6 @@ export default function ResultsPage() {
     if (raw) brightSpots = [raw];
   }
 
-  const futureSelfText = (assessment as any)?.futureSelfText || "";
-
-  // Parse first move (try-it-now prompt)
-  let tryItNow: { skillName?: string; suggestion?: string } = {};
-  try {
-    const raw = (assessment as any)?.firstMoveJson;
-    if (raw && typeof raw === "object") tryItNow = raw;
-  } catch {}
 
   useEffect(() => {
     if (assessment && allSkills && levels && phase === "loading") {
@@ -133,22 +125,6 @@ export default function ResultsPage() {
     navigate("/");
   };
 
-  const handleShare = async () => {
-    const shareText = `I just found out my AI fluency level — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_IDENTITY[assessmentLevel]} Find out where you stand:`;
-    const shareUrl = window.location.origin;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `I'm a Level ${assessmentLevel + 1} ${levelName}`, text: shareText, url: shareUrl });
-      } catch {}
-    } else {
-      try {
-        await navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-        toast({ title: "Link copied to clipboard" });
-      } catch {
-        toast({ title: "Couldn't copy link", description: "Try copying the URL from your browser.", variant: "destructive" });
-      }
-    }
-  };
 
   if (!user) return null;
 
@@ -330,25 +306,8 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* === FUTURE SELF TEXT === */}
-        <AnimatePresence>
-          {phase === "results" && futureSelfText && (
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.08 }}
-            >
-              <Card className="rounded-2xl border border-border bg-gradient-to-br from-et-pink/5 to-transparent">
-                <CardContent className="pt-5 pb-5">
-                  <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-2">Where this leads</p>
-                  <p className="text-sm italic text-muted-foreground leading-relaxed">{futureSelfText}</p>
-                </CardContent>
-              </Card>
-            </motion.section>
-          )}
-        </AnimatePresence>
 
-        {/* === 2. THREE PERSONALIZED OUTCOMES === */}
+        {/* === 2. WHAT'S POSSIBLE — headline-only vision statements === */}
         <AnimatePresence>
           {phase === "results" && outcomes.length > 0 && (
             <motion.section
@@ -359,85 +318,18 @@ export default function ResultsPage() {
               <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-3">
                 What's possible for you
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {outcomes.map((outcome, i) => (
-                  <Card
-                    key={i}
-                    className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/50 transition-colors"
-                    tabIndex={0}
-                    role="button"
-                    aria-expanded={expandedOutcome === i}
-                    onClick={() => setExpandedOutcome(expandedOutcome === i ? null : i)}
-                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedOutcome(expandedOutcome === i ? null : i); } }}
-                  >
-                    <CardContent className="pt-4 pb-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-heading font-semibold text-sm">{outcome.outcomeHeadline}</p>
-                          {expandedOutcome !== i && outcome.action && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate">{outcome.action}</p>
-                          )}
-                        </div>
-                        {expandedOutcome === i ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                        )}
-                      </div>
-                      <AnimatePresence>
-                        {expandedOutcome === i && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pt-3 mt-3 border-t border-border/50 space-y-2 text-sm">
-                              {outcome.action && <p><span className="font-medium">What to do:</span> {outcome.action}</p>}
-                              {outcome.whatYoullSee && <p><span className="font-medium">What you'll see:</span> {outcome.whatYoullSee}</p>}
-                              {outcome.timeEstimate && <p className="text-xs text-muted-foreground">{outcome.timeEstimate}</p>}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </CardContent>
-                  </Card>
+                  <div key={i} className="flex items-start gap-3 text-sm">
+                    <Sparkles className="w-4 h-4 text-et-pink shrink-0 mt-0.5" />
+                    <span>{outcome.outcomeHeadline}</span>
+                  </div>
                 ))}
               </div>
             </motion.section>
           )}
         </AnimatePresence>
 
-        {/* === 3. TRY IT NOW === */}
-        <AnimatePresence>
-          {phase === "results" && tryItNow.suggestion && (
-            <motion.section
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <Card className="rounded-2xl border-2 border-et-pink/30 bg-et-pink/5">
-                <CardContent className="pt-5 pb-5">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-et-pink/15 flex items-center justify-center shrink-0 mt-0.5">
-                      <Mic className="w-4 h-4 text-et-pink" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-1">
-                        Try this when you're ready
-                      </p>
-                      <p className="text-sm">{tryItNow.suggestion}</p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Open your AI tool and try a version of this with your own work.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.section>
-          )}
-        </AnimatePresence>
 
         {/* === 4. COLLAPSED SKILL BREAKDOWN === */}
         <AnimatePresence>
@@ -509,21 +401,14 @@ export default function ResultsPage() {
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.4 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
               className="space-y-4 pt-4"
             >
               <Button
                 className="w-full rounded-2xl py-5"
-                onClick={handleShare}
-              >
-                <Link2 className="w-4 h-4 mr-2" /> Share results
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full rounded-2xl py-5"
                 onClick={() => {
                   const postText = encodeURIComponent(
-                    `I just got my AI fluency assessment results — I'm a Level ${assessmentLevel + 1} ${levelName}.\n\n${LEVEL_IDENTITY[assessmentLevel]}\n\nFind out where you stand: ${window.location.origin}`
+                    `I just got my AI fluency assessment results — I'm a Level ${assessmentLevel + 1} ${levelName}.\n\n${LEVEL_SHARE_TEXT[assessmentLevel]}\n\nFind out where you stand: ${window.location.origin}`
                   );
                   window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${postText}`, "_blank", "noopener");
                 }}
