@@ -21,12 +21,17 @@ interface ChatMessage {
   content: string;
 }
 
-/** Strip stage directions like [excited], [empathetic] from the start of AI messages */
-function stripStageDirections(msg: ChatMessage): string {
+/** Strip bracketed annotations from transcript display:
+ *  - AI stage directions like [excited], [empathetic] at start of messages
+ *  - Speech-to-text artifacts like [smacks lips], [keyboard clacking] anywhere */
+function cleanTranscriptText(msg: ChatMessage): string {
+  let text = msg.content;
   if (msg.role === "assistant") {
-    return msg.content.replace(/^\[.*?\]\s*/g, "");
+    text = text.replace(/^\[.*?\]\s*/g, "");
   }
-  return msg.content;
+  // Strip speech artifacts from all messages (ElevenLabs transcription noise)
+  text = text.replace(/\[(?:lip smacks?|smacks lips?|keyboard clacking|background noise|inaudible|coughs?|laughs?|sighs?|clears throat)\]/gi, "").replace(/\s{2,}/g, " ").trim();
+  return text;
 }
 
 type VoiceMode = "full-duplex" | "voice-to-text" | "text-only";
@@ -951,7 +956,7 @@ export default function AssessmentPage() {
                     <span className={`inline-block rounded-xl px-3 py-2 ${
                       msg.role === "user" ? "bg-et-pink/10 text-foreground" : "bg-accent/50"
                     }`}>
-                      {stripStageDirections(msg)}
+                      {cleanTranscriptText(msg)}
                     </span>
                   </div>
                 ))}
@@ -1069,7 +1074,7 @@ export default function AssessmentPage() {
                       : "bg-card border border-border rounded-bl-md"
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{stripStageDirections(msg)}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{cleanTranscriptText(msg)}</p>
                 </div>
               </div>
             ))}
@@ -1230,7 +1235,7 @@ export default function AssessmentPage() {
                     : "bg-card border border-border rounded-bl-md"
                 }`}
               >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{stripStageDirections(msg)}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{cleanTranscriptText(msg)}</p>
               </div>
             </div>
           ))}
