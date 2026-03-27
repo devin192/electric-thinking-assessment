@@ -265,7 +265,7 @@ export default function ResultsPage() {
           <motion.div className="text-center mt-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
             <h1 className="font-heading text-2xl font-bold">
               You're a Level {assessmentLevel + 1}{" "}
-              <span style={{ color: levelColor }}>{currentLevelInfo?.displayName || levelName}</span>
+              <span style={{ color: levelColor }}>{levelName}</span>
             </h1>
           </motion.div>
         </motion.section>
