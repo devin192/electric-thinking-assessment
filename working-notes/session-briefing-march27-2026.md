@@ -51,8 +51,8 @@ BraceAbility participants need to use the join link with the code embedded (e.g.
 
 Action needed: Confirm the exact link format Devin plans to share, and make sure the join code survives email forwarding.
 
-### STILL UNKNOWN (not answerable from code)
-- What Lex does if a user goes completely silent mid-conversation (ElevenLabs agent behavior — not a launch blocker, but worth a live test)
+### RESOLVED — user goes completely silent
+Lex will wait. The assessment won't continue unless it has gathered enough context to grade the user's capabilities. It won't end the conversation or prematurely complete the assessment. No risk here.
 
 ---
 
