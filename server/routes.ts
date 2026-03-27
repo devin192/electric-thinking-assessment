@@ -249,6 +249,16 @@ export async function registerRoutes(
       if (!message) return res.status(400).json({ message: "Message required" });
 
       if (message === "__TRANSCRIPT_SAVE__" && transcript) {
+        // Validate transcript is a valid JSON array of messages and not excessively large
+        if (typeof transcript !== "string" || transcript.length > 500000) {
+          return res.status(400).json({ message: "Invalid transcript" });
+        }
+        try {
+          const parsed = JSON.parse(transcript);
+          if (!Array.isArray(parsed)) throw new Error("Not an array");
+        } catch {
+          return res.status(400).json({ message: "Invalid transcript format" });
+        }
         await storage.updateAssessment(assessmentId, {
           transcript: transcript,
         });
@@ -1187,6 +1197,9 @@ export async function registerRoutes(
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (id === req.session.userId) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
       const targetUser = await storage.getUser(id);
       if (targetUser?.userRole === "system_admin") {
         // Prevent deleting the last admin

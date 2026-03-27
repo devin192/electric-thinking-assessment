@@ -693,7 +693,7 @@ export default function AssessmentPage() {
       // Always try to fetch the latest scored assessment
       const latestRes = await apiRequest("GET", "/api/assessment/latest");
       const latestData = await latestRes.json();
-      if (latestData && latestData.status === "completed") {
+      if (latestData && latestData.status === "completed" && latestData.id === id) {
         return latestData;
       }
       throw new Error("Assessment not yet scored");
@@ -715,7 +715,7 @@ export default function AssessmentPage() {
         await new Promise(r => setTimeout(r, 5000));
         const retryRes = await apiRequest("GET", "/api/assessment/latest");
         const retryData = await retryRes.json();
-        if (retryData && retryData.status === "completed") {
+        if (retryData && retryData.status === "completed" && retryData.id === assessmentId) {
           phaseTimers.forEach(clearTimeout);
 
           queryClient.invalidateQueries({ queryKey: ["/api/assessment/latest"] });

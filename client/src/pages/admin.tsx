@@ -62,7 +62,7 @@ export default function AdminPage() {
             <SelectContent>
               <SelectItem value="0">Level 1 Accelerator</SelectItem>
               <SelectItem value="1">Level 2 Thought Partner</SelectItem>
-              <SelectItem value="2">Level 3 Specialized</SelectItem>
+              <SelectItem value="2">Level 3 Team Builder</SelectItem>
               <SelectItem value="3">Level 4 Systems</SelectItem>
             </SelectContent>
           </Select>
@@ -109,7 +109,7 @@ function AnalyticsTab() {
   const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
 
   const LEVEL_NAMES: Record<number, string> = {
-    0: "Accelerator", 1: "Thought Partner", 2: "Specialized", 3: "Systems Designer"
+    0: "Accelerator", 1: "Thought Partner", 2: "Team Builder", 3: "Systems Designer"
   };
 
   return (

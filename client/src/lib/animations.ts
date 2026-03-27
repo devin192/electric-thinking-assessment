@@ -98,7 +98,7 @@ export const fogFadeVariant = {
   },
 };
 
-// -- Level Colors (4 levels: 0=Accelerator, 1=Thought Partner, 2=Specialized, 3=Systems Designer) --
+// -- Level Colors (4 levels: 0=Accelerator, 1=Thought Partner, 2=Team Builder, 3=Systems Designer) --
 
 export const LEVEL_COLORS: Record<number, string> = {
   0: "#FFD236",
