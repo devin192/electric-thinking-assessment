@@ -363,6 +363,41 @@ async function ensureMigrations() {
   } catch (err: any) {
     log(`Foundations cleanup failed: ${err.message}`, "migration");
   }
+
+  // Migrate old skill names to current names (March 2026 assessment content update)
+  const skillNameMigrations: Record<string, { name: string; description: string }> = {
+    "Context Setting": { name: "Role, Task, Context", description: "Giving AI a defined role, a clear task, and relevant context before every interaction" },
+    "Quick Drafting": { name: "Voice-to-Text", description: "Using voice-to-text as the primary way to communicate with AI, giving richer context and faster input" },
+    "Output Editing & Direction": { name: "Show It What Good Looks Like", description: "Providing AI with examples of finished work, transcripts, reference docs, and other context so output matches your standards" },
+    "Voice-First Capture": { name: "Back-and-Forth", description: "Engaging AI in multi-turn conversation, pushing back on output and iterating through feedback rather than accepting the first response" },
+    "In-the-Moment Support": { name: "Screenshot + Explain", description: "Using screenshots paired with voice or text explanation to get AI help navigating problems, errors, or unfamiliar situations" },
+    "Operationalize This": { name: "Execute and Iterate", description: "After using AI as a thought partner, asking it to produce a deliverable and then iterating through rounds of voice-to-text feedback until it's right" },
+    "Pattern Spotting": { name: "See the Specialist", description: "Developing the instinct to recognize when part of your work is important and specific enough to deserve its own dedicated AI specialist" },
+    "Workflow Scoping": { name: "Onboard the Teammate", description: "Going from idea to working AI specialist by writing instructions, providing examples of good output, and uploading reference docs" },
+    "Instruction Design": { name: "Refine Inputs, Not Outputs", description: "Improving AI teammates by diagnosing and fixing the instructions rather than manually polishing each output" },
+    "Testing & Refinement": { name: "Expand Your Toolkit", description: "Discovering advanced platform capabilities and recognizing that different AI tools have different strengths for different jobs" },
+    "Knowledge Embedding": { name: "Manage the Roster", description: "Managing multiple AI specialists as a team: maintaining instructions, identifying gaps, and knowing which teammate to reach for and when" },
+    "Automation Design": { name: "Human in the Loop", description: "Assigning trust levels to workflow steps based on consequence of failure, knowing where human judgment is required versus where AI can operate autonomously" },
+    "Independent Judgment": { name: "Proactive vs. Reactive", description: "Shifting from workflows you trigger manually to workflows that run proactively on schedules or events, producing results before you sit down to work" },
+    "Cross-Workflow Integration": { name: "Self-Improving Systems", description: "Building feedback loops into AI workflows so that accumulated feedback updates the system's instructions, making it improve over time" },
+    "Continuous Improvement": { name: "What Wasn't Possible Before", description: "Moving beyond optimizing existing processes to designing new systems, outputs, and capabilities that couldn't have existed without AI" },
+  };
+
+  try {
+    let migrated = 0;
+    for (const [oldName, { name: newName, description }] of Object.entries(skillNameMigrations)) {
+      const result = await pool.query(
+        `UPDATE skills SET name = $1, description = $2 WHERE name = $3 AND name != $1`,
+        [newName, description, oldName]
+      );
+      if (result.rowCount && result.rowCount > 0) migrated++;
+    }
+    // Also update level 4 display name from "Agentic Workflow" to "Systems Designer"
+    await pool.query(`UPDATE levels SET display_name = 'Systems Designer', description = 'Designing autonomous AI-powered systems' WHERE display_name = 'Agentic Workflow'`);
+    if (migrated > 0) log(`Migrated ${migrated} skill names to current assessment content`, "migration");
+  } catch (err: any) {
+    log(`Skill name migration failed: ${err.message}`, "migration");
+  }
 }
 
 export async function seedDatabase() {

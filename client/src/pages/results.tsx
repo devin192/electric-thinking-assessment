@@ -40,10 +40,10 @@ const LEVEL_IDENTITY: Record<number, string> = {
 };
 
 const LEVEL_SHARE_TEXT: Record<number, string> = {
-  0: "I'm using AI to move faster on everyday work.",
-  1: "I'm past the basics and using AI as a real thinking partner.",
-  2: "I'm building dedicated AI tools and workflows.",
-  3: "I'm designing AI systems that run without me.",
+  0: "Using AI to move faster, but there are 4 levels and I've got a clear path up. Where do you stand?",
+  1: "Not just using AI for quick answers anymore — using it to actually think through problems. 4 levels total. Curious where you'd land:",
+  2: "I'm building dedicated AI tools for my actual workflow. Most people haven't heard of the top two levels:",
+  3: "Building AI systems that run on their own. This is the top of the map. Where do you stand?",
 };
 
 type OutcomeOption = {
@@ -408,7 +408,7 @@ export default function ResultsPage() {
                 className="w-full rounded-2xl py-5"
                 onClick={() => {
                   const postText = encodeURIComponent(
-                    `I just got my AI fluency assessment results — I'm a Level ${assessmentLevel + 1} ${levelName}.\n\n${LEVEL_SHARE_TEXT[assessmentLevel]}\n\nFind out where you stand: ${window.location.origin}`
+                    `Just took an AI fluency assessment — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_SHARE_TEXT[assessmentLevel]}\n\n${window.location.origin}`
                   );
                   window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${postText}`, "_blank", "noopener");
                 }}
