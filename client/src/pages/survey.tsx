@@ -27,8 +27,8 @@ const SURVEY_QUESTIONS = [
   { skillName: "See the Specialist", text: "I can look at my work and see where a dedicated AI teammate should exist.", level: 2 },
   { skillName: "Onboard the Teammate", text: "I've built dedicated AI teammates with instructions, examples, and context.", level: 2 },
   { skillName: "Refine Inputs, Not Outputs", text: "When my AI teammate's output isn't right, I fix the instructions, not the output.", level: 2 },
-  { skillName: "Expand Your Toolkit", text: "I know what my AI platform can really do, and I know when to reach for a different one.", level: 2 },
-  { skillName: "Manage the Roster", text: "I have multiple AI teammates I use regularly and I know which one to reach for.", level: 2 },
+  { skillName: "Expand Your Toolkit", text: "My AI teammates use more than just chat — I've connected them to documents, tools, and capabilities most people don't know exist.", level: 2 },
+  { skillName: "Manage the Roster", text: "I have multiple AI teammates I use regularly and I keep them updated as my work changes.", level: 2 },
   // Level 4 — Systems Designer
   { skillName: "Systems Mapping", text: "I can map my work as a system: triggers, steps, dependencies, and decision points.", level: 3 },
   { skillName: "Human in the Loop", text: "I know which steps in my workflows need a human and which can run on their own.", level: 3 },
