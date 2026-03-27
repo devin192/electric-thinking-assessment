@@ -75,61 +75,32 @@ export default function LandingPage() {
             <div className="w-12 h-12 rounded-xl bg-et-cyan/15 flex items-center justify-center mb-5">
               <MessageCircle className="w-6 h-6 text-et-cyan" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Know exactly where you stand</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">A conversation, not a quiz</h3>
             <p className="text-muted-foreground leading-relaxed">
-              A quick survey and a conversation map your AI skills across 4 levels. No guessing.
-              You'll see your strengths and the gaps you didn't know you had.
+              A quick survey followed by a conversation with an AI guide who actually listens to how you work.
+              Your results are based on your real job, not generic questions.
             </p>
           </Card>
           <Card className="p-8 rounded-2xl border border-border">
             <div className="w-12 h-12 rounded-xl bg-et-gold/20 flex items-center justify-center mb-5">
               <Target className="w-6 h-6 text-et-orange" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Get the one skill that matters most</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Your level on the map</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Stop wondering what to learn next. Walk away with a specific, actionable first move
-              matched to your role, your tools, and your actual workflow.
+              See where you are across four levels of AI fluency. No guessing.
+              You'll see your strengths and the gaps you didn't know you had.
             </p>
           </Card>
           <Card className="p-8 rounded-2xl border border-border">
             <div className="w-12 h-12 rounded-xl bg-et-green/15 flex items-center justify-center mb-5">
               <TrendingUp className="w-6 h-6 text-et-green" />
             </div>
-            <h3 className="font-heading text-lg font-semibold mb-3">Walk away with a plan</h3>
+            <h3 className="font-heading text-lg font-semibold mb-3">Personalized outcomes you can try today</h3>
             <p className="text-muted-foreground leading-relaxed">
-              Three personalized outcomes tied to your actual work, plus one thing you can try right now.
-              Not generic advice — specific to you.
+              Three outcomes tied to your actual work, plus one thing you can try right now.
+              Not generic advice — specific to your role, your tools, and your workflow.
             </p>
           </Card>
-        </div>
-      </section>
-
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="font-heading text-2xl md:text-3xl font-bold text-center mb-3">
-            Four levels of AI fluency
-          </h2>
-          <p className="text-center text-muted-foreground mb-12">
-            Most people start at Level 1 or 2 — that's completely normal. This is about finding your starting point.
-          </p>
-          <div className="space-y-4">
-            {[
-              { level: 0, name: "Accelerator", color: "bg-et-gold", desc: "Using AI to speed up everyday work" },
-              { level: 1, name: "Thought Partner", color: "bg-et-pink", desc: "AI as a collaborative thinking partner" },
-              { level: 2, name: "Specialized Teammates", color: "bg-et-orange", desc: "Building dedicated AI specialists" },
-              { level: 3, name: "Systems Designer", color: "bg-et-blue", desc: "Designing autonomous AI systems" },
-            ].map(item => (
-              <div key={item.level} className="flex items-center gap-4 p-4 rounded-xl bg-card">
-                <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center ${item.color === "bg-et-gold" ? "text-foreground" : "text-white"} font-heading font-bold text-sm shrink-0`}>
-                  {item.level + 1}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-heading font-semibold">{item.name}</div>
-                  <div className="text-sm text-muted-foreground">{item.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
