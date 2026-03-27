@@ -1154,9 +1154,11 @@ export async function registerRoutes(
   // ========== ADMIN ==========
   app.get("/api/admin/users", requireAdmin, async (_req, res) => {
     const allUsers = await storage.getAllUsers();
+    const allOrgs = await storage.getAllOrganizations();
+    const orgMap = Object.fromEntries(allOrgs.map(o => [o.id, o.name]));
     return res.json(allUsers.map(u => {
       const { password: _, ...safe } = u;
-      return safe;
+      return { ...safe, orgName: u.orgId ? orgMap[u.orgId] || null : null };
     }));
   });
 

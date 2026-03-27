@@ -332,7 +332,7 @@ function UsersTab() {
           <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="min-w-0">
               <div className="font-medium text-sm truncate">{u.name || u.email}</div>
-              <div className="text-xs text-muted-foreground">{u.email} · {u.roleTitle || "No title"}</div>
+              <div className="text-xs text-muted-foreground">{u.email} · {u.roleTitle || "No title"}{u.orgName ? ` · ${u.orgName}` : ""}</div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <Select value={u.userRole} onValueChange={val => handleRoleChange(u.id, val)}>

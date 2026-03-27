@@ -269,9 +269,9 @@ export default function SurveyPage() {
                   : "Last set — very few people are here yet."}
               </p>
 
-              {/* Column headers — sticky on scroll */}
+              {/* Column headers — sticky on scroll, px-4 matches card padding so labels align with bubbles */}
               <div
-                className="hidden sm:grid items-end mb-3 gap-x-4 sticky top-0 z-10 bg-background py-2"
+                className="hidden sm:grid items-end mb-3 gap-x-4 sticky top-0 z-10 bg-background py-2 px-4"
                 style={{ gridTemplateColumns: "1fr 64px 80px 64px" }}
               >
                 <div />
