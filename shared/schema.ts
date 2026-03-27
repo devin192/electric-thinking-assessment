@@ -19,6 +19,7 @@ export const organizations = pgTable("organizations", {
   name: varchar("name", { length: 255 }).notNull(),
   industry: varchar("industry", { length: 255 }),
   size: varchar("size", { length: 100 }),
+  joinCode: varchar("join_code", { length: 50 }),
   settingsJson: jsonb("settings_json").$type<Record<string, any>>().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

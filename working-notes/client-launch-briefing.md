@@ -63,11 +63,12 @@ Based on Devin's conversations with Kenny and client discussions:
 
 The app supports organizations. Here's how it works for a client group:
 
-1. **Devin (or admin) creates the org** in the admin panel
-2. **A join link is generated** — something like `assessment.electricthinking.ai/join/ABC123`
-3. **Each team member clicks the link**, creates their account, and is automatically added to the org
-4. **They take the assessment individually** on their own time
-5. **Org admins/managers can see** aggregate results (levels, completion rates) but NOT individual conversation transcripts
+1. **Devin (or admin) creates the org** in the admin panel and sets a **join code** (e.g., `BRACE2026`)
+2. **One link goes in one email** — `assessment.electricthinking.ai/join/BRACE2026` (or they can go to `/join` and type the code)
+3. **Everyone uses the same code** — it's reusable, not individual. 20 people can all use `BRACE2026`.
+4. **Each team member clicks the link**, creates their account, and is automatically added to the org
+5. **They take the assessment individually** on their own time
+6. **Org admins/managers can see** aggregate results (levels, completion rates) but NOT individual conversation transcripts
 
 **Privacy:** Each person's conversation with Lex is private. Managers see skill levels and assessment status, not what was said. This is important messaging for trust.
 
@@ -130,8 +131,8 @@ After completing the assessment, each person sees:
 
 ## What Devin Needs to Do Before Sending the Email
 
-1. Create the org in the admin panel (assessment.electricthinking.ai/admin)
-2. Get the join link/code
+1. Create the org in the admin panel (assessment.electricthinking.ai/admin) and set a join code (e.g., `BRACE2026`)
+2. The join link is `assessment.electricthinking.ai/join/BRACE2026` — put this in the email
 3. Decide on the assessment deadline (when does everyone need to complete it by?)
 4. Decide: should the email come from Devin, from the client contact, or from both?
 5. Paste the V8 Lex prompt into ElevenLabs (if not already done)

@@ -42,7 +42,8 @@ function Router() {
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
-      <Route path="/join" component={JoinPage} />
+      <Route path="/join/:code">{({ params }: any) => <JoinPage code={params.code} />}</Route>
+      <Route path="/join">{() => <JoinPage />}</Route>
       <Route component={NotFound} />
     </Switch>
   );

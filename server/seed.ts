@@ -274,6 +274,7 @@ async function ensureMigrations() {
     { table: "nudges", column: "feedback_text", type: "text" },
     { table: "assessments", column: "survey_responses_json", type: "jsonb" },
     { table: "assessments", column: "survey_level", type: "integer" },
+    { table: "organizations", column: "join_code", type: "varchar(50)" },
   ];
 
   for (const { table, column, type } of migrations) {
@@ -289,6 +290,14 @@ async function ensureMigrations() {
     } catch (err: any) {
       log(`Migration check failed for ${table}.${column}: ${err.message}`, "migration");
     }
+  }
+
+  // Ensure unique index on join_code
+  try {
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS organizations_join_code_idx ON organizations(join_code) WHERE join_code IS NOT NULL`);
+    log("Ensured unique index on organizations.join_code", "migration");
+  } catch (err: any) {
+    log(`Join code index creation failed: ${err.message}`, "migration");
   }
 
   // Sync admin password from ADMIN_PASSWORD env var on every deploy

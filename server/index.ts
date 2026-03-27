@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -6,6 +7,10 @@ import { createServer } from "http";
 const app = express();
 // Trust proxy so secure cookies work behind Railway/load balancers
 app.set("trust proxy", 1);
+app.use(helmet({
+  contentSecurityPolicy: false, // Vite dev server and inline styles need this off
+  crossOriginEmbedderPolicy: false, // ElevenLabs voice widget needs cross-origin
+}));
 const httpServer = createServer(app);
 
 declare module "http" {

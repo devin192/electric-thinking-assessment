@@ -27,7 +27,8 @@ export default function AssessmentWarmup() {
   });
 
   // If user is returning after leaving, show different copy
-  const isReturning = activeAssessment && JSON.parse(activeAssessment.transcript || "[]").length > 0;
+  let isReturning = false;
+  try { isReturning = activeAssessment && JSON.parse(activeAssessment.transcript || "[]").length > 0; } catch { /* malformed transcript */ }
 
   useEffect(() => { document.title = "Get Ready — Electric Thinking"; }, []);
 

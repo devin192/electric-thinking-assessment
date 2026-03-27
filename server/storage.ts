@@ -30,6 +30,7 @@ export interface IStorage {
 
   createOrganization(org: InsertOrganization): Promise<Organization>;
   getOrganization(id: number): Promise<Organization | undefined>;
+  getOrganizationByJoinCode(joinCode: string): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
 
   createAssessment(assessment: InsertAssessment): Promise<Assessment>;
@@ -194,6 +195,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrganization(id: number): Promise<Organization | undefined> {
     const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return org;
+  }
+
+  async getOrganizationByJoinCode(joinCode: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.joinCode, joinCode.toUpperCase()));
     return org;
   }
 

@@ -554,8 +554,23 @@ export default function AssessmentPage() {
   };
 
   useEffect(() => {
-    return () => { disconnectVoice(); };
-  }, []);
+    // Save transcript on tab close/navigate away (voice mode)
+    const handleBeforeUnload = () => {
+      if (voiceConnectedRef.current && assessmentId && messagesRef.current.length > 0) {
+        // Use sendBeacon for reliability on page close
+        const payload = JSON.stringify({
+          message: "__TRANSCRIPT_SAVE__",
+          transcript: JSON.stringify(messagesRef.current),
+        });
+        navigator.sendBeacon(`/api/assessment/${assessmentId}/message`, new Blob([payload], { type: "application/json" }));
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      disconnectVoice();
+    };
+  }, [assessmentId]);
 
   const switchToMode = async (mode: VoiceMode) => {
     disconnectVoice();

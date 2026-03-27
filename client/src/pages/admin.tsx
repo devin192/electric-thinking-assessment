@@ -18,8 +18,8 @@ import type { Level, Skill, AssessmentQuestion, Assessment, AiPlatform, LiveSess
 import {
   ArrowLeft, Users, BarChart3, Settings, MessageSquare, Layers,
   Save, Trash2, Plus, Eye, FileText, Clock, Loader2,
-  Mail, Activity, Zap, Send, AlertTriangle, CheckCircle2,
-  Video, Calendar, Link as LinkIcon, FlaskConical, RotateCcw, Play
+  Activity, AlertTriangle, CheckCircle2,
+  Video, Calendar, Link as LinkIcon
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -56,11 +56,9 @@ export default function AdminPage() {
             <TabsTrigger value="skills" data-testid="tab-skills"><Layers className="w-4 h-4 mr-1" /> Skills</TabsTrigger>
             <TabsTrigger value="questions" data-testid="tab-questions"><MessageSquare className="w-4 h-4 mr-1" /> Questions</TabsTrigger>
             <TabsTrigger value="assessments" data-testid="tab-assessments"><FileText className="w-4 h-4 mr-1" /> Assessments</TabsTrigger>
-            <TabsTrigger value="nudges" data-testid="tab-nudges"><Mail className="w-4 h-4 mr-1" /> Power Ups</TabsTrigger>
             <TabsTrigger value="system" data-testid="tab-system"><Activity className="w-4 h-4 mr-1" /> System</TabsTrigger>
             <TabsTrigger value="sessions" data-testid="tab-sessions"><Video className="w-4 h-4 mr-1" /> Sessions</TabsTrigger>
             <TabsTrigger value="config" data-testid="tab-config"><Settings className="w-4 h-4 mr-1" /> Config</TabsTrigger>
-            <TabsTrigger value="testing" data-testid="tab-testing"><FlaskConical className="w-4 h-4 mr-1" /> Testing</TabsTrigger>
           </TabsList>
 
           <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
@@ -68,11 +66,9 @@ export default function AdminPage() {
           <TabsContent value="skills"><SkillsTab /></TabsContent>
           <TabsContent value="questions"><QuestionsTab /></TabsContent>
           <TabsContent value="assessments"><AssessmentsTab /></TabsContent>
-          <TabsContent value="nudges"><NudgesTab /></TabsContent>
           <TabsContent value="system"><SystemHealthTab /></TabsContent>
           <TabsContent value="sessions"><SessionsTab /></TabsContent>
           <TabsContent value="config"><ConfigTab /></TabsContent>
-          <TabsContent value="testing"><TestingTab /></TabsContent>
         </Tabs>
       </div>
     </div>
@@ -192,111 +188,6 @@ function AnalyticsTab() {
           </CardContent>
         </Card>
       )}
-    </div>
-  );
-}
-
-function NudgesTab() {
-  const { toast } = useToast();
-  const [generating, setGenerating] = useState(false);
-  const [delivering, setDelivering] = useState(false);
-  const [genResult, setGenResult] = useState<any>(null);
-  const [deliverResult, setDeliverResult] = useState<any>(null);
-  const [targetUserId, setTargetUserId] = useState("");
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setGenResult(null);
-    try {
-      const body = targetUserId ? { userId: parseInt(targetUserId) } : {};
-      const res = await apiRequest("POST", "/api/admin/nudge/generate", body);
-      const data = await res.json();
-      setGenResult(data);
-      toast({ title: "Power Up generation complete" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const handleDeliver = async () => {
-    setDelivering(true);
-    setDeliverResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/nudge/deliver");
-      const data = await res.json();
-      setDeliverResult(data);
-      toast({ title: "Power Up delivery complete" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setDelivering(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Generate Power Ups</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Generate AI-powered learning Power Ups for users with active yellow skills.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Input
-              placeholder="User ID (optional, blank = all users)"
-              value={targetUserId}
-              onChange={e => setTargetUserId(e.target.value)}
-              className="rounded-xl w-64"
-              data-testid="input-nudge-user-id"
-            />
-            <Button onClick={handleGenerate} disabled={generating} data-testid="button-generate-nudges">
-              {generating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
-              {targetUserId ? "Generate for User" : "Generate All"}
-            </Button>
-          </div>
-          {genResult && (
-            <div className="p-4 rounded-xl bg-accent/30 text-sm space-y-1" data-testid="nudge-gen-result">
-              {genResult.generated !== undefined ? (
-                <>
-                  <p>Generated: <strong>{genResult.generated}</strong></p>
-                  <p>Failed: <strong>{genResult.failed}</strong></p>
-                  {genResult.errors?.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-destructive font-medium">Errors:</p>
-                      {genResult.errors.map((e: string, i: number) => (
-                        <p key={i} className="text-xs text-destructive">{e}</p>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p>Power Up created for user {targetUserId}</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Deliver Power Ups</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Send all unsent Power Ups via email to users.
-          </p>
-          <Button onClick={handleDeliver} disabled={delivering} data-testid="button-deliver-nudges">
-            {delivering ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
-            Deliver Unsent Power Ups
-          </Button>
-          {deliverResult && (
-            <div className="p-4 rounded-xl bg-accent/30 text-sm space-y-1" data-testid="nudge-deliver-result">
-              <p>Sent: <strong>{deliverResult.sent}</strong></p>
-              <p>Failed: <strong>{deliverResult.failed}</strong></p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -1160,414 +1051,72 @@ function SessionsTab() {
   );
 }
 
-function TestingTab() {
-  const { toast } = useToast();
-  const { data: users } = useQuery<any[]>({ queryKey: ["/api/admin/users"] });
-  const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
-  const { data: levels } = useQuery<Level[]>({ queryKey: ["/api/admin/levels"] });
-
-  // State for each test action
-  const [genChallengeUserId, setGenChallengeUserId] = useState("");
-  const [genChallengeLoading, setGenChallengeLoading] = useState(false);
-  const [genChallengeResult, setGenChallengeResult] = useState<any>(null);
-
-  const [simSkillUserId, setSimSkillUserId] = useState("");
-  const [simSkillId, setSimSkillId] = useState("");
-  const [simSkillLoading, setSimSkillLoading] = useState(false);
-  const [simSkillResult, setSimSkillResult] = useState<any>(null);
-
-  const [levelUpUserId, setLevelUpUserId] = useState("");
-  const [levelUpLevelId, setLevelUpLevelId] = useState("");
-  const [levelUpLoading, setLevelUpLoading] = useState(false);
-  const [levelUpResult, setLevelUpResult] = useState<any>(null);
-
-  const [previewUserId, setPreviewUserId] = useState("");
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewResult, setPreviewResult] = useState<any>(null);
-
-  const [resetUserId, setResetUserId] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetResult, setResetResult] = useState<any>(null);
-
-  const [emailUserId, setEmailUserId] = useState("");
-  const [emailType, setEmailType] = useState("");
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [emailResult, setEmailResult] = useState<any>(null);
-
-  const handleGenerateChallenge = async () => {
-    if (!genChallengeUserId) {
-      toast({ title: "Select a user", variant: "destructive" });
-      return;
-    }
-    setGenChallengeLoading(true);
-    setGenChallengeResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/generate-challenge", { userId: parseInt(genChallengeUserId) });
-      const data = await res.json();
-      setGenChallengeResult(data);
-      toast({ title: "Power Up generated", description: data.skillName ? `For skill: ${data.skillName}` : undefined });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setGenChallengeResult({ error: err.message });
-    } finally {
-      setGenChallengeLoading(false);
-    }
-  };
-
-  const handleSimulateSkill = async () => {
-    if (!simSkillUserId || !simSkillId) {
-      toast({ title: "Select a user and skill", variant: "destructive" });
-      return;
-    }
-    setSimSkillLoading(true);
-    setSimSkillResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/simulate-skill-completion", {
-        userId: parseInt(simSkillUserId),
-        skillId: parseInt(simSkillId),
-      });
-      const data = await res.json();
-      setSimSkillResult(data);
-      toast({ title: "Skill completed", description: `${data.skillName}${data.leveledUp ? " (Level up!)" : ""}` });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setSimSkillResult({ error: err.message });
-    } finally {
-      setSimSkillLoading(false);
-    }
-  };
-
-  const handleTriggerLevelUp = async () => {
-    if (!levelUpUserId || !levelUpLevelId) {
-      toast({ title: "Select a user and level", variant: "destructive" });
-      return;
-    }
-    setLevelUpLoading(true);
-    setLevelUpResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/trigger-level-up", {
-        userId: parseInt(levelUpUserId),
-        levelId: parseInt(levelUpLevelId),
-      });
-      const data = await res.json();
-      setLevelUpResult(data);
-      toast({ title: "Level-up triggered", description: data.message });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setLevelUpResult({ error: err.message });
-    } finally {
-      setLevelUpLoading(false);
-    }
-  };
-
-  const handlePreviewEmail = async () => {
-    if (!previewUserId) {
-      toast({ title: "Select a user", variant: "destructive" });
-      return;
-    }
-    setPreviewLoading(true);
-    setPreviewResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/preview-challenge-email", { userId: parseInt(previewUserId) });
-      const data = await res.json();
-      setPreviewResult(data);
-      toast({ title: "Email preview loaded" });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setPreviewResult({ error: err.message });
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
-
-  const handleResetUser = async () => {
-    if (!resetUserId) {
-      toast({ title: "Select a user", variant: "destructive" });
-      return;
-    }
-    if (!confirm("This will wipe all assessment data, skills, Power Ups, and badges for this user. Continue?")) return;
-    setResetLoading(true);
-    setResetResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/reset-user", { userId: parseInt(resetUserId) });
-      const data = await res.json();
-      setResetResult(data);
-      toast({ title: "User reset", description: data.message });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setResetResult({ error: err.message });
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
-  const handleSendTestEmail = async () => {
-    if (!emailUserId || !emailType) {
-      toast({ title: "Select a user and email type", variant: "destructive" });
-      return;
-    }
-    setEmailLoading(true);
-    setEmailResult(null);
-    try {
-      const res = await apiRequest("POST", "/api/admin/test/send-test-email", {
-        userId: parseInt(emailUserId),
-        emailType,
-      });
-      const data = await res.json();
-      setEmailResult(data);
-      toast({ title: "Email sent", description: data.message });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-      setEmailResult({ error: err.message });
-    } finally {
-      setEmailLoading(false);
-    }
-  };
-
-  const UserSelect = ({ value, onChange, testId }: { value: string; onChange: (v: string) => void; testId: string }) => (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-64 rounded-xl" data-testid={testId}>
-        <SelectValue placeholder="Select user" />
-      </SelectTrigger>
-      <SelectContent>
-        {(users || []).map(u => (
-          <SelectItem key={u.id} value={String(u.id)}>
-            {u.name || u.email} (ID: {u.id})
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-
-  return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Test the full user journey by triggering actions manually. These endpoints run real logic (emails, badges, etc).
-      </p>
-
-      {/* 1. Generate Challenge */}
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Generate Power Up</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Generates a Power Up immediately for a user. The user must have at least one active (yellow) skill.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={genChallengeUserId} onChange={setGenChallengeUserId} testId="select-test-gen-challenge-user" />
-            <Button onClick={handleGenerateChallenge} disabled={genChallengeLoading} data-testid="button-test-gen-challenge">
-              {genChallengeLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Zap className="w-4 h-4 mr-1" />}
-              Generate Power Up
-            </Button>
-          </div>
-          {genChallengeResult && (
-            <div className={`p-4 rounded-xl text-sm ${genChallengeResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-gen-challenge-result">
-              {genChallengeResult.error ? (
-                <p className="text-destructive">{genChallengeResult.error}</p>
-              ) : (
-                <>
-                  <p>{genChallengeResult.message}</p>
-                  {genChallengeResult.skillName && <p className="text-xs text-muted-foreground mt-1">Skill: {genChallengeResult.skillName}</p>}
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 2. Simulate Skill Completion */}
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Simulate Skill Completion</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Marks a skill as green (completed) for a user. Triggers downstream effects: badges, activity feed, level-up check, and emails.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={simSkillUserId} onChange={setSimSkillUserId} testId="select-test-sim-skill-user" />
-            <Select value={simSkillId} onValueChange={setSimSkillId}>
-              <SelectTrigger className="w-64 rounded-xl" data-testid="select-test-sim-skill-id">
-                <SelectValue placeholder="Select skill" />
-              </SelectTrigger>
-              <SelectContent>
-                {(skills || []).map(s => (
-                  <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSimulateSkill} disabled={simSkillLoading} data-testid="button-test-sim-skill">
-              {simSkillLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle2 className="w-4 h-4 mr-1" />}
-              Complete Skill
-            </Button>
-          </div>
-          {simSkillResult && (
-            <div className={`p-4 rounded-xl text-sm ${simSkillResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-sim-skill-result">
-              {simSkillResult.error ? (
-                <p className="text-destructive">{simSkillResult.error}</p>
-              ) : (
-                <>
-                  <p>{simSkillResult.message}: <strong>{simSkillResult.skillName}</strong></p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Progress: {simSkillResult.greenInLevel}/{simSkillResult.totalInLevel} in level
-                    {simSkillResult.leveledUp && <Badge className="ml-2 bg-et-green text-white">Level Up!</Badge>}
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 3. Trigger Level Up */}
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Trigger Level Up</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Completes all skills in a level for a user. Sends level-up email and creates badges.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={levelUpUserId} onChange={setLevelUpUserId} testId="select-test-level-up-user" />
-            <Select value={levelUpLevelId} onValueChange={setLevelUpLevelId}>
-              <SelectTrigger className="w-64 rounded-xl" data-testid="select-test-level-up-level">
-                <SelectValue placeholder="Select level" />
-              </SelectTrigger>
-              <SelectContent>
-                {(levels || []).map(l => (
-                  <SelectItem key={l.id} value={String(l.id)}>L{l.sortOrder + 1}: {l.displayName}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleTriggerLevelUp} disabled={levelUpLoading} data-testid="button-test-level-up">
-              {levelUpLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />}
-              Trigger Level Up
-            </Button>
-          </div>
-          {levelUpResult && (
-            <div className={`p-4 rounded-xl text-sm ${levelUpResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-level-up-result">
-              {levelUpResult.error ? (
-                <p className="text-destructive">{levelUpResult.error}</p>
-              ) : (
-                <>
-                  <p>{levelUpResult.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Skills completed: {levelUpResult.skillsCompleted}</p>
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 4. Preview Challenge Email */}
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Preview Power Up Email</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Returns the latest Power Up content for a user. The user must have at least one generated Power Up.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={previewUserId} onChange={setPreviewUserId} testId="select-test-preview-email-user" />
-            <Button onClick={handlePreviewEmail} disabled={previewLoading} data-testid="button-test-preview-email">
-              {previewLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-              Preview Email
-            </Button>
-          </div>
-          {previewResult && (
-            <div className={`p-4 rounded-xl text-sm ${previewResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-preview-email-result">
-              {previewResult.error ? (
-                <p className="text-destructive">{previewResult.error}</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                    <span>To: <strong>{previewResult.to}</strong></span>
-                    <span>Subject: <strong>{previewResult.subject}</strong></span>
-                    <span>Skill: <strong>{previewResult.skillName}</strong></span>
-                  </div>
-                  {previewResult.content && (
-                    <div className="border border-border rounded-xl p-4 bg-background max-h-96 overflow-y-auto">
-                      <pre className="text-xs whitespace-pre-wrap font-mono">{JSON.stringify(previewResult.content, null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 5. Reset User */}
-      <Card className="rounded-2xl border border-border border-destructive/30">
-        <CardHeader><h3 className="font-heading font-semibold text-destructive">Reset User</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Wipes all assessment data, skill statuses, Power Ups, and badges for a user. This is destructive and cannot be undone.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={resetUserId} onChange={setResetUserId} testId="select-test-reset-user" />
-            <Button variant="destructive" onClick={handleResetUser} disabled={resetLoading} data-testid="button-test-reset-user">
-              {resetLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <RotateCcw className="w-4 h-4 mr-1" />}
-              Reset User
-            </Button>
-          </div>
-          {resetResult && (
-            <div className={`p-4 rounded-xl text-sm ${resetResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-reset-user-result">
-              {resetResult.error ? (
-                <p className="text-destructive">{resetResult.error}</p>
-              ) : (
-                <p>{resetResult.message}</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 6. Send Test Email */}
-      <Card className="rounded-2xl border border-border">
-        <CardHeader><h3 className="font-heading font-semibold">Send Test Email</h3></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Sends a real email to the selected user. Pick an email type to send.
-          </p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <UserSelect value={emailUserId} onChange={setEmailUserId} testId="select-test-send-email-user" />
-            <Select value={emailType} onValueChange={setEmailType}>
-              <SelectTrigger className="w-48 rounded-xl" data-testid="select-test-send-email-type">
-                <SelectValue placeholder="Email type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="welcome">Welcome</SelectItem>
-                <SelectItem value="challenge">Power Up</SelectItem>
-                <SelectItem value="level_up">Level Up</SelectItem>
-                <SelectItem value="skill_complete">Skill Complete</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSendTestEmail} disabled={emailLoading} data-testid="button-test-send-email">
-              {emailLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
-              Send Email
-            </Button>
-          </div>
-          {emailResult && (
-            <div className={`p-4 rounded-xl text-sm ${emailResult.error ? "bg-destructive/10" : "bg-accent/30"}`} data-testid="test-send-email-result">
-              {emailResult.error ? (
-                <p className="text-destructive">{emailResult.error}</p>
-              ) : (
-                <p>{emailResult.message}</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
+// TestingTab removed — features archived in product pivot
 function OrganizationsList() {
   const { data: orgs } = useQuery<any[]>({ queryKey: ["/api/admin/organizations"] });
+  const { toast } = useToast();
+  const [editingOrgId, setEditingOrgId] = useState<number | null>(null);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
+
+  const setJoinCode = useMutation({
+    mutationFn: async ({ orgId, joinCode }: { orgId: number; joinCode: string | null }) => {
+      const res = await apiRequest("PUT", `/api/admin/organizations/${orgId}/join-code`, { joinCode });
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/organizations"] });
+      toast({ title: "Join code saved" });
+      setEditingOrgId(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   return (
     <div className="space-y-2">
       {(orgs || []).map(org => (
-        <div key={org.id} className="flex items-center justify-between p-3 rounded-xl bg-accent/30">
-          <div>
-            <div className="text-sm font-medium">{org.name}</div>
-            <div className="text-xs text-muted-foreground">{org.industry || "No industry"} · {org.size || "Unknown size"}</div>
+        <div key={org.id} className="p-3 rounded-xl bg-accent/30 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium">{org.name}</div>
+              <div className="text-xs text-muted-foreground">{org.industry || "No industry"} · {org.size || "Unknown size"}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {org.joinCode && editingOrgId !== org.id ? (
+              <>
+                <code className="text-xs bg-background px-2 py-1 rounded font-mono">{org.joinCode}</code>
+                <button
+                  className="text-xs text-et-blue underline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/join/${org.joinCode}`);
+                    toast({ title: "Join link copied!" });
+                  }}
+                >
+                  Copy link
+                </button>
+                <button className="text-xs text-muted-foreground underline" onClick={() => { setEditingOrgId(org.id); setJoinCodeInput(org.joinCode); }}>Edit</button>
+                <button className="text-xs text-red-400 underline" onClick={() => { if (confirm("Remove join code? People won't be able to join with this code anymore.")) setJoinCode.mutate({ orgId: org.id, joinCode: null }); }}>Remove</button>
+              </>
+            ) : editingOrgId === org.id ? (
+              <>
+                <Input
+                  value={joinCodeInput}
+                  onChange={e => setJoinCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+                  placeholder="e.g. BRACE2026"
+                  className="h-7 text-xs font-mono w-36"
+                />
+                <Button size="sm" className="h-7 text-xs" onClick={() => setJoinCode.mutate({ orgId: org.id, joinCode: joinCodeInput })} disabled={!joinCodeInput.trim()}>
+                  Save
+                </Button>
+                <button className="text-xs text-muted-foreground underline" onClick={() => setEditingOrgId(null)}>Cancel</button>
+              </>
+            ) : (
+              <button className="text-xs text-et-blue underline" onClick={() => { setEditingOrgId(org.id); setJoinCodeInput(""); }}>
+                + Set join code
+              </button>
+            )}
           </div>
         </div>
       ))}

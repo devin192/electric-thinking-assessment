@@ -872,6 +872,34 @@ export async function registerRoutes(
     }
   });
 
+  // Join org via reusable join code (e.g., "BRACE2026")
+  app.post("/api/org/join-code", authLimiter, async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== "string") return res.status(400).json({ message: "Join code required" });
+
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Please sign in first" });
+      if (user.orgId) {
+        // Already in this org? Just succeed silently.
+        const existingOrg = await storage.getOrganization(user.orgId);
+        if (existingOrg?.joinCode?.toUpperCase() === code.trim().toUpperCase()) {
+          return res.json({ message: "You're already part of this organization", orgName: existingOrg.name });
+        }
+        return res.status(400).json({ message: "You're already part of another organization" });
+      }
+
+      const org = await storage.getOrganizationByJoinCode(code.trim());
+      if (!org) return res.status(404).json({ message: "Invalid join code" });
+
+      await storage.updateUser(user.id, { orgId: org.id });
+      return res.json({ message: "Successfully joined organization", orgName: org.name });
+    } catch (e: any) {
+      console.error("Join code error:", e);
+      return res.status(400).json({ message: "Failed to join organization" });
+    }
+  });
+
   app.post("/api/invite/accept", async (req, res) => {
     try {
       const { token } = req.body;
@@ -1157,6 +1185,15 @@ export async function registerRoutes(
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const targetUser = await storage.getUser(id);
+      if (targetUser?.userRole === "system_admin") {
+        // Prevent deleting the last admin
+        const allUsers = await storage.getAllUsers();
+        const adminCount = allUsers.filter(u => u.userRole === "system_admin").length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "Cannot delete the only admin account" });
+        }
+      }
       await storage.deleteUser(id);
       return res.json({ message: "User deleted" });
     } catch (e: any) {
@@ -1167,7 +1204,7 @@ export async function registerRoutes(
   app.post("/api/admin/users/:id/reset", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteUserSkillStatuses(id);
+      await storage.resetUserProgress(id);
       return res.json({ message: "User progress reset" });
     } catch (e: any) {
       return res.status(400).json({ message: e.message });
@@ -1189,7 +1226,15 @@ export async function registerRoutes(
   app.delete("/api/admin/assessments/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(id);
       await storage.deleteAssessment(id);
+      if (assessment) {
+        // Only wipe skill statuses if this was the user's only completed assessment
+        const remaining = await storage.getCompletedAssessments(assessment.userId);
+        if (remaining.length === 0) {
+          await storage.deleteUserSkillStatuses(assessment.userId);
+        }
+      }
       return res.json({ message: "Assessment deleted" });
     } catch (e: any) {
       return res.status(400).json({ message: e.message });
@@ -1199,6 +1244,52 @@ export async function registerRoutes(
   app.get("/api/admin/organizations", requireAdmin, async (_req, res) => {
     const orgs = await storage.getAllOrganizations();
     return res.json(orgs);
+  });
+
+  app.put("/api/admin/organizations/:id/join-code", requireAdmin, async (req, res) => {
+    try {
+      const orgId = parseInt(req.params.id);
+      if (isNaN(orgId)) return res.status(400).json({ message: "Invalid organization ID" });
+
+      const { joinCode } = req.body;
+
+      // Allow clearing the join code by passing null
+      if (joinCode === null) {
+        const { db } = await import("./db");
+        const { organizations } = await import("@shared/schema");
+        const { eq } = await import("drizzle-orm");
+        const [updated] = await db.update(organizations).set({ joinCode: null }).where(eq(organizations.id, orgId)).returning();
+        if (!updated) return res.status(404).json({ message: "Organization not found" });
+        return res.json(updated);
+      }
+
+      if (!joinCode || typeof joinCode !== "string") {
+        return res.status(400).json({ message: "Join code required" });
+      }
+      const code = joinCode.trim().toUpperCase();
+      if (code.length < 3 || code.length > 30) {
+        return res.status(400).json({ message: "Join code must be 3-30 characters" });
+      }
+      if (!/^[A-Z0-9]+$/.test(code)) {
+        return res.status(400).json({ message: "Join code must be letters and numbers only" });
+      }
+
+      // Check for uniqueness
+      const existing = await storage.getOrganizationByJoinCode(code);
+      if (existing && existing.id !== orgId) {
+        return res.status(400).json({ message: "This join code is already in use" });
+      }
+
+      const { db } = await import("./db");
+      const { organizations } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const [updated] = await db.update(organizations).set({ joinCode: code }).where(eq(organizations.id, orgId)).returning();
+      if (!updated) return res.status(404).json({ message: "Organization not found" });
+      return res.json(updated);
+    } catch (e: any) {
+      console.error("Set join code error:", e);
+      return res.status(400).json({ message: "Failed to set join code" });
+    }
   });
 
   app.get("/api/admin/levels", requireAdmin, async (_req, res) => {

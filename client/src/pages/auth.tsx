@@ -212,13 +212,24 @@ export function RegisterPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { register, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
   const inviteToken = new URLSearchParams(window.location.search).get("invite");
 
   useEffect(() => { document.title = "Create Account — Electric Thinking"; }, []);
+
+  // Redirect already-logged-in users
+  useEffect(() => {
+    if (!authLoading && user) {
+      if (inviteToken) {
+        navigate(`/join?token=${inviteToken}`);
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -23,6 +23,13 @@ export default function OnboardingPage() {
 
   useEffect(() => { document.title = "Get Started — Electric Thinking"; }, []);
 
+  // Redirect already-onboarded users
+  useEffect(() => {
+    if (user?.onboardingComplete) {
+      navigate("/dashboard");
+    }
+  }, [user]);
+
   const { data: platforms } = useQuery<AiPlatform[]>({
     queryKey: ["/api/platforms"],
   });
