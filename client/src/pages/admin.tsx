@@ -49,6 +49,7 @@ export default function AdminPage() {
             onValueChange={async (level) => {
               try {
                 await apiRequest("POST", "/api/admin/test-complete", { level: parseInt(level) });
+                queryClient.removeQueries({ queryKey: ["/api/assessment/latest"] });
                 toast({ title: `Test assessment created (Level ${parseInt(level) + 1})` });
                 navigate("/results");
               } catch (err: any) {
