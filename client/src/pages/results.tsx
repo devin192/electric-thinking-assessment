@@ -424,11 +424,17 @@ export default function ResultsPage() {
             >
               <Button
                 className="w-full rounded-2xl py-5"
-                onClick={() => {
-                  const postText = encodeURIComponent(
-                    `Just took an AI fluency assessment — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_SHARE_TEXT[assessmentLevel]}\n\n${window.location.origin}`
-                  );
-                  window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${postText}`, "_blank", "noopener");
+                onClick={async () => {
+                  const postText = `Just took an AI fluency assessment — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_SHARE_TEXT[assessmentLevel]}\n\n${window.location.origin}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({ text: postText });
+                    } catch {
+                      // user cancelled or share failed — do nothing
+                    }
+                  } else {
+                    window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(postText)}`, "_blank", "noopener");
+                  }
                 }}
               >
                 <Share2 className="w-5 h-5 mr-2" />
