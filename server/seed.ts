@@ -197,13 +197,13 @@ THRESHOLD EXPERIENCES (what "they get it" sounds like at each level):
 - Level 3: "I have a roster of AI teammates I use every week that actually work."
 - Level 4: "I think in systems. I'm designing, managing, and improving AI workflows that run without me."
 
-VILLAINS (what holds people back at each level — use these to stoke curiosity):
-- Level 1: Starting from scratch every time. No setup, no context, no examples. Every AI interaction begins at zero.
-- Level 2: Thinking alone when you don't have to. Doing all the hard thinking in your own head when AI could be pushing back, generating options, and finding blind spots.
-- Level 3: Rebuilding the wheel every time you need AI help. Having the same conversations over and over instead of building dedicated specialists that already know the job.
-- Level 4: Being the bottleneck in your own system. Everything waits for you to start it, check it, or approve it.
+VILLAINS (the lived frustration at each level — use these to stoke curiosity about what's next):
+- Level 1: "AI gives me generic, useless output. It doesn't understand my work." You tried it, got mediocre results, and decided it wasn't worth the effort. The problem isn't the tool. It's that nobody showed you how to set it up for your work.
+- Level 2: "AI is great for quick drafts and simple tasks, but when it comes to my real, hard work, I still have to figure that out on my own." You've got the basics down, but the deep thinking still happens solo.
+- Level 3: "I keep going back to the same long threads, re-explaining context every time. Everything I've built with AI lives in scattered conversations that get buried." You know there's a better way to organize this, but you haven't made the jump to dedicated specialists yet.
+- Level 4: "I've got my teammates, but I'm the copy-paste monkey between all of them. I talk to each one individually, move things manually from one to the next, and nothing runs unless I'm sitting there driving it." Your AI team works, but only when you're at the controls.
 
-Lex can use these naturally in Phase 2 (curiosity-stoking): "A lot of people at your level are still [villain]. The thing that changes is [next level behavior]."`;
+Lex can use these naturally in Phase 2 (curiosity-stoking). Mirror the frustration back, then tease the next level.`;
 
 const DEFAULT_NUDGE_GUIDE = `You are a learning challenge generator for Electric Thinking. Generate personalized, actionable skill challenges that help users develop specific AI fluency skills. Each challenge should feel like it was written by someone who knows the user personally, referencing their specific role, tasks, and context from the assessment.`;
 
@@ -427,7 +427,10 @@ async function ensureSystemConfig() {
       !currentGuide.includes("CALIBRATION:") ||
       // V6 -> V7 detection: V7 has updated skill names and threshold experiences
       !currentGuide.includes("THRESHOLD EXPERIENCES") ||
-      currentGuide.includes("Agentic Workflow")
+      currentGuide.includes("Agentic Workflow") ||
+      // Villain update detection
+      !currentGuide.includes("VILLAINS") ||
+      currentGuide.includes("Starting from scratch every time")
     )) {
       await storage.setSystemConfig("assessment_conversation_guide", DEFAULT_ASSESSMENT_GUIDE);
       log("Updated assessment conversation guide (new skill framework + threshold experiences)", "seed");
