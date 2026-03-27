@@ -265,7 +265,7 @@ export async function registerRoutes(
       if (assessment.surveyResponsesJson) {
         const surveyData = assessment.surveyResponsesJson as Record<string, number>;
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
+        const levelNames = ["Accelerator", "Thought Partner", "Team Builder", "Systems Designer"];
         const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
         const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
@@ -356,7 +356,7 @@ export async function registerRoutes(
       if (assessment.surveyResponsesJson) {
         const surveyData = assessment.surveyResponsesJson as Record<string, number>;
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
+        const levelNames = ["Accelerator", "Thought Partner", "Team Builder", "Systems Designer"];
         const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
         const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
@@ -1224,9 +1224,9 @@ export async function registerRoutes(
       });
 
       const sampleOutcomes = [
-        { outcomeHeadline: "Your meeting prep becomes a 2-minute conversation with an AI that knows your style." },
-        { outcomeHeadline: "Your client deliverables get a first draft before you even open the doc." },
-        { outcomeHeadline: "Your weekly reporting writes itself from your notes and data." },
+        { outcomeHeadline: "Your meeting prep becomes a 2-minute conversation with an AI that knows your style.", description: "Instead of starting from scratch every time, you walk into meetings with an AI teammate that already knows your agenda format, your team's priorities, and how you like to prep. You talk through what's coming up, and it builds your brief." },
+        { outcomeHeadline: "Your client deliverables get a first draft before you even open the doc.", description: "You build a specialist that knows your deliverable templates, your client's voice, and the kind of structure that always works. Feed it the brief, and the first draft is waiting for you to refine — not write from zero." },
+        { outcomeHeadline: "Your weekly reporting writes itself from your notes and data.", description: "Your scattered notes, updates, and metrics get pulled together automatically. The AI knows what your stakeholders care about and formats everything the way they expect to see it." },
       ];
 
       const sampleBrightSpots = [

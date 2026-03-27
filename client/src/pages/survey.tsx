@@ -23,7 +23,7 @@ const SURVEY_QUESTIONS = [
   { skillName: "Challenge Me", text: "I ask AI to challenge me, poke holes in my thinking, and find what could go wrong.", level: 1 },
   { skillName: "Decision Mapping", text: "For important decisions, I have AI map out trade-offs and scenarios to help me decide.", level: 1 },
   { skillName: "Execute and Iterate", text: "After thinking through a problem with AI, I have it produce a full first draft, then keep giving feedback until it's right.", level: 1 },
-  // Level 3 — Specialized Teammates
+  // Level 3 — Team Builder
   { skillName: "See the Specialist", text: "I can look at my work and see where a dedicated AI teammate should exist.", level: 2 },
   { skillName: "Onboard the Teammate", text: "I've built dedicated AI teammates with instructions, examples, and context.", level: 2 },
   { skillName: "Refine Inputs, Not Outputs", text: "When my AI teammate's output isn't right, I fix the instructions, not the output.", level: 2 },
@@ -65,7 +65,7 @@ function calculateSurveyLevel(answers: Record<string, number>): number {
 }
 
 function buildSurveySummary(answers: Record<string, number>): string {
-  const levelNames = ["Accelerator", "Thought Partner", "Specialized Teammates", "Systems Designer"];
+  const levelNames = ["Accelerator", "Thought Partner", "Team Builder", "Systems Designer"];
   const lines: string[] = [];
   for (let lvl = 0; lvl <= 3; lvl++) {
     const questions = SURVEY_QUESTIONS.filter(q => q.level === lvl);

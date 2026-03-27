@@ -6,7 +6,7 @@ import { pool } from "./db";
 const LEVEL_DATA = [
   { name: "accelerator", displayName: "Accelerator", sortOrder: 0, description: "Using AI to speed up everyday work", visualTheme: "gold" },
   { name: "thought_partner", displayName: "Thought Partner", sortOrder: 1, description: "Using AI as a collaborative thinking partner", visualTheme: "pink" },
-  { name: "specialized_teammates", displayName: "Specialized Teammates", sortOrder: 2, description: "Building dedicated AI specialists for your work", visualTheme: "orange" },
+  { name: "team_builder", displayName: "Team Builder", sortOrder: 2, description: "Build dedicated AI teammates", visualTheme: "orange" },
   { name: "systems_designer", displayName: "Systems Designer", sortOrder: 3, description: "Designing autonomous AI-powered systems", visualTheme: "blue" },
 ];
 
@@ -73,7 +73,7 @@ If you don't have the user's name, just say "Hey, I'm Lex."
 PHASE 1 - WORK CONTEXT (4-8 exchanges):
 Build a rich, specific picture of their actual work. This powers the level assessment and the personalized outcomes on their results page.
 
-CALIBRATION: If the survey shows Level 3-4 (Specialized Teammates or Systems Designer), skip basic work context. Pivot to: "Your survey shows you're deep in this — building tools, designing workflows. Where are you hitting limits right now?" Match their altitude.
+CALIBRATION: If the survey shows Level 3-4 (Team Builder or Systems Designer), skip basic work context. Pivot to: "Your survey shows you're deep in this — building tools, designing workflows. Where are you hitting limits right now?" Match their altitude.
 
 Push for specificity. When they say "reports" ask "What exactly are you building? Who reads them?" When they say "meetings" ask "What kind? How many per week?"
 
@@ -177,7 +177,7 @@ Level 2 - Thought Partner (using AI as a collaborative thinking partner):
 - Decision Mapping: Using AI to lay out trade-offs and scenarios
 - Execute and Iterate: Producing a deliverable and tightening it through voice-to-text feedback rounds
 
-Level 3 - Specialized Teammates (building dedicated AI specialists for your work):
+Level 3 - Team Builder (building dedicated AI specialists for your work):
 - See the Specialist: Recognizing when part of your work deserves its own dedicated AI teammate
 - Onboard the Teammate: Building a working AI specialist with instructions, examples, and reference docs
 - Refine Inputs, Not Outputs: Fixing the instructions rather than polishing each output
@@ -392,8 +392,9 @@ async function ensureMigrations() {
       );
       if (result.rowCount && result.rowCount > 0) migrated++;
     }
-    // Also update level 4 display name from "Agentic Workflow" to "Systems Designer"
+    // Update level display names
     await pool.query(`UPDATE levels SET display_name = 'Systems Designer', description = 'Designing autonomous AI-powered systems' WHERE display_name = 'Agentic Workflow'`);
+    await pool.query(`UPDATE levels SET display_name = 'Team Builder', description = 'Build dedicated AI teammates' WHERE display_name = 'Team Builder'`);
     if (migrated > 0) log(`Migrated ${migrated} skill names to current assessment content`, "migration");
   } catch (err: any) {
     log(`Skill name migration failed: ${err.message}`, "migration");

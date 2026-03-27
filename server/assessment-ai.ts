@@ -51,7 +51,7 @@ export async function scoreAssessment(
   contextSummary: string;
   workContextSummary: string;
   firstMove: { skillName: string; suggestion: string };
-  outcomeOptions: Array<{ outcomeHeadline: string; timeEstimate: string; skillName: string; action: string; whatYoullSee: string }>;
+  outcomeOptions: Array<{ outcomeHeadline: string; description: string; skillName?: string }>;
   signatureSkillName: string;
   signatureSkillRationale: string;
   brightSpots: string[];
@@ -109,21 +109,17 @@ ADDITIONAL ANALYSIS (generate these carefully):
 - brightSpots: An array of exactly 2 bullet points (one sentence each) about what this user is already doing well. Be specific to things they mentioned about their work. Frame as strengths. Example: ["You've figured out voice-first drafting for meeting recaps, which most people at your level skip entirely", "Your instinct to iterate on AI output for client proposals instead of accepting the first response puts you ahead"]
 - futureSelfText: ONE sentence painting the next level identity using their actual job context. Example: "Imagine your Monday morning planning sessions already have a draft agenda pulled from last week's action items, ready for you to review."
 - nextLevelIdentity: The display name of the next level up from their assessed level. If they're at Level 3 (Systems Designer), return "You've reached the top level."
-- outcomeOptions: An array of exactly 3 outcome-framed challenge options. Each should be tied to something specific the user said about their work during the conversation. Frame as OUTCOMES, not skill names. The user will pick one.
+- outcomeOptions: An array of exactly 3 personalized outcomes that paint a picture of what becomes possible as this person levels up. These should get the user excited about the journey ahead. Each should be tied to something specific the user said about their work.
   Each option has:
   - outcomeHeadline: A tantalizing outcome in one sentence tied to their actual work. Example: "Your meeting recaps write themselves after every call." NOT "Practice Quick Drafting."
-  - timeEstimate: How long to try it. Usually "~5 minutes" or "under 10 minutes". Keep it realistic.
-  - skillName: The actual skill name from the framework (shown only after they complete it).
-  - action: ONE specific thing to do right now, referencing their tools and workflows. Not a generic tip. Example: "Open your last meeting notes, paste them into ${userContext.aiPlatform || "your AI tool"}, and ask it to write a one-paragraph recap highlighting decisions made and next steps."
-  - whatYoullSee: ONE sentence describing the expected result. Example: "You'll get a clean recap in about 10 seconds. Compare it to what you'd normally write."
+  - description: 2-3 sentences painting the picture of what this looks like in their actual workflow. Make it vivid and specific to their work context. This should feel aspirational but believable. Example: "Instead of spending 20 minutes after every client call writing up notes, you have an AI teammate that already knows your format. You talk through the highlights, and it builds the recap, action items, and follow-up draft while you move on to the next thing."
 - triggerMoment: If the user mentioned WHEN or WHERE they typically hit friction or reach for AI (e.g., "Monday mornings," "when I'm stuck on writing," "during meeting prep," "pulling Salesforce data"), capture that here. If not mentioned, return an empty string.
 
 IMPORTANT FOR outcomeOptions:
-- All three options should be doable in a few minutes — realistic, not rushed.
 - All three must reference something specific the user said about their work.
 - Frame as the OUTCOME they get, not the skill they practice.
-- The action should describe what to do in their own words, not a copy-paste prompt.
-- Make all three options genuinely appealing. The user should have a hard time choosing.
+- The description should paint a vivid picture of what their work life looks like with this outcome. Not instructions. Not "what to do." Just the vision.
+- Make all three outcomes genuinely exciting. The user should think "I want all of these."
 
 TRANSCRIPT:
 ${transcript}
@@ -145,9 +141,9 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   "workContextSummary": "2-3 sentence summary of the person's key recurring work activities and tools",
   "firstMove": { "skillName": "name", "suggestion": "actionable suggestion referencing their specific work" },
   "outcomeOptions": [
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" },
-    { "outcomeHeadline": "outcome sentence", "timeEstimate": "~5 minutes", "skillName": "framework skill name", "action": "specific action referencing their work", "whatYoullSee": "expected result" }
+    { "outcomeHeadline": "outcome sentence tied to their work", "description": "2-3 sentences painting the picture of what this looks like in their workflow" },
+    { "outcomeHeadline": "outcome sentence tied to their work", "description": "2-3 sentences painting the picture" },
+    { "outcomeHeadline": "outcome sentence tied to their work", "description": "2-3 sentences painting the picture" }
   ],
   "signatureSkillName": "exact skill name from framework",
   "signatureSkillRationale": "one sentence compliment",

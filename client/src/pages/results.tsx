@@ -18,36 +18,30 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const LEVEL_COLORS: Record<number, string> = {
-  0: "#FFD236", 1: "#FF2F86", 2: "#FF6A2B", 3: "#1C4BFF",
+  0: "#D4A017", 1: "#FF2F86", 2: "#FF6A2B", 3: "#1C4BFF",
 };
 
 const LEVEL_NAMES: Record<number, string> = {
-  0: "Accelerator", 1: "Thought Partner", 2: "Specialized Teammates", 3: "Systems Designer",
+  0: "Accelerator", 1: "Thought Partner", 2: "Team Builder", 3: "Systems Designer",
 };
 
 const LEVEL_SUBTITLES: Record<number, string> = {
   0: "Speed up everyday work",
   1: "Think better with AI",
-  2: "Build dedicated AI specialists",
+  2: "Build dedicated AI teammates",
   3: "Design autonomous systems",
-};
-
-const LEVEL_IDENTITY: Record<number, string> = {
-  0: "You're using AI to move faster on everyday work. That's where it all starts.",
-  1: "You're past the basics and using AI as a real thinking partner.",
-  2: "You're building dedicated AI tools and workflows that others can use.",
-  3: "You're designing AI systems that run without you. Very few people are here yet.",
 };
 
 const LEVEL_SHARE_TEXT: Record<number, string> = {
   0: "Using AI to move faster, but there are 4 levels and I've got a clear path up. Where do you stand?",
   1: "Not just using AI for quick answers anymore — using it to actually think through problems. 4 levels total. Curious where you'd land:",
-  2: "I'm building dedicated AI tools for my actual workflow. Most people haven't heard of the top two levels:",
+  2: "I'm building dedicated AI teammates for my actual workflow. Most people haven't heard of the top two levels:",
   3: "Building AI systems that run on their own. This is the top of the map. Where do you stand?",
 };
 
 type OutcomeOption = {
   outcomeHeadline: string;
+  description?: string;
 };
 
 type Phase = "loading" | "reveal" | "results";
@@ -57,6 +51,7 @@ export default function ResultsPage() {
   const { user, logout } = useAuth();
   const [phase, setPhase] = useState<Phase>("loading");
   useEffect(() => { document.title = "Your Results — Electric Thinking"; }, []);
+  const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
@@ -272,14 +267,6 @@ export default function ResultsPage() {
               You're a Level {assessmentLevel + 1}{" "}
               <span style={{ color: levelColor }}>{currentLevelInfo?.displayName || levelName}</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-              {LEVEL_IDENTITY[assessmentLevel]}
-            </p>
-            {signatureSkill && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Your strongest skill: <span className="font-medium text-foreground">{signatureSkill.name}</span>
-              </p>
-            )}
           </motion.div>
         </motion.section>
 
@@ -307,7 +294,7 @@ export default function ResultsPage() {
         </AnimatePresence>
 
 
-        {/* === 2. WHAT'S POSSIBLE — headline-only vision statements === */}
+        {/* === 2. WHAT'S POSSIBLE — expandable outcome cards === */}
         <AnimatePresence>
           {phase === "results" && outcomes.length > 0 && (
             <motion.section
@@ -318,12 +305,43 @@ export default function ResultsPage() {
               <p className="text-xs font-semibold text-et-pink uppercase tracking-wider mb-3">
                 What's possible for you
               </p>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {outcomes.map((outcome, i) => (
-                  <div key={i} className="flex items-start gap-3 text-sm">
-                    <Sparkles className="w-4 h-4 text-et-pink shrink-0 mt-0.5" />
-                    <span>{outcome.outcomeHeadline}</span>
-                  </div>
+                  <Card
+                    key={i}
+                    className="rounded-2xl border border-border cursor-pointer hover:border-et-pink/50 transition-colors"
+                    tabIndex={0}
+                    role="button"
+                    aria-expanded={expandedOutcome === i}
+                    onClick={() => setExpandedOutcome(expandedOutcome === i ? null : i)}
+                    onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedOutcome(expandedOutcome === i ? null : i); } }}
+                  >
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-heading font-semibold text-sm flex-1 min-w-0">{outcome.outcomeHeadline}</p>
+                        {expandedOutcome === i ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        )}
+                      </div>
+                      <AnimatePresence>
+                        {expandedOutcome === i && outcome.description && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <p className="text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50 leading-relaxed">
+                              {outcome.description}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </motion.section>
