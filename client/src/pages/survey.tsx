@@ -12,29 +12,29 @@ import { useToast } from "@/hooks/use-toast";
 // The survey is ADAPTIVE: it stops when it finds your growth edge
 const SURVEY_QUESTIONS = [
   // Level 1 — Accelerator
-  { skillName: "Role, Task, Context", text: "Before I ask AI to do something, I give it a role, the task, and the context it needs to do a good job.", level: 0 },
+  { skillName: "Role, Task, Context", text: "Before I ask AI to do something, I give it a role, the task, and the context.", level: 0 },
   { skillName: "Voice-to-Text", text: "I talk to AI using voice instead of typing.", level: 0 },
-  { skillName: "Show It What Good Looks Like", text: "I give AI examples, reference docs, or past work so it knows what good output looks like.", level: 0 },
-  { skillName: "Back-and-Forth", text: "When AI gives me something, I give it feedback and keep going for multiple rounds instead of accepting the first response.", level: 0 },
-  { skillName: "Screenshot + Explain", text: "When I'm stuck on something, I screenshot it, open AI, and talk through what I need help with.", level: 0 },
+  { skillName: "Show It What Good Looks Like", text: "I give AI examples of past work so it knows what good looks like.", level: 0 },
+  { skillName: "Back-and-Forth", text: "My AI conversations go multiple rounds. I give feedback and keep going instead of accepting the first response.", level: 0 },
+  { skillName: "Screenshot + Explain", text: "When I'm stuck, I screenshot what I'm looking at and ask AI to help me figure it out.", level: 0 },
   // Level 2 — Thought Partner
-  { skillName: "Interview Me", text: "I ask AI to interview me — to ask me questions one at a time before I commit to a direction.", level: 1 },
-  { skillName: "Rapid Ideation", text: "I use AI to generate multiple options, framings, or approaches before I pick one.", level: 1 },
-  { skillName: "Challenge Me", text: "I ask AI to poke holes in my thinking and find what could go wrong.", level: 1 },
-  { skillName: "Decision Mapping", text: "When I'm stuck between options, I use AI to lay out the trade-offs and play out different scenarios.", level: 1 },
-  { skillName: "Execute and Iterate", text: "After working through a problem with AI, I have it make a first version, then I give feedback on voice-to-text to keep tightening it.", level: 1 },
+  { skillName: "Interview Me", text: "When I ask AI for something complex, I ask it to interview me before it gives me its output.", level: 1 },
+  { skillName: "Rapid Ideation", text: "I use AI to rapidly brainstorm many options before I pick one.", level: 1 },
+  { skillName: "Challenge Me", text: "I ask AI to challenge me, poke holes in my thinking, and find what could go wrong.", level: 1 },
+  { skillName: "Decision Mapping", text: "For important decisions, I have AI map out trade-offs and scenarios to help me decide.", level: 1 },
+  { skillName: "Execute and Iterate", text: "After thinking through a problem with AI, I have it produce a full first draft, then keep giving feedback until it's right.", level: 1 },
   // Level 3 — Specialized Teammates
   { skillName: "See the Specialist", text: "I can look at my work and see where a dedicated AI teammate should exist.", level: 2 },
-  { skillName: "Onboard the Teammate", text: "I've built dedicated AI teammates — writing instructions, attaching examples, and giving them what they need to do the job well.", level: 2 },
-  { skillName: "Refine Inputs, Not Outputs", text: "When my AI teammate's output isn't right, I fix the instructions rather than just fixing the output myself.", level: 2 },
+  { skillName: "Onboard the Teammate", text: "I've built dedicated AI teammates with instructions, examples, and context.", level: 2 },
+  { skillName: "Refine Inputs, Not Outputs", text: "When my AI teammate's output isn't right, I fix the instructions, not the output.", level: 2 },
   { skillName: "Expand Your Toolkit", text: "I know what my AI platform can really do, and I know when to reach for a different one.", level: 2 },
-  { skillName: "Manage the Roster", text: "I have multiple AI teammates I work with regularly, and I know which one to reach for and when.", level: 2 },
+  { skillName: "Manage the Roster", text: "I have multiple AI teammates I use regularly and I know which one to reach for.", level: 2 },
   // Level 4 — Systems Designer
-  { skillName: "Systems Mapping", text: "I can map my work as a system — what triggers it, what steps happen, what feeds into what, and where the decision points are.", level: 3 },
-  { skillName: "Human in the Loop", text: "I know which steps in my workflows need a human and which ones can run on their own.", level: 3 },
-  { skillName: "Proactive vs. Reactive", text: "I have AI workflows that run on their own — on a schedule or triggered by an event — without me starting them.", level: 3 },
-  { skillName: "Self-Improving Systems", text: "When I give feedback on my AI system's output, I make sure the system itself gets updated so it's better next time.", level: 3 },
-  { skillName: "What Wasn't Possible Before", text: "I've built AI systems that create entirely new outputs or capabilities that didn't exist before — not just faster versions of old processes.", level: 3 },
+  { skillName: "Systems Mapping", text: "I can map my work as a system: triggers, steps, dependencies, and decision points.", level: 3 },
+  { skillName: "Human in the Loop", text: "I know which steps in my workflows need a human and which can run on their own.", level: 3 },
+  { skillName: "Proactive vs. Reactive", text: "I have AI workflows that run on their own, on a schedule or event, without me starting them.", level: 3 },
+  { skillName: "Self-Improving Systems", text: "I design AI systems that continuously improve through feedback loops.", level: 3 },
+  { skillName: "What Wasn't Possible Before", text: "I've built AI systems that do things that weren't possible before, not just faster versions of old work.", level: 3 },
 ];
 
 type Answer = 0 | 1 | 2; // 0=Not yet, 1=Sometimes, 2=Always
