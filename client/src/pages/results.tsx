@@ -227,7 +227,7 @@ export default function ResultsPage() {
         </div>
       </header>
 
-      <div id="results-content" className="max-w-xl mx-auto px-6 py-10 space-y-8">
+      <div id="results-content" className="max-w-2xl mx-auto px-6 py-10 space-y-8">
 
         {/* === 1. LEVEL LADDER HERO === */}
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
