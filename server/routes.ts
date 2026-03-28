@@ -281,7 +281,7 @@ export async function registerRoutes(
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
         surveyContext = [
           `Approximate level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
-          strong.length > 0 ? `Skills they always do: ${strong.join(", ")}` : "",
+          strong.length > 0 ? `Skills they regularly do: ${strong.join(", ")}` : "",
           sometimes.length > 0 ? `Skills they sometimes do: ${sometimes.join(", ")}` : "",
           never.length > 0 ? `Skills they never do: ${never.join(", ")}` : "",
         ].filter(Boolean).join("\n");
@@ -372,9 +372,9 @@ export async function registerRoutes(
         const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
         surveyContext = [
           `Self-assessment survey level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
-          strong.length > 0 ? `Skills they self-reported as always doing: ${strong.join(", ")}` : "",
+          strong.length > 0 ? `Skills they self-reported as regularly doing: ${strong.join(", ")}` : "",
           sometimes.length > 0 ? `Skills they self-reported as sometimes doing: ${sometimes.join(", ")}` : "",
-          never.length > 0 ? `Skills they self-reported as never doing: ${never.join(", ")}` : "",
+          never.length > 0 ? `Skills they self-reported as not yet doing: ${never.join(", ")}` : "",
         ].filter(Boolean).join("\n");
       }
 
