@@ -14,6 +14,7 @@ import {
   CheckCircle2, BarChart3, Settings, LogOut, Share2, Download, Users
 } from "lucide-react";
 import confetti from "canvas-confetti";
+import html2pdf from "html2pdf.js";
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -514,7 +515,6 @@ export default function ResultsPage() {
                 onClick={async () => {
                   setPdfGenerating(true);
                   try {
-                    const html2pdf = (await import("html2pdf.js")).default;
                     const el = document.getElementById("results-content");
                     if (!el) throw new Error("Results element not found");
                     // Temporarily expand all sections for PDF capture
