@@ -125,21 +125,6 @@ export default function SurveyPage() {
 
   const levelAllAnswered = levelQuestions.every(q => q.skillName in answers);
 
-  // How many total levels will be shown (for progress display)
-  const totalLevels = useMemo(() => {
-    for (let lvl = 0; lvl <= 3; lvl++) {
-      const levelQs = SURVEY_QUESTIONS.filter(q => q.level === lvl);
-      const allAnswered = levelQs.every(q => q.skillName in answers);
-      if (allAnswered && lvl < 3 && !shouldContinueToNextLevel(answers, lvl)) {
-        return lvl + 1;
-      }
-      if (!allAnswered) {
-        return lvl + 1;
-      }
-    }
-    return 4;
-  }, [answers]);
-
   const handleAnswer = useCallback((skillName: string, value: Answer) => {
     setAnswers(prev => {
       const next = { ...prev, [skillName]: value };
@@ -193,50 +178,11 @@ export default function SurveyPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="px-6 py-4 flex items-center justify-between">
+      <header className="px-6 py-4">
         <button onClick={() => navigate("/dashboard")} className="opacity-80 hover:opacity-100 transition-opacity" aria-label="Exit survey">
           <Wordmark className="text-lg" />
         </button>
-        {totalLevels > 1 && (
-          <span className="text-sm text-muted-foreground">
-            Part {currentLevel + 1}
-          </span>
-        )}
       </header>
-
-      {/* Progress dots — only show if multiple parts */}
-      {totalLevels > 1 && (
-        <div className="px-6 flex items-center justify-center gap-2 mb-2">
-          {Array.from({ length: totalLevels }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i < currentLevel
-                  ? "bg-et-pink w-8"
-                  : i === currentLevel
-                    ? "bg-et-pink w-12"
-                    : "bg-muted w-8"
-              }`}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Single progress bar when only 1 part */}
-      {totalLevels === 1 && (
-        <div className="px-6">
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-et-pink rounded-full"
-              initial={false}
-              animate={{
-                width: `${Math.min(100, (levelQuestions.filter(q => q.skillName in answers).length / levelQuestions.length) * 100)}%`
-              }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="flex-1 flex flex-col items-center px-6 py-6">
@@ -261,11 +207,11 @@ export default function SurveyPage() {
               </h1>
               <p className="text-sm text-muted-foreground text-center mb-8">
                 {currentLevel === 0
-                  ? "Be honest — there are no wrong answers. We're all building these skills together."
+                  ? "Be honest — there are no wrong answers."
                   : currentLevel === 1
-                  ? "Nice work. A few more — same vibe, just a step up."
+                  ? "Same vibe, just a step up."
                   : currentLevel === 2
-                  ? "If these are unfamiliar, that's completely normal."
+                  ? "Almost done. If these are unfamiliar, that's completely normal."
                   : "Last set — very few people are here yet."}
               </p>
 
@@ -376,7 +322,7 @@ export default function SurveyPage() {
                         disabled={submitting}
                         className="rounded-2xl px-10 py-6 text-base"
                       >
-                        {submitting ? "Saving..." : "Continue"} <ArrowRight className="w-5 h-5 ml-2" />
+                        {submitting ? "Saving..." : (currentLevel >= 3 || !shouldContinueToNextLevel(answers, currentLevel)) ? "Finish & Meet Lex" : "Continue"} <ArrowRight className="w-5 h-5 ml-2" />
                       </Button>
                     </motion.div>
                   )}
