@@ -508,3 +508,39 @@
     }
   }
 }
+
+/* Print styles for results PDF export */
+@media print {
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  header, [data-print-hide] {
+    display: none !important;
+  }
+  .backdrop-blur-md {
+    display: none !important;
+  }
+  /* Hide interactive elements but preserve card structure */
+  [data-print-hide], .retake-link {
+    display: none !important;
+  }
+  .min-h-screen {
+    min-height: auto !important;
+  }
+  /* Show all outcome descriptions and skill breakdowns */
+  [data-print-expand] {
+    height: auto !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+  /* Ensure Tailwind print variants work */
+  .print\\:hidden {
+    display: none !important;
+  }
+  .print\\:block {
+    display: block !important;
+  }
+}

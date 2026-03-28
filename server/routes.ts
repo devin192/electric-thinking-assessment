@@ -734,6 +734,37 @@ export async function registerRoutes(
     return res.json(userBadges);
   });
 
+  // ========== WAITLIST ==========
+  app.post("/api/waitlist", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+      const { level, levelName } = req.body;
+      const displayLevel = (typeof level === "number" ? level + 1 : 1);
+      const name = escapeHtml(user.name || "Unknown");
+      const email = user.email || "no email";
+      const role = escapeHtml(user.roleTitle || "not provided");
+
+      // Send notification email to support
+      try {
+        const resendClient = (await import("./resend-client")).getUncachableResendClient();
+        await resendClient.emails.send({
+          from: "Electric Thinking <hello@electricthinking.ai>",
+          to: "support@electricthinking.ai",
+          subject: `Waitlist signup: ${name} — Level ${displayLevel} ${levelName || ""}`,
+          html: `<p><strong>${name}</strong> (${email}) joined the waitlist for a Level ${displayLevel} ${escapeHtml(levelName || "")} cohort.</p><p>Role: ${role}</p><p>Org: ${user.orgId ? `ID ${user.orgId}` : "none"}</p>`,
+        });
+      } catch (emailErr) {
+        console.warn("Waitlist notification email failed:", emailErr);
+        // Don't fail the request — the signup still counts
+      }
+
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ message: "Failed to join waitlist" });
+    }
+  });
+
   // ========== ACTIVITY FEED ==========
   app.get("/api/activity/org", requireAuth, async (req, res) => {
     const user = await getCurrentUser(req);

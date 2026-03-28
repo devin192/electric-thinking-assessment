@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowRight, Sparkles, Loader2, Crown, ChevronDown, ChevronUp,
-  CheckCircle2, BarChart3, Settings, LogOut, Share2
+  CheckCircle2, BarChart3, Settings, LogOut, Share2, Download, Users
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import {
@@ -54,6 +56,11 @@ export default function ResultsPage() {
   const [expandedOutcome, setExpandedOutcome] = useState<number | null>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
+  const [waitlistJoined, setWaitlistJoined] = useState(() => {
+    try { return localStorage.getItem("et-waitlist-joined") === "true"; } catch { return false; }
+  });
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const { toast } = useToast();
 
   const { data: assessment, isLoading: assessmentLoading, isError: assessmentError } = useQuery<Assessment | null>({
     queryKey: ["/api/assessment/latest"],
@@ -319,12 +326,21 @@ export default function ResultsPage() {
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-start justify-between gap-3">
                         <p className="font-heading font-semibold text-sm flex-1 min-w-0">{outcome.outcomeHeadline}</p>
-                        {expandedOutcome === i ? (
-                          <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                        )}
+                        <span className="print:hidden">
+                          {expandedOutcome === i ? (
+                            <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                          )}
+                        </span>
                       </div>
+                      {/* Print-only: always show description */}
+                      {outcome.description && (
+                        <p className="hidden print:block text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50 leading-relaxed">
+                          {outcome.description}
+                        </p>
+                      )}
+                      {/* Screen: animated expand/collapse */}
                       <AnimatePresence>
                         {expandedOutcome === i && outcome.description && (
                           <motion.div
@@ -332,7 +348,7 @@ export default function ResultsPage() {
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
+                            className="overflow-hidden print:hidden"
                           >
                             <p className="text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50 leading-relaxed">
                               {outcome.description}
@@ -413,14 +429,72 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* === 5. CTA SECTION === */}
+        {/* === 5. WAITLIST CTA === */}
+        <AnimatePresence>
+          {phase === "results" && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+            >
+              <Card className="rounded-2xl border border-border">
+                <CardContent className="pt-6 pb-6 text-center">
+                  {waitlistJoined ? (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-et-green/15 flex items-center justify-center mx-auto mb-3">
+                        <CheckCircle2 className="w-6 h-6 text-et-green" />
+                      </div>
+                      <p className="font-heading font-semibold text-sm mb-1">You're on the list!</p>
+                      <p className="text-xs text-muted-foreground">We'll reach out when the next cohort opens at your level.</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: `${levelColor}15` }}>
+                        <Users className="w-6 h-6" style={{ color: levelColor }} />
+                      </div>
+                      <p className="font-heading font-semibold text-sm mb-1">
+                        Level up with a cohort
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        We run small-group cohorts at every level. Join the waitlist for the next Level {assessmentLevel + 1} {levelName} cohort.
+                      </p>
+                      <Button
+                        className="rounded-2xl px-8 py-5"
+                        disabled={waitlistLoading}
+                        onClick={async () => {
+                          setWaitlistLoading(true);
+                          try {
+                            await apiRequest("POST", "/api/waitlist", {
+                              level: assessmentLevel,
+                              levelName,
+                            });
+                            setWaitlistJoined(true);
+                            try { localStorage.setItem("et-waitlist-joined", "true"); } catch {}
+                          } catch {
+                            toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+                          }
+                          setWaitlistLoading(false);
+                        }}
+                      >
+                        {waitlistLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Join the waitlist
+                      </Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* === 6. SHARE + ACTIONS === */}
         <AnimatePresence>
           {phase === "results" && (
             <motion.section
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="space-y-4 pt-4"
+              className="space-y-3 pt-2"
             >
               <Button
                 className="w-full rounded-2xl py-5"
@@ -439,6 +513,26 @@ export default function ResultsPage() {
               >
                 <Share2 className="w-5 h-5 mr-2" />
                 Share on LinkedIn
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full rounded-2xl py-5"
+                onClick={() => {
+                  // Expand all sections before printing so PDF includes everything
+                  const prevOutcome = expandedOutcome;
+                  const prevSkills = showSkills;
+                  setExpandedOutcome(null); // Will use print CSS to show all
+                  setShowSkills(true);
+                  requestAnimationFrame(() => {
+                    window.print();
+                    // Restore previous state after print dialog closes
+                    setExpandedOutcome(prevOutcome);
+                    setShowSkills(prevSkills);
+                  });
+                }}
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Download results
               </Button>
               <div className="text-center">
                 <button
