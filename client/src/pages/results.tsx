@@ -60,6 +60,7 @@ export default function ResultsPage() {
     try { return localStorage.getItem("et-waitlist-joined") === "true"; } catch { return false; }
   });
   const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
   const { toast } = useToast();
 
   const { data: assessment, isLoading: assessmentLoading, isError: assessmentError } = useQuery<Assessment | null>({
@@ -226,7 +227,7 @@ export default function ResultsPage() {
         </div>
       </header>
 
-      <div className="max-w-xl mx-auto px-6 py-10 space-y-8">
+      <div id="results-content" className="max-w-xl mx-auto px-6 py-10 space-y-8">
 
         {/* === 1. LEVEL LADDER HERO === */}
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
@@ -498,17 +499,9 @@ export default function ResultsPage() {
             >
               <Button
                 className="w-full rounded-2xl py-5"
-                onClick={async () => {
+                onClick={() => {
                   const postText = `Just took an AI fluency assessment — I'm a Level ${assessmentLevel + 1} ${levelName}. ${LEVEL_SHARE_TEXT[assessmentLevel]}\n\n${window.location.origin}`;
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({ text: postText });
-                    } catch {
-                      // user cancelled or share failed — do nothing
-                    }
-                  } else {
-                    window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(postText)}`, "_blank", "noopener");
-                  }
+                  window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(postText)}`, "_blank", "noopener");
                 }}
               >
                 <Share2 className="w-5 h-5 mr-2" />
@@ -517,22 +510,39 @@ export default function ResultsPage() {
               <Button
                 variant="outline"
                 className="w-full rounded-2xl py-5"
-                onClick={() => {
-                  // Expand all sections before printing so PDF includes everything
-                  const prevOutcome = expandedOutcome;
-                  const prevSkills = showSkills;
-                  setExpandedOutcome(null); // Will use print CSS to show all
-                  setShowSkills(true);
-                  requestAnimationFrame(() => {
-                    window.print();
-                    // Restore previous state after print dialog closes
+                disabled={pdfGenerating}
+                onClick={async () => {
+                  setPdfGenerating(true);
+                  try {
+                    const html2pdf = (await import("html2pdf.js")).default;
+                    const el = document.getElementById("results-content");
+                    if (!el) throw new Error("Results element not found");
+                    // Temporarily expand all sections for PDF capture
+                    const prevOutcome = expandedOutcome;
+                    const prevSkills = showSkills;
+                    setExpandedOutcome(0); // expand first outcome
+                    setShowSkills(true);
+                    // Wait for React to render
+                    await new Promise(r => setTimeout(r, 300));
+                    await html2pdf().set({
+                      margin: [10, 10, 10, 10],
+                      filename: `electric-thinking-level-${assessmentLevel + 1}-${levelName.toLowerCase().replace(/\s+/g, "-")}.pdf`,
+                      image: { type: "jpeg", quality: 0.95 },
+                      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#EFE3CC" },
+                      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+                    }).from(el).save();
                     setExpandedOutcome(prevOutcome);
                     setShowSkills(prevSkills);
-                  });
+                  } catch (err) {
+                    console.error("PDF generation failed:", err);
+                    // Fallback to print
+                    window.print();
+                  }
+                  setPdfGenerating(false);
                 }}
               >
-                <Download className="w-5 h-5 mr-2" />
-                Download results
+                {pdfGenerating ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Download className="w-5 h-5 mr-2" />}
+                {pdfGenerating ? "Generating PDF..." : "Download results"}
               </Button>
               <div className="text-center">
                 <button
