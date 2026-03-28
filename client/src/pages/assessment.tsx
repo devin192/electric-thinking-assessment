@@ -73,6 +73,7 @@ export default function AssessmentPage() {
   const connectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const nextPlayTimeRef = useRef<number>(0);
   const isMutedRef = useRef<boolean>(false);
+  const isSpeakingRef = useRef<boolean>(false);
   const voiceConnectedRef = useRef<boolean>(false);
   const messagesRef = useRef<ChatMessage[]>(messages);
   const reconnectAttemptsRef = useRef<number>(0);
@@ -81,6 +82,10 @@ export default function AssessmentPage() {
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+  }, [isSpeaking]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -256,9 +261,9 @@ export default function AssessmentPage() {
 
             const surveySummary = [
               `Approximate level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
-              strong.length > 0 ? `Always does: ${strong.join(", ")}` : "",
+              strong.length > 0 ? `Regularly does: ${strong.join(", ")}` : "",
               sometimes.length > 0 ? `Sometimes does: ${sometimes.join(", ")}` : "",
-              never.length > 0 ? `Never does: ${never.join(", ")}` : "",
+              never.length > 0 ? `Not yet doing: ${never.join(", ")}` : "",
             ].filter(Boolean).join(". ");
 
             ws.send(JSON.stringify({
@@ -303,11 +308,16 @@ export default function AssessmentPage() {
           if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
+          // Echo suppression: reduce mic gain while Lex is speaking.
+          // This prevents the speaker output from being picked up by the mic
+          // and misinterpreted as user speech, which causes echo/interruption loops.
+          const gain = isSpeakingRef.current ? 0.08 : 1.0;
+
           const outputLength = Math.floor(inputData.length / ratio);
           const pcm16 = new Int16Array(outputLength);
           for (let i = 0; i < outputLength; i++) {
             const srcIndex = Math.floor(i * ratio);
-            const sample = inputData[srcIndex];
+            const sample = inputData[srcIndex] * gain;
             pcm16[i] = Math.max(-32768, Math.min(32767, sample * 32768));
           }
 
