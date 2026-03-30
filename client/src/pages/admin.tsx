@@ -19,7 +19,7 @@ import {
   ArrowLeft, Users, BarChart3, Settings, MessageSquare, Layers,
   Save, Trash2, Plus, Eye, FileText, Clock, Loader2,
   Activity, AlertTriangle, CheckCircle2,
-  Video, Calendar, Link as LinkIcon
+  Video, Calendar, Link as LinkIcon, KeyRound
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -349,6 +349,20 @@ function UsersTab() {
     }
   };
 
+  const handlePasswordReset = async (userId: number, email: string) => {
+    const newPassword = prompt(`Set a new password for ${email}:`);
+    if (!newPassword || newPassword.length < 6) {
+      if (newPassword !== null) toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    try {
+      await apiRequest("POST", `/api/admin/users/${userId}/reset-password`, { newPassword });
+      toast({ title: `Password reset for ${email}` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-3">
       {(users || []).map(u => (
@@ -370,6 +384,9 @@ function UsersTab() {
                   <SelectItem value="system_admin">System Admin</SelectItem>
                 </SelectContent>
               </Select>
+              <Button variant="ghost" size="icon" title="Reset password" onClick={() => handlePasswordReset(u.id, u.email)}>
+                <KeyRound className="w-4 h-4" />
+              </Button>
               <Button variant="ghost" size="sm" onClick={() => handleReset(u.id)} data-testid={`button-reset-${u.id}`}>
                 Reset
               </Button>

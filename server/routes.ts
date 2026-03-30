@@ -1225,6 +1225,20 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/users/:id/reset-password", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { newPassword } = z.object({ newPassword: z.string().min(6) }).parse(req.body);
+      const user = await storage.getUser(id);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const hashed = await hashPassword(newPassword);
+      await storage.updateUser(id, { password: hashed });
+      return res.json({ message: `Password reset for ${user.email}` });
+    } catch (e: any) {
+      return res.status(400).json({ message: e.message });
+    }
+  });
+
   app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
