@@ -1360,6 +1360,109 @@ export async function registerRoutes(
     }
   });
 
+  // Admin re-score: reset a stuck/failed assessment so scoring can be re-triggered
+  app.post("/api/admin/assessments/:id/rescore", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(id);
+      if (!assessment) return res.status(404).json({ message: "Assessment not found" });
+
+      const user = await storage.getUser(assessment.userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      // Reset to in_progress so the complete endpoint can re-lock it
+      await storage.updateAssessment(id, { status: "in_progress" });
+
+      // Now trigger scoring directly (same logic as the /complete endpoint)
+      let messages: Array<{ role: string; content: string }> = [];
+      try { messages = JSON.parse(assessment.transcript || "[]"); } catch { messages = []; }
+
+      const userMessages = messages.filter(m => m.role === "user" && m.content !== "Hi, I'm ready to start my assessment.");
+      if (userMessages.length < 2) {
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        await storage.updateAssessment(id, {
+          status: "completed",
+          completedAt: new Date(),
+          scoresJson: {},
+          assessmentLevel: surveyLevel,
+          activeLevel: surveyLevel,
+          contextSummary: "Assessment completed with limited conversation data. Level based on survey responses.",
+          workContextSummary: user.roleTitle || null,
+          brightSpotsText: JSON.stringify(["You took the first step by starting the assessment."]),
+        });
+        return res.json({ message: "Scored with survey defaults (limited conversation data)", assessmentLevel: surveyLevel });
+      }
+
+      const transcriptText = messages.map(m => `${m.role}: ${m.content}`).join("\n\n");
+
+      let surveyContext: string | undefined;
+      if (assessment.surveyResponsesJson) {
+        const surveyData = assessment.surveyResponsesJson as Record<string, number>;
+        const surveyLevel = (assessment as any).surveyLevel ?? 0;
+        const levelNames = ["Accelerator", "Thought Partner", "Team Builder", "Systems Designer"];
+        const strong = Object.entries(surveyData).filter(([, v]) => v === 2).map(([k]) => k);
+        const sometimes = Object.entries(surveyData).filter(([, v]) => v === 1).map(([k]) => k);
+        const never = Object.entries(surveyData).filter(([, v]) => v === 0).map(([k]) => k);
+        surveyContext = [
+          `Self-assessment survey level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
+          strong.length > 0 ? `Skills they self-reported as regularly doing: ${strong.join(", ")}` : "",
+          sometimes.length > 0 ? `Skills they self-reported as sometimes doing: ${sometimes.join(", ")}` : "",
+          never.length > 0 ? `Skills they self-reported as not yet doing: ${never.join(", ")}` : "",
+        ].filter(Boolean).join("\n");
+      }
+
+      const result = await scoreAssessment(transcriptText, {
+        name: user.name || undefined,
+        roleTitle: user.roleTitle || undefined,
+        aiPlatform: user.aiPlatform || undefined,
+        surveyContext,
+      });
+
+      const allSkills = await storage.getSkills();
+      const signatureSkill = allSkills.find(s => s.name === result.signatureSkillName)
+        || allSkills.find(s => s.name.toLowerCase() === result.signatureSkillName?.toLowerCase());
+
+      await storage.updateAssessment(id, {
+        status: "completed",
+        completedAt: new Date(),
+        scoresJson: result.scores,
+        assessmentLevel: result.assessmentLevel,
+        activeLevel: result.activeLevel,
+        contextSummary: result.contextSummary,
+        workContextSummary: result.workContextSummary || null,
+        firstMoveJson: result.firstMove,
+        outcomeOptionsJson: result.outcomeOptions,
+        signatureSkillId: signatureSkill?.id || null,
+        signatureSkillRationale: result.signatureSkillRationale || null,
+        brightSpotsText: JSON.stringify(result.brightSpots),
+        futureSelfText: result.futureSelfText || null,
+        nextLevelIdentity: result.nextLevelIdentity || null,
+        triggerMoment: result.triggerMoment || null,
+      });
+
+      const scoresLower: Record<string, { status: string; explanation: string }> = {};
+      for (const [key, val] of Object.entries(result.scores)) {
+        scoresLower[key.toLowerCase()] = val;
+      }
+      for (const skill of allSkills) {
+        const scoreData = result.scores[skill.name] || scoresLower[skill.name.toLowerCase()];
+        if (scoreData) {
+          await storage.upsertUserSkillStatus({
+            userId: user.id,
+            skillId: skill.id,
+            status: scoreData.status,
+            explanation: scoreData.explanation,
+          });
+        }
+      }
+
+      return res.json({ message: "Re-scored successfully", assessmentLevel: result.assessmentLevel });
+    } catch (e: any) {
+      console.error("Admin rescore error:", e);
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get("/api/admin/organizations", requireAdmin, async (_req, res) => {
     const orgs = await storage.getAllOrganizations();
     return res.json(orgs);

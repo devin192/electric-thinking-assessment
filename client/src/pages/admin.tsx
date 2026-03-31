@@ -18,7 +18,7 @@ import type { Level, Skill, AssessmentQuestion, Assessment, AiPlatform, LiveSess
 import {
   ArrowLeft, Users, BarChart3, Settings, MessageSquare, Layers,
   Save, Trash2, Plus, Eye, FileText, Clock, Loader2,
-  Activity, AlertTriangle, CheckCircle2,
+  Activity, AlertTriangle, CheckCircle2, RefreshCw,
   Video, Calendar, Link as LinkIcon, KeyRound
 } from "lucide-react";
 
@@ -580,6 +580,8 @@ function AssessmentsTab() {
     enabled: viewingId !== null,
   });
 
+  const [rescoring, setRescoring] = useState<number | null>(null);
+
   const deleteAssessment = async (id: number) => {
     if (!confirm("Delete this assessment? This will reset the user's skill statuses.")) return;
     try {
@@ -588,6 +590,21 @@ function AssessmentsTab() {
       toast({ title: "Assessment deleted" });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const rescoreAssessment = async (id: number) => {
+    if (!confirm("Re-score this assessment? This will re-run Claude scoring on the saved transcript.")) return;
+    setRescoring(id);
+    try {
+      const res = await apiRequest("POST", `/api/admin/assessments/${id}/rescore`);
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/assessments"] });
+      toast({ title: data.message || "Re-scored successfully" });
+    } catch (err: any) {
+      toast({ title: "Re-score failed", description: err.message, variant: "destructive" });
+    } finally {
+      setRescoring(null);
     }
   };
 
@@ -726,6 +743,18 @@ function AssessmentsTab() {
                   )}
                 </DialogContent>
               </Dialog>
+              {a.status !== "completed" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={rescoring === a.id}
+                  onClick={() => rescoreAssessment(a.id)}
+                  title="Re-score this assessment"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-1 ${rescoring === a.id ? "animate-spin" : ""}`} />
+                  {rescoring === a.id ? "Scoring..." : "Re-score"}
+                </Button>
+              )}
               <Button variant="ghost" size="icon" onClick={() => deleteAssessment(a.id)} data-testid={`button-delete-assessment-${a.id}`}>
                 <Trash2 className="w-4 h-4 text-destructive" />
               </Button>
