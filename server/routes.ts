@@ -749,8 +749,8 @@ export async function registerRoutes(
       try {
         const resendClient = (await import("./resend-client")).getUncachableResendClient();
         await resendClient.emails.send({
-          from: "Electric Thinking <hello@electricthinking.ai>",
-          to: "support@electricthinking.ai",
+          from: "Electric Thinking <onboarding@resend.dev>",
+          to: "devin@electricthinking.ai",
           subject: `Waitlist signup: ${name} — Level ${displayLevel} ${levelName || ""}`,
           html: `<p><strong>${name}</strong> (${email}) joined the waitlist for a Level ${displayLevel} ${escapeHtml(levelName || "")} cohort.</p><p>Role: ${role}</p><p>Org: ${user.orgId ? `ID ${user.orgId}` : "none"}</p>`,
         });

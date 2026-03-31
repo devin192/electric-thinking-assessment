@@ -6,7 +6,8 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-const DEFAULT_FROM = "Electric Thinking <hello@electricthinking.ai>";
+// TODO: Change back to "Electric Thinking <hello@electricthinking.ai>" once domain is verified in Resend
+const DEFAULT_FROM = "Electric Thinking <onboarding@resend.dev>";
 const DEFAULT_REPLY_TO = "support@electricthinking.ai";
 
 async function getFromConfig() {
