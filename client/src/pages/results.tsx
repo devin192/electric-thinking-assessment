@@ -62,6 +62,8 @@ export default function ResultsPage() {
   });
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [npsSubmitted, setNpsSubmitted] = useState(false);
+  const [npsSubmitting, setNpsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const { data: assessment, isLoading: assessmentLoading, isError: assessmentError } = useQuery<Assessment | null>({
@@ -489,7 +491,66 @@ export default function ResultsPage() {
           )}
         </AnimatePresence>
 
-        {/* === 6. SHARE + ACTIONS === */}
+        {/* === 6. NPS === */}
+        <AnimatePresence>
+          {phase === "results" && assessment && (assessment as any).npsScore === null && !npsSubmitted && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.28 }}
+            >
+              <Card className="rounded-2xl border border-border">
+                <CardContent className="pt-6 pb-6 text-center">
+                  <p className="font-heading font-semibold text-sm mb-1">How was this experience?</p>
+                  <p className="text-xs text-muted-foreground mb-4">How likely are you to recommend this to a colleague?</p>
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                      <button
+                        key={n}
+                        disabled={npsSubmitting}
+                        onClick={async () => {
+                          setNpsSubmitting(true);
+                          try {
+                            await apiRequest("POST", `/api/assessment/${assessment.id}/nps`, { score: n });
+                            setNpsSubmitted(true);
+                          } catch {
+                            toast({ title: "Couldn't save your rating", variant: "destructive" });
+                          }
+                          setNpsSubmitting(false);
+                        }}
+                        className="w-9 h-9 rounded-full border-2 border-muted-foreground/25 hover:border-et-pink hover:bg-et-pink/10 transition-all text-xs font-semibold"
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between mt-2 px-1">
+                    <span className="text-[10px] text-muted-foreground">Not likely</span>
+                    <span className="text-[10px] text-muted-foreground">Extremely likely</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.section>
+          )}
+          {phase === "results" && npsSubmitted && (
+            <motion.section
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card className="rounded-2xl border border-border">
+                <CardContent className="pt-6 pb-6 text-center">
+                  <div className="w-10 h-10 rounded-full bg-et-green/15 flex items-center justify-center mx-auto mb-2">
+                    <CheckCircle2 className="w-5 h-5 text-et-green" />
+                  </div>
+                  <p className="text-sm font-medium">Thanks for your feedback!</p>
+                </CardContent>
+              </Card>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* === 7. SHARE + ACTIONS === */}
         <AnimatePresence>
           {phase === "results" && (
             <motion.section

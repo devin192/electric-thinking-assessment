@@ -108,6 +108,7 @@ export const assessments = pgTable(
     status: varchar("status", { length: 50 }).notNull().default("in_progress"),
     startedAt: timestamp("started_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
+    npsScore: integer("nps_score"),
   },
   (table) => [
     index("assessments_user_status_idx").on(table.userId, table.status),

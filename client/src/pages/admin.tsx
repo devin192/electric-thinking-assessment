@@ -105,6 +105,7 @@ function AnalyticsTab() {
     completedAssessments: number; levelDistribution: Record<number, number>;
     skillCompletionRates: Record<number, { total: number; green: number; yellow: number; red: number }>;
     nudgeStats: { total: number; sent: number; opened: number; read: number };
+    npsStats: { average: number | null; count: number; promoters: number; passives: number; detractors: number; npsScore: number | null };
   }>({ queryKey: ["/api/admin/analytics"] });
 
   const { data: skills } = useQuery<Skill[]>({ queryKey: ["/api/admin/skills"] });
@@ -185,6 +186,49 @@ function AnalyticsTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* NPS */}
+      <Card className="rounded-2xl border border-border">
+        <CardHeader><h3 className="font-heading font-semibold">NPS Score</h3></CardHeader>
+        <CardContent>
+          {analytics?.npsStats?.count ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <p className={`font-heading text-4xl font-bold ${
+                  (analytics.npsStats.npsScore ?? 0) >= 50 ? "text-et-green" :
+                  (analytics.npsStats.npsScore ?? 0) >= 0 ? "text-et-orange" : "text-destructive"
+                }`}>
+                  {analytics.npsStats.npsScore ?? 0}
+                </p>
+                <div className="text-xs text-muted-foreground">
+                  <p>{analytics.npsStats.count} responses &middot; Avg: {analytics.npsStats.average}/10</p>
+                  <p className="mt-0.5">
+                    <span className="text-et-green">{analytics.npsStats.promoters} promoters</span>
+                    {" · "}
+                    <span className="text-et-orange">{analytics.npsStats.passives} passives</span>
+                    {" · "}
+                    <span className="text-destructive">{analytics.npsStats.detractors} detractors</span>
+                  </p>
+                </div>
+              </div>
+              {/* Bar */}
+              <div className="flex h-3 rounded-full overflow-hidden">
+                {analytics.npsStats.promoters > 0 && (
+                  <div className="bg-et-green" style={{ width: `${(analytics.npsStats.promoters / analytics.npsStats.count) * 100}%` }} />
+                )}
+                {analytics.npsStats.passives > 0 && (
+                  <div className="bg-et-orange/60" style={{ width: `${(analytics.npsStats.passives / analytics.npsStats.count) * 100}%` }} />
+                )}
+                {analytics.npsStats.detractors > 0 && (
+                  <div className="bg-destructive/60" style={{ width: `${(analytics.npsStats.detractors / analytics.npsStats.count) * 100}%` }} />
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No NPS responses yet</p>
+          )}
+        </CardContent>
+      </Card>
 
       {analytics?.skillCompletionRates && skills && Object.keys(analytics.skillCompletionRates).length > 0 && (
         <Card className="rounded-2xl border border-border">

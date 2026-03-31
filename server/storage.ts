@@ -108,6 +108,7 @@ export interface IStorage {
     levelDistribution: Record<number, number>;
     skillCompletionRates: Record<number, { total: number; green: number; yellow: number; red: number }>;
     nudgeStats: { total: number; sent: number; opened: number; read: number };
+    npsStats: { average: number | null; count: number; promoters: number; passives: number; detractors: number; npsScore: number | null };
   }>;
 
   getTeamAnalytics(orgId: number): Promise<{
@@ -550,6 +551,27 @@ export class DatabaseStorage implements IStorage {
     const openedNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.emailOpened, true));
     const readNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.inAppRead, true));
 
+    // NPS stats
+    const npsResponses = completedList.filter(a => a.npsScore !== null && a.npsScore !== undefined);
+    const npsCount = npsResponses.length;
+    let npsStats: { average: number | null; count: number; promoters: number; passives: number; detractors: number; npsScore: number | null };
+    if (npsCount === 0) {
+      npsStats = { average: null, count: 0, promoters: 0, passives: 0, detractors: 0, npsScore: null };
+    } else {
+      const sum = npsResponses.reduce((s, a) => s + (a.npsScore ?? 0), 0);
+      const promoters = npsResponses.filter(a => (a.npsScore ?? 0) >= 9).length;
+      const passives = npsResponses.filter(a => (a.npsScore ?? 0) >= 7 && (a.npsScore ?? 0) <= 8).length;
+      const detractors = npsResponses.filter(a => (a.npsScore ?? 0) <= 6).length;
+      npsStats = {
+        average: Math.round((sum / npsCount) * 10) / 10,
+        count: npsCount,
+        promoters,
+        passives,
+        detractors,
+        npsScore: Math.round(((promoters - detractors) / npsCount) * 100),
+      };
+    }
+
     return {
       totalUsers: allUsers[0].count,
       totalAssessments: allAssessments[0].count,
@@ -562,6 +584,7 @@ export class DatabaseStorage implements IStorage {
         opened: openedNudges[0].count,
         read: readNudges[0].count,
       },
+      npsStats,
     };
   }
 

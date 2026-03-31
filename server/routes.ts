@@ -485,6 +485,33 @@ export async function registerRoutes(
     return res.json(completed[0]);
   });
 
+  // NPS score
+  app.post("/api/assessment/:id/nps", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const assessmentId = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment || assessment.userId !== user.id) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+      if (assessment.status !== "completed") {
+        return res.status(400).json({ message: "Assessment not yet completed" });
+      }
+
+      const score = parseInt(req.body.score);
+      if (isNaN(score) || score < 0 || score > 10) {
+        return res.status(400).json({ message: "Score must be 0-10" });
+      }
+
+      await storage.updateAssessment(assessmentId, { npsScore: score });
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
   // Confirm assessment results after user reviews sliders
   app.post("/api/assessment/:id/confirm", requireAuth, async (req, res) => {
     try {

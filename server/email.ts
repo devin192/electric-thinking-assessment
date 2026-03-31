@@ -158,7 +158,8 @@ function smallText(text: string): string {
  * Short, outcome-focused, one CTA.
  */
 export async function sendWelcomeEmail(user: User, levelName: string, level: number, appUrl: string): Promise<void> {
-  if (!user.emailValid || !user.emailPrefsProgress) return;
+  // Transactional email (assessment results) — only gate on email validity, not marketing prefs
+  if (!user.emailValid) return;
   try {
     const { client, fromEmail } = await getUncachableResendClient();
     const { from, replyTo } = await getFromConfig();
