@@ -185,6 +185,21 @@ export default function AssessmentPage() {
 
   const connectVoice = useCallback(async () => {
     if (!assessmentId) return;
+
+    // Close any existing WebSocket before creating a new one.
+    // Without this, reconnects leave the old socket open — both sockets
+    // then receive audio from ElevenLabs and play simultaneously,
+    // causing the "multiple Lex voices" bug.
+    if (wsRef.current) {
+      const stale = wsRef.current;
+      wsRef.current = null;
+      stale.onclose = null; // suppress reconnect logic on the old socket
+      stale.onerror = null;
+      if (stale.readyState === WebSocket.OPEN || stale.readyState === WebSocket.CONNECTING) {
+        stale.close();
+      }
+    }
+
     setVoiceConnecting(true);
     setVoiceError(null);
     setConnectSeconds(0);
