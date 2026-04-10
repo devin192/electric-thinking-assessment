@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
