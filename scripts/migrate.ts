@@ -33,8 +33,8 @@ const migrations: string[] = [
     id serial PRIMARY KEY,
     user_id integer REFERENCES users(id),
     assessment_id integer,
-    error text,
-    browser varchar(500),
+    error text NOT NULL,
+    browser text,
     connection_type varchar(50),
     created_at timestamp DEFAULT now()
   )`,

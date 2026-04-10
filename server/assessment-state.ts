@@ -11,7 +11,7 @@
 import type { Assessment } from "@shared/schema";
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  in_progress: ["scoring", "abandoned"],
+  in_progress: ["scoring", "completed", "abandoned"],
   scoring: ["completed", "in_progress"],
   completed: ["in_progress"],
 };
