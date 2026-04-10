@@ -185,34 +185,61 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
 export async function runDailyChecks(): Promise<void> {
   try {
     // Nudge/re-engagement checks disabled for assessment-only product
-
-    const abandoned = await storage.getAbandonedAssessments(24);
-    for (const assessment of abandoned) {
-      try {
-        const user = await storage.getUser(assessment.userId);
-        if (user && user.emailValid && user.emailPrefsReminders) {
-          const userAssessments = await storage.getCompletedAssessments(user.id);
-          const hasCompleted = userAssessments.length > 0;
-          if (hasCompleted) continue; // user completed a different assessment, skip
-
-          const recentAbandoned = await storage.getEmailLogs(100);
-          const abandonedSentRecently = recentAbandoned.some(log =>
-            log.userId === user.id && log.emailType === "abandoned_assessment" &&
-            log.createdAt && new Date(log.createdAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-          );
-          if (abandonedSentRecently) continue; // skip, already sent within 7 days
-
-          await sendAbandonedAssessmentEmail(user, APP_URL);
-        }
-      } catch (e: any) {
-        console.error(`[cron] Abandoned assessment email failed:`, e.message);
-      }
-    }
-
+    await checkAbandonedAssessments();
     await storage.setSystemConfig("daily_checks_last_run", new Date().toISOString());
   } catch (e: any) {
     console.error("[cron] Daily checks error:", e);
   }
+}
+
+/**
+ * Find assessments that are "in_progress" and started 30+ minutes ago but never completed.
+ * Sends a recovery email if we haven't already sent one for this assessment.
+ *
+ * Wire into a cron job via runDailyChecks(), or call manually:
+ *   import { checkAbandonedAssessments } from "./cron";
+ *   await checkAbandonedAssessments();
+ */
+export async function checkAbandonedAssessments(): Promise<{ sent: number; skipped: number }> {
+  let sent = 0;
+  let skipped = 0;
+
+  try {
+    // 30 minutes = 0.5 hours
+    const abandoned = await storage.getAbandonedAssessments(0.5);
+    for (const assessment of abandoned) {
+      try {
+        // Skip if we already sent an abandoned email for this specific assessment
+        if (assessment.abandonedEmailSent) {
+          skipped++;
+          continue;
+        }
+
+        const user = await storage.getUser(assessment.userId);
+        if (!user || !user.emailValid || !user.emailPrefsReminders) {
+          skipped++;
+          continue;
+        }
+
+        // Skip if the user already completed a different assessment
+        const completed = await storage.getCompletedAssessments(user.id);
+        if (completed.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        await sendAbandonedAssessmentEmail(user, APP_URL);
+        await storage.updateAssessment(assessment.id, { abandonedEmailSent: true });
+        sent++;
+      } catch (e: any) {
+        console.error(`[cron] Abandoned assessment email failed for assessment ${assessment.id}:`, e.message);
+      }
+    }
+  } catch (e: any) {
+    console.error("[cron] checkAbandonedAssessments error:", e);
+  }
+
+  return { sent, skipped };
 }
 
 export async function runReAssessmentReminders(): Promise<void> {

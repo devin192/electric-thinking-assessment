@@ -10,6 +10,7 @@ import { seedDatabase } from "./seed";
 import { startCronJobs } from "./cron";
 import { generateBadgeSVG } from "./badge-svg";
 import { getConversationSignedUrl } from "./elevenlabs";
+import { transitionAssessment } from "./assessment-state";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { registerSchema, loginSchema, insertLiveSessionSchema } from "@shared/schema";
@@ -307,6 +308,10 @@ export async function registerRoutes(
     }
   });
 
+  // ⚠️ CRITICAL PATH — Assessment completion + email
+  // All completion paths (normal, short conversation, scoring failure) MUST call
+  // sendWelcomeEmail(). Missing email calls have regressed twice.
+  // Run: npx vitest run tests/critical-paths.test.ts
   app.post("/api/assessment/:id/complete", requireAuth, async (req, res) => {
     try {
       const user = await getCurrentUser(req);
@@ -346,8 +351,7 @@ export async function registerRoutes(
       if (userMessages.length < 2) {
         // Not enough conversation data to score meaningfully — complete with survey-based defaults
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        await storage.updateAssessment(assessmentId, {
-          status: "completed",
+        await transitionAssessment(storage, assessmentId, "scoring", "completed", {
           completedAt: new Date(),
           scoresJson: {},
           assessmentLevel: surveyLevel,
@@ -355,6 +359,7 @@ export async function registerRoutes(
           contextSummary: "Assessment completed with limited conversation data. Level based on survey responses.",
           workContextSummary: user.roleTitle || null,
           brightSpotsText: JSON.stringify(["You took the first step by starting the assessment."]),
+          scoringConfidence: "insufficient",
         });
         // Still send the results email even for short assessments
         const allLevels = await storage.getLevels();
@@ -394,8 +399,10 @@ export async function registerRoutes(
         console.error("Scoring failed:", scoreErr.message);
         // Fall back to survey-based level rather than crashing
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        await storage.updateAssessment(assessmentId, {
-          status: "completed",
+        const confidence = userMessages.length >= 10 ? "high"
+          : userMessages.length >= 5 ? "low"
+          : "insufficient";
+        await transitionAssessment(storage, assessmentId, "scoring", "completed", {
           completedAt: new Date(),
           scoresJson: {},
           assessmentLevel: surveyLevel,
@@ -403,6 +410,7 @@ export async function registerRoutes(
           contextSummary: "Scoring encountered an issue. Level based on survey responses.",
           workContextSummary: user.roleTitle || null,
           brightSpotsText: JSON.stringify(["You completed the assessment conversation."]),
+          scoringConfidence: confidence,
         });
         // Still send the results email even when scoring fails
         const allLevels = await storage.getLevels();
@@ -416,13 +424,36 @@ export async function registerRoutes(
       const signatureSkill = allSkills.find(s => s.name === result.signatureSkillName)
         || allSkills.find(s => s.name.toLowerCase() === result.signatureSkillName?.toLowerCase());
 
-      await storage.updateAssessment(assessmentId, {
-        status: "completed",
+      // Scoring validation: compute confidence based on conversation depth vs score distribution
+      const redCount = Object.values(result.scores).filter(
+        (s: any) => s.status === "red",
+      ).length;
+      const allRed = redCount > 0 && redCount === Object.keys(result.scores).length;
+
+      let scoringConfidence: string;
+      if (allRed && userMessages.length < 5) {
+        scoringConfidence = "insufficient";
+      } else if (userMessages.length < 5) {
+        scoringConfidence = "low";
+      } else if (userMessages.length <= 10) {
+        scoringConfidence = "low";
+      } else {
+        scoringConfidence = "high";
+      }
+
+      // When confidence is insufficient, annotate the context summary
+      let contextSummary = result.contextSummary;
+      if (scoringConfidence === "insufficient") {
+        contextSummary = (contextSummary || "") +
+          "\n\nNote: This assessment had limited conversation data. Results may not fully reflect actual AI fluency. Consider retaking the assessment.";
+      }
+
+      await transitionAssessment(storage, assessmentId, "scoring", "completed", {
         completedAt: new Date(),
         scoresJson: result.scores,
         assessmentLevel: result.assessmentLevel,
         activeLevel: result.activeLevel,
-        contextSummary: result.contextSummary,
+        contextSummary,
         workContextSummary: result.workContextSummary || null,
         firstMoveJson: result.firstMove,
         outcomeOptionsJson: result.outcomeOptions,
@@ -432,6 +463,7 @@ export async function registerRoutes(
         futureSelfText: result.futureSelfText || null,
         nextLevelIdentity: result.nextLevelIdentity || null,
         triggerMoment: result.triggerMoment || null,
+        scoringConfidence,
       });
 
       // Build case-insensitive lookup for AI-returned scores
@@ -475,9 +507,9 @@ export async function registerRoutes(
       });
     } catch (e: any) {
       console.error("Scoring error:", e);
-      // Reset status so user can retry
+      // Reset status so user can retry — scoring -> in_progress is a valid recovery transition
       try {
-        await storage.updateAssessment(parseInt(req.params.id), { status: "in_progress" });
+        await transitionAssessment(storage, parseInt(req.params.id), "scoring", "in_progress");
       } catch (resetErr) {
         console.error("Failed to reset assessment status:", resetErr);
       }
@@ -514,6 +546,73 @@ export async function registerRoutes(
       }
 
       await storage.updateAssessment(assessmentId, { npsScore: score });
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
+  // Post-assessment micro-survey feedback
+  app.post("/api/assessment/:id/feedback", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const assessmentId = parseInt(req.params.id);
+      if (isNaN(assessmentId)) return res.status(400).json({ message: "Invalid assessment ID" });
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment || assessment.userId !== user.id) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+      if (assessment.status !== "completed") {
+        return res.status(400).json({ message: "Assessment not yet completed" });
+      }
+
+      const { feedbackText } = req.body;
+      if (typeof feedbackText !== "string" || feedbackText.trim().length === 0) {
+        return res.status(400).json({ message: "Feedback text is required" });
+      }
+
+      const sanitised = feedbackText.trim().slice(0, 2000);
+      console.log(`[user-feedback] assessmentId=${assessmentId} text=${sanitised}`);
+      await storage.updateAssessment(assessmentId, { userFeedbackText: sanitised });
+      return res.json({ success: true });
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
+  // Voice connection quality metrics
+  app.post("/api/assessment/:id/voice-metrics", requireAuth, async (req, res) => {
+    try {
+      const user = await getCurrentUser(req);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const assessmentId = parseInt(req.params.id);
+      if (isNaN(assessmentId)) return res.status(400).json({ message: "Invalid assessment ID" });
+      const assessment = await storage.getAssessment(assessmentId);
+      if (!assessment || assessment.userId !== user.id) {
+        return res.status(404).json({ message: "Assessment not found" });
+      }
+
+      const { timeToFirstAudio, reconnectCount, totalSessionDuration } = req.body;
+
+      const updates: Record<string, any> = {};
+      if (typeof timeToFirstAudio === "number" && timeToFirstAudio >= 0) {
+        updates.voiceTimeToFirstAudio = Math.round(timeToFirstAudio);
+      }
+      if (typeof reconnectCount === "number" && reconnectCount >= 0) {
+        updates.voiceReconnectCount = Math.round(reconnectCount);
+      }
+      if (typeof totalSessionDuration === "number" && totalSessionDuration >= 0) {
+        updates.voiceSessionDuration = Math.round(totalSessionDuration);
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await storage.updateAssessment(assessmentId, updates);
+      }
+
+      console.log(`[voice-metrics] assessmentId=${assessmentId} timeToFirstAudio=${updates.voiceTimeToFirstAudio ?? "n/a"} reconnects=${updates.voiceReconnectCount ?? "n/a"} duration=${updates.voiceSessionDuration ?? "n/a"}`);
       return res.json({ success: true });
     } catch (e: any) {
       return res.status(500).json({ message: e.message });
@@ -1951,6 +2050,26 @@ export async function registerRoutes(
     } catch (e: any) {
       console.error("Voice token error:", e.message);
       return res.status(500).json({ message: "Voice assessment temporarily unavailable" });
+    }
+  });
+
+  // ========== ISSUE REPORTING ==========
+  app.post("/api/report-issue", async (req, res) => {
+    try {
+      const { error, assessmentId, browser, timestamp, connectionType } = req.body || {};
+      const userId = req.session?.userId || null;
+      console.log(`[issue-report] userId=${userId} assessmentId=${assessmentId || "N/A"} error=${error || "unknown"} browser=${browser || "unknown"}`);
+      await storage.createIssueReport({
+        userId,
+        assessmentId: assessmentId ? Number(assessmentId) : null,
+        error: String(error || "unknown"),
+        browser: browser ? String(browser) : null,
+        connectionType: connectionType ? String(connectionType).slice(0, 50) : null,
+      });
+      return res.json({ ok: true });
+    } catch (e: any) {
+      console.error("[issue-report] Failed to save:", e.message);
+      return res.json({ ok: true }); // still 200 — don't fail the user
     }
   });
 

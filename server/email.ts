@@ -157,6 +157,9 @@ function smallText(text: string): string {
  * Short, outcome-focused, one CTA.
  */
 export async function sendWelcomeEmail(user: User, levelName: string, level: number, appUrl: string): Promise<void> {
+  // ⚠️ CRITICAL PATH — Results email
+  // This is transactional (not marketing) — gate on emailValid only, not prefs.
+  // DEFAULT_FROM must be production domain, never onboarding@resend.dev.
   // Transactional email (assessment results) — only gate on email validity, not marketing prefs
   if (!user.emailValid) return;
   try {
@@ -572,10 +575,10 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
     const html = baseTemplate(card(`
       <h1 style="font-family: 'Tomorrow', 'Trebuchet MS', Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${BRAND.charcoal}; margin: 0 0 16px 0; mso-line-height-rule: exactly; line-height: 30px;" class="email-text">Pick up where you left off</h1>
       ${bodyText(`Hey ${escapeHtml(user.name || "there")},`)}
-      ${bodyText("Your conversation is still open. A few more minutes and you'll have your results.")}
+      ${bodyText("Looks like your AI fluency conversation got interrupted. No worries \u2014 you can pick right back up without redoing the survey.")}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
         <tr><td style="padding-top: 16px;" align="center">
-          ${ctaButton("Continue Your Conversation", `${appUrl}/assessment`)}
+          ${ctaButton("Continue Your Conversation", `${appUrl}/assessment/warmup`)}
         </td></tr>
       </table>
     `), unsubscribeUrl);
@@ -584,7 +587,7 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: "Your conversation is waiting",
+      subject: "Pick up where you left off",
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,

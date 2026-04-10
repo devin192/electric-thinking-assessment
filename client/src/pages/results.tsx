@@ -64,6 +64,9 @@ export default function ResultsPage() {
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [npsSubmitted, setNpsSubmitted] = useState(false);
   const [npsSubmitting, setNpsSubmitting] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const { toast } = useToast();
 
   const { data: assessment, isLoading: assessmentLoading, isError: assessmentError } = useQuery<Assessment | null>({
@@ -546,6 +549,60 @@ export default function ResultsPage() {
                   <p className="text-sm font-medium">Thanks for your feedback!</p>
                 </CardContent>
               </Card>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* === 6b. MICRO-SURVEY FEEDBACK === */}
+        <AnimatePresence>
+          {phase === "results" && assessment && !feedbackSubmitted && (assessment as any).userFeedbackText === null && (
+            npsSubmitted || (assessment as any).npsScore !== null
+          ) && (
+            <motion.section
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <div className="text-center space-y-3 py-2">
+                <p className="text-sm text-muted-foreground">Did anything feel broken or frustrating?</p>
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value)}
+                  placeholder="Optional — helps us improve"
+                  rows={2}
+                  maxLength={2000}
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-et-pink/30 focus:border-et-pink/50 transition-all"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={feedbackSubmitting || feedbackText.trim().length === 0}
+                  className="rounded-xl text-xs"
+                  onClick={async () => {
+                    setFeedbackSubmitting(true);
+                    try {
+                      await apiRequest("POST", `/api/assessment/${assessment.id}/feedback`, { feedbackText: feedbackText.trim() });
+                      setFeedbackSubmitted(true);
+                    } catch {
+                      toast({ title: "Couldn't save feedback", variant: "destructive" });
+                    }
+                    setFeedbackSubmitting(false);
+                  }}
+                >
+                  {feedbackSubmitting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                  Send
+                </Button>
+              </div>
+            </motion.section>
+          )}
+          {phase === "results" && feedbackSubmitted && (
+            <motion.section
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="text-center py-2"
+            >
+              <p className="text-sm text-muted-foreground">Thanks for the feedback</p>
             </motion.section>
           )}
         </AnimatePresence>

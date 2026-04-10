@@ -5,6 +5,7 @@ import {
   userSkillStatus, nudges, nudgeVoiceGuide, invites, aiPlatforms,
   systemConfig, activityFeed, badges, verificationAttempts, emailLogs,
   liveSessions, coachConversations, challengeReflections, passwordResetTokens,
+  issueReports,
   type User, type InsertUser, type Organization, type InsertOrganization,
   type Assessment, type InsertAssessment, type Level, type InsertLevel,
   type Skill, type InsertSkill, type AssessmentQuestion, type InsertAssessmentQuestion,
@@ -16,6 +17,7 @@ import {
   type CoachConversation, type InsertCoachConversation,
   type ChallengeReflection, type InsertChallengeReflection,
   type PasswordResetToken, type InsertPasswordResetToken,
+  type IssueReport, type InsertIssueReport,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -727,6 +729,11 @@ export class DatabaseStorage implements IStorage {
     await db.update(passwordResetTokens)
       .set({ usedAt: new Date() })
       .where(and(eq(passwordResetTokens.userId, userId), isNull(passwordResetTokens.usedAt)));
+  }
+
+  async createIssueReport(data: InsertIssueReport): Promise<IssueReport> {
+    const [created] = await db.insert(issueReports).values(data).returning();
+    return created;
   }
 }
 

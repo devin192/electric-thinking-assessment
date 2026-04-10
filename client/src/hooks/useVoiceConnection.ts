@@ -1,7 +1,18 @@
+// ⚠️ CRITICAL PATH — Voice connection logic
+// Changes here have caused production regressions 3+ times (stale closures,
+// duplicate agents, stuck connections). Before modifying:
+// 1. Run: npx vitest run tests/critical-paths.test.ts
+// 2. Check all useCallback/useEffect dependency arrays
+// 3. Verify reconnect reuses signedUrlRef (not requesting new URL)
+// 4. Test on mobile Safari (iOS WebKit has different WebSocket behavior)
+
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createElement } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { getSharedAudioContext, getSharedMediaStream, clearSharedAudio } from "@/lib/audio-context";
+import { ToastAction } from "@/components/ui/toast";
 import type { Assessment } from "@shared/schema";
+import type { ToastActionElement } from "@/components/ui/toast";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -12,7 +23,7 @@ interface UseVoiceConnectionParams {
   assessmentId: number | null;
   activeAssessment: Assessment | null | undefined;
   user: { name?: string | null; roleTitle?: string | null; aiPlatform?: string | null } | null;
-  toast: (opts: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
+  toast: (opts: { title: string; description?: string; variant?: "default" | "destructive"; action?: ToastActionElement }) => void;
   onTranscriptUpdate: (updater: (prev: ChatMessage[]) => ChatMessage[]) => void;
   onVoiceFallback: (opts: { startTextGreeting?: boolean }) => void;
 }
@@ -64,6 +75,12 @@ export function useVoiceConnection({
   const voiceConnectedRef = useRef<boolean>(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const reconnectAttemptsRef = useRef<number>(0);
+
+  // Voice quality metrics
+  const sessionStartTimeRef = useRef<number | null>(null);
+  const timeToFirstAudioRef = useRef<number | null>(null);
+  const reconnectCountRef = useRef<number>(0);
+  const metricsReportedRef = useRef<boolean>(false);
 
   // Keep refs for values that callbacks read without re-creation
   const assessmentIdRef = useRef(assessmentId);
@@ -139,9 +156,32 @@ export function useVoiceConnection({
     } catch (err) { console.warn("Transcript save error:", err); }
   }, []);
 
+  // ── Voice quality metrics report ───────────────────────────────────
+  const reportVoiceMetrics = useCallback(async () => {
+    const id = assessmentIdRef.current;
+    if (!id || metricsReportedRef.current) return;
+    metricsReportedRef.current = true;
+
+    const payload: Record<string, number> = {};
+    if (timeToFirstAudioRef.current !== null) {
+      payload.timeToFirstAudio = timeToFirstAudioRef.current;
+    }
+    payload.reconnectCount = reconnectCountRef.current;
+    if (sessionStartTimeRef.current !== null) {
+      payload.totalSessionDuration = Date.now() - sessionStartTimeRef.current;
+    }
+
+    try {
+      await apiRequest("POST", `/api/assessment/${id}/voice-metrics`, payload);
+    } catch (err) { console.warn("Voice metrics report error:", err); }
+  }, []);
+
   // ── Disconnect ─────────────────────────────────────────────────────
   const disconnectVoice = useCallback(() => {
     reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS;
+
+    // Report voice quality metrics before tearing down
+    reportVoiceMetrics();
 
     if (wsRef.current) {
       wsRef.current.close();
@@ -164,7 +204,32 @@ export function useVoiceConnection({
     voiceConnectedRef.current = false;
     setIsListening(false);
     setIsSpeaking(false);
-  }, [flushAudioQueue]);
+  }, [flushAudioQueue, reportVoiceMetrics]);
+
+  // ── Issue reporting helper ────────────────────────────────────────
+  const reportVoiceIssue = useCallback((errorMessage: string) => {
+    const conn = (navigator as any).connection;
+    fetch("/api/report-issue", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        error: errorMessage,
+        assessmentId: assessmentIdRef.current,
+        browser: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        connectionType: conn?.effectiveType || conn?.type || null,
+      }),
+    }).catch(() => { /* silent */ });
+  }, []);
+
+  const makeReportAction = useCallback(
+    (errorMessage: string) =>
+      createElement(ToastAction, {
+        altText: "Report issue",
+        onClick: () => reportVoiceIssue(errorMessage),
+      }, "Report issue") as unknown as ToastActionElement,
+    [reportVoiceIssue]
+  );
 
   // ── Connect ────────────────────────────────────────────────────────
   // Uses refs for all values read inside WebSocket callbacks to avoid
@@ -191,6 +256,14 @@ export function useVoiceConnection({
         stale.close();
       }
     }
+    // Reset voice metrics for a fresh session (not reconnects)
+    if (!isReconnect) {
+      sessionStartTimeRef.current = null;
+      timeToFirstAudioRef.current = null;
+      reconnectCountRef.current = 0;
+      metricsReportedRef.current = false;
+    }
+
     setVoiceConnecting(true);
     setVoiceError(null);
     setConnectSeconds(0);
@@ -254,6 +327,15 @@ export function useVoiceConnection({
         setVoiceConnected(true);
         voiceConnectedRef.current = true;
         setIsListening(true);
+
+        // Voice metrics: track session start and reconnects
+        if (sessionStartTimeRef.current === null) {
+          sessionStartTimeRef.current = Date.now();
+        }
+        if (isReconnect) {
+          reconnectCountRef.current += 1;
+        }
+
         reconnectAttemptsRef.current = 0;
 
         // Send survey context to ElevenLabs agent as dynamic variables
@@ -361,6 +443,10 @@ export function useVoiceConnection({
           if (data.type === "audio") {
             activityReceived = true;
             setIsSpeaking(true);
+            // Voice metrics: capture time to first audio chunk
+            if (timeToFirstAudioRef.current === null && sessionStartTimeRef.current !== null) {
+              timeToFirstAudioRef.current = Date.now() - sessionStartTimeRef.current;
+            }
             playAudioChunk(data.audio_event?.audio_base_64 || data.audio);
           }
 
@@ -428,6 +514,7 @@ export function useVoiceConnection({
         // Connection fully done — clear the signed URL so next fresh connect gets a new one
         signedUrlRef.current = null;
         connectingLockRef.current = false;
+        reportVoiceMetrics();
         saveTranscript();
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
@@ -445,7 +532,7 @@ export function useVoiceConnection({
         voiceConnectedRef.current = false;
         stream.getTracks().forEach(t => t.stop());
         // Auto-fallback to text mode instead of showing error screen
-        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead." });
+        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction("Voice isn't available right now") });
         onVoiceFallbackRef.current({ startTextGreeting: false });
       };
 
@@ -459,7 +546,7 @@ export function useVoiceConnection({
           setVoiceConnecting(false);
           stream.getTracks().forEach(t => t.stop());
           // Auto-fallback to text mode instead of showing timeout error
-          toastRef.current({ title: "Voice connection timed out", description: "Starting in text mode instead." });
+          toastRef.current({ title: "Voice connection timed out", description: "Starting in text mode instead.", action: makeReportAction("Voice connection timed out") });
           onVoiceFallbackRef.current({ startTextGreeting: false });
         }
       }, 20000);
@@ -485,17 +572,17 @@ export function useVoiceConnection({
       const msg = err.message || "Failed to connect voice";
       const isVoiceUnavailable = msg.includes("not configured") || msg.includes("agent ID") || msg.includes("temporarily unavailable") || msg.includes("500:");
       if (isVoiceUnavailable) {
-        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead." });
+        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction(msg) });
         onVoiceFallbackRef.current({ startTextGreeting: true });
       } else {
         setVoiceError(msg);
       }
     }
-  }, [playAudioChunk, flushAudioQueue, saveTranscript]);
+  }, [playAudioChunk, flushAudioQueue, saveTranscript, reportVoiceMetrics, makeReportAction]);
   // connectVoice references itself in ws.onclose for reconnect. This is safe
   // because the recursive call goes through the ref-based lock and setTimeout,
   // not through a stale captured closure — the function identity is stable since
-  // its deps (playAudioChunk, flushAudioQueue, saveTranscript) are all stable
+  // its deps (playAudioChunk, flushAudioQueue, saveTranscript, reportVoiceMetrics) are all stable
   // useCallbacks with empty dep arrays.
 
   // ── Auto-connect effect ────────────────────────────────────────────

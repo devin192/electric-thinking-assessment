@@ -105,10 +105,16 @@ export const assessments = pgTable(
     triggerMoment: text("trigger_moment"),
     surveyResponsesJson: jsonb("survey_responses_json").$type<Record<string, number>>(),
     surveyLevel: integer("survey_level"),
+    scoringConfidence: varchar("scoring_confidence", { length: 20 }),
     status: varchar("status", { length: 50 }).notNull().default("in_progress"),
     startedAt: timestamp("started_at").defaultNow().notNull(),
     completedAt: timestamp("completed_at"),
     npsScore: integer("nps_score"),
+    userFeedbackText: text("user_feedback_text"),
+    voiceTimeToFirstAudio: integer("voice_time_to_first_audio"),
+    voiceReconnectCount: integer("voice_reconnect_count"),
+    voiceSessionDuration: integer("voice_session_duration"),
+    abandonedEmailSent: boolean("abandoned_email_sent").default(false),
   },
   (table) => [
     index("assessments_user_status_idx").on(table.userId, table.status),
@@ -342,6 +348,18 @@ export const passwordResetTokens = pgTable(
 
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
 
+export const issueReports = pgTable("issue_reports", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  assessmentId: integer("assessment_id"),
+  error: text("error").notNull(),
+  browser: text("browser"),
+  connectionType: varchar("connection_type", { length: 50 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertIssueReportSchema = createInsertSchema(issueReports).omit({ id: true, createdAt: true });
+
 export const insertEmailLogSchema = createInsertSchema(emailLogs).omit({ id: true, createdAt: true });
 export const insertVerificationAttemptSchema = createInsertSchema(verificationAttempts).omit({ id: true, attemptedAt: true });
 export const insertActivityFeedSchema = createInsertSchema(activityFeed).omit({ id: true, createdAt: true });
@@ -395,3 +413,5 @@ export type ChallengeReflection = typeof challengeReflections.$inferSelect;
 export type InsertChallengeReflection = z.infer<typeof insertChallengeReflectionSchema>;
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type IssueReport = typeof issueReports.$inferSelect;
+export type InsertIssueReport = z.infer<typeof insertIssueReportSchema>;
