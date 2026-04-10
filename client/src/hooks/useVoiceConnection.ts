@@ -391,7 +391,16 @@ export function useVoiceConnection({
         }, 15000);
         ws.addEventListener("close", () => clearTimeout(activityTimeout));
 
-        const ctx = audioContextRef.current!;
+        const ctx = audioContextRef.current;
+        if (!ctx) {
+          // AudioContext was closed or never created (e.g., mic permission revoked).
+          // Fall back to text mode rather than crashing.
+          console.warn("AudioContext is null on ws.onopen — falling back to text");
+          Sentry.captureException(new Error("AudioContext null on ws.onopen"), { tags: { component: "voice" } });
+          ws.close();
+          onVoiceFallbackRef.current({ startTextGreeting: true });
+          return;
+        }
         const nativeSampleRate = ctx.sampleRate;
         const targetSampleRate = 16000;
         const ratio = nativeSampleRate / targetSampleRate;
