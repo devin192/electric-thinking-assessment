@@ -201,6 +201,7 @@ export function useVoiceConnection({
       connectTimerRef.current = null;
     }
     flushAudioQueue();
+    setVoiceConnecting(false);
     setVoiceConnected(false);
     voiceConnectedRef.current = false;
     setIsListening(false);

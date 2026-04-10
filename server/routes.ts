@@ -1539,8 +1539,7 @@ export async function registerRoutes(
       const userMessages = messages.filter(m => m.role === "user" && m.content !== "Hi, I'm ready to start my assessment.");
       if (userMessages.length < 2) {
         const surveyLevel = (assessment as any).surveyLevel ?? 0;
-        await storage.updateAssessment(id, {
-          status: "completed",
+        await transitionAssessment(storage, id, "in_progress", "completed", {
           completedAt: new Date(),
           scoresJson: {},
           assessmentLevel: surveyLevel,
@@ -1604,8 +1603,7 @@ export async function registerRoutes(
         scoringConfidence = "high";
       }
 
-      await storage.updateAssessment(id, {
-        status: "completed",
+      await transitionAssessment(storage, id, "in_progress", "completed", {
         completedAt: new Date(),
         scoresJson: result.scores,
         assessmentLevel: result.assessmentLevel,

@@ -343,10 +343,10 @@ describe("Scoring handles insufficient data gracefully", () => {
     );
 
     const shortBranch = routeSource.match(
-      /userMessages\.length < 2[\s\S]*?updateAssessment[\s\S]*?\}/
+      /userMessages\.length < 2[\s\S]*?(?:updateAssessment|transitionAssessment)[\s\S]*?\}/
     );
     expect(shortBranch).not.toBeNull();
-    expect(shortBranch![0]).toContain('status: "completed"');
+    expect(shortBranch![0]).toContain('"completed"');
     // Must NOT leave it as "scoring"
     expect(shortBranch![0]).not.toMatch(/status:\s*["']scoring["']/);
   });
@@ -381,10 +381,10 @@ describe("Scoring handles insufficient data gracefully", () => {
     );
 
     const scoringFailBranch = routeSource.match(
-      /catch \(scoreErr[\s\S]*?updateAssessment[\s\S]*?\}/
+      /catch \(scoreErr[\s\S]*?(?:updateAssessment|transitionAssessment)[\s\S]*?\}/
     );
     expect(scoringFailBranch).not.toBeNull();
-    expect(scoringFailBranch![0]).toContain('status: "completed"');
+    expect(scoringFailBranch![0]).toContain('"completed"');
   });
 
   it("scoreAssessment function returns safe defaults when all retries fail", async () => {

@@ -199,7 +199,7 @@ export default function AssessmentPage() {
     disconnectVoice();
     setVoiceMode(mode);
 
-    if (mode === "text-only" && messages.length === 0) {
+    if ((mode === "text-only" || mode === "voice-to-text") && messages.length === 0) {
       let id = assessmentId;
       // If assessment hasn't started yet, start it now
       if (!id) {
@@ -325,6 +325,7 @@ export default function AssessmentPage() {
       // Invalidate cached queries so results page fetches fresh data
       queryClient.invalidateQueries({ queryKey: ["/api/assessment/latest"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assessment/active"] });
+      isScoringRef.current = false;
       setIsScoring(false);
       navigate("/results");
     } catch {
@@ -339,6 +340,7 @@ export default function AssessmentPage() {
 
           queryClient.invalidateQueries({ queryKey: ["/api/assessment/latest"] });
           queryClient.invalidateQueries({ queryKey: ["/api/assessment/active"] });
+          isScoringRef.current = false;
           setIsScoring(false);
           navigate("/results");
           return;
@@ -346,6 +348,7 @@ export default function AssessmentPage() {
       } catch { /* retry also failed */ }
 
       phaseTimers.forEach(clearTimeout);
+      isScoringRef.current = false;
       setIsScoring(false);
       setScoringFailed(true);
     }
