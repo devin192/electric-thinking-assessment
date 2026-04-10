@@ -1,4 +1,7 @@
 import cron from "node-cron";
+import { eq, and } from "drizzle-orm";
+import { db } from "./db";
+import { assessments as assessmentsTable } from "@shared/schema";
 import { storage } from "./storage";
 import { generateNudge } from "./nudge-ai";
 import { generateEmailSubjectLine } from "./email-headline";
@@ -228,8 +231,21 @@ export async function checkAbandonedAssessments(): Promise<{ sent: number; skipp
           continue;
         }
 
+        // Atomic claim: only update if still in_progress and not yet emailed
+        const [claimed] = await db.update(assessmentsTable)
+          .set({ abandonedEmailSent: true })
+          .where(and(
+            eq(assessmentsTable.id, assessment.id),
+            eq(assessmentsTable.status, "in_progress"),
+            eq(assessmentsTable.abandonedEmailSent, false)
+          ))
+          .returning();
+        if (!claimed) {
+          skipped++;
+          continue;
+        }
+
         await sendAbandonedAssessmentEmail(user, APP_URL);
-        await storage.updateAssessment(assessment.id, { abandonedEmailSent: true });
         sent++;
       } catch (e: any) {
         console.error(`[cron] Abandoned assessment email failed for assessment ${assessment.id}:`, e.message);

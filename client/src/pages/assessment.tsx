@@ -44,6 +44,7 @@ export default function AssessmentPage() {
   const [isScoring, setIsScoring] = useState(false);
   const [scoringPhase, setScoringPhase] = useState(0);
   const [scoringFailed, setScoringFailed] = useState(false);
+  const isScoringRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { user } = useAuth();
@@ -262,10 +263,14 @@ export default function AssessmentPage() {
   };
 
   const handleEndConversation = async () => {
-    if (isScoring) return;
+    if (isScoringRef.current) return;
+    isScoringRef.current = true;
+    setIsScoring(true);
     setScoringFailed(false);
     if (!assessmentId) {
       console.error("handleEndConversation: no assessmentId");
+      isScoringRef.current = false;
+      setIsScoring(false);
       toast({
         title: "Something went wrong",
         description: "Please refresh the page and try again.",
@@ -284,7 +289,6 @@ export default function AssessmentPage() {
     }
 
     disconnectVoice();
-    setIsScoring(true);
     setScoringPhase(0);
 
     const phaseTimers: ReturnType<typeof setTimeout>[] = [];

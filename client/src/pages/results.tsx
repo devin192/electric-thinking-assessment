@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import type { Assessment, Level, Skill, UserSkillStatus } from "@shared/schema";
@@ -498,6 +499,7 @@ export default function ResultsPage() {
         <AnimatePresence>
           {phase === "results" && assessment && (assessment as any).npsScore === null && !npsSubmitted && (
             <motion.section
+              key="nps-form"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.28 }}
@@ -537,6 +539,7 @@ export default function ResultsPage() {
           )}
           {phase === "results" && npsSubmitted && (
             <motion.section
+              key="nps-thanks"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.3 }}
@@ -565,7 +568,7 @@ export default function ResultsPage() {
             >
               <div className="text-center space-y-3 py-2">
                 <p className="text-sm text-muted-foreground">Did anything feel broken or frustrating?</p>
-                <textarea
+                <Textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   placeholder="Optional — helps us improve"

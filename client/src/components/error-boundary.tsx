@@ -49,7 +49,7 @@ export class ErrorBoundary extends Component<Props, State> {
         "",
       ].join("\n")
     );
-    window.open(`mailto:support@electricthinking.com?subject=${subject}&body=${body}`, "_blank");
+    window.open(`mailto:support@electricthinking.ai?subject=${subject}&body=${body}`, "_blank");
   };
 
   render() {

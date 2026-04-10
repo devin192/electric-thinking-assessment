@@ -8,6 +8,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createElement } from "react";
+import * as Sentry from "@sentry/react";
 import { apiRequest } from "@/lib/queryClient";
 import { getSharedAudioContext, getSharedMediaStream, clearSharedAudio } from "@/lib/audio-context";
 import { ToastAction } from "@/components/ui/toast";
@@ -522,7 +523,8 @@ export function useVoiceConnection({
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (_event) => {
+        Sentry.captureException(new Error("WebSocket connection error"), { tags: { component: "useVoiceConnection", action: "ws.onerror" } });
         clearInterval(timer);
         reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // prevent onclose from reconnecting
         signedUrlRef.current = null;
@@ -554,6 +556,7 @@ export function useVoiceConnection({
       ws.addEventListener("open", () => clearTimeout(timeout));
 
     } catch (err: any) {
+      Sentry.captureException(err, { tags: { component: "useVoiceConnection", action: "connectVoice" } });
       clearInterval(timer);
       connectTimerRef.current = null;
       signedUrlRef.current = null;

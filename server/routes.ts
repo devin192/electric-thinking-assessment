@@ -540,6 +540,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Assessment not yet completed" });
       }
 
+      // Idempotency: if NPS already submitted, return success without overwriting
+      if ((assessment as any).npsScore !== null && (assessment as any).npsScore !== undefined) {
+        return res.json({ success: true });
+      }
+
       const score = parseInt(req.body.score);
       if (isNaN(score) || score < 0 || score > 10) {
         return res.status(400).json({ message: "Score must be 0-10" });
@@ -566,6 +571,11 @@ export async function registerRoutes(
       }
       if (assessment.status !== "completed") {
         return res.status(400).json({ message: "Assessment not yet completed" });
+      }
+
+      // Idempotency: if feedback already submitted, return success without overwriting
+      if ((assessment as any).userFeedbackText !== null && (assessment as any).userFeedbackText !== undefined) {
+        return res.json({ success: true });
       }
 
       const { feedbackText } = req.body;
@@ -881,9 +891,12 @@ export async function registerRoutes(
 
       // Send notification email to support
       try {
-        const resendClient = (await import("./resend-client")).getUncachableResendClient();
+        const { client: resendClient } = await (await import("./resend-client")).getUncachableResendClient();
+        const emailFrom = await storage.getSystemConfig("email_from") || "Electric Thinking <hello@electricthinking.ai>";
+        const emailReplyTo = await storage.getSystemConfig("email_reply_to") || "support@electricthinking.ai";
         await resendClient.emails.send({
-          from: "Electric Thinking <onboarding@resend.dev>",
+          from: emailFrom,
+          replyTo: emailReplyTo,
           to: "devin@electricthinking.ai",
           subject: `Waitlist signup: ${name} — Level ${displayLevel} ${levelName || ""}`,
           html: `<p><strong>${name}</strong> (${email}) joined the waitlist for a Level ${displayLevel} ${escapeHtml(levelName || "")} cohort.</p><p>Role: ${role}</p><p>Org: ${user.orgId ? `ID ${user.orgId}` : "none"}</p>`,
@@ -1465,15 +1478,25 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/assessments", requireAdmin, async (_req, res) => {
-    const allAssessments = await storage.getAllAssessments();
-    return res.json(allAssessments);
+    try {
+      const allAssessments = await storage.getAllAssessments();
+      return res.json(allAssessments);
+    } catch (e: any) {
+      console.error("Admin endpoint error:", e.message);
+      return res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.get("/api/admin/assessments/:id", requireAdmin, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const assessment = await storage.getAssessment(id);
-    if (!assessment) return res.status(404).json({ message: "Assessment not found" });
-    return res.json(assessment);
+    try {
+      const id = parseInt(req.params.id);
+      const assessment = await storage.getAssessment(id);
+      if (!assessment) return res.status(404).json({ message: "Assessment not found" });
+      return res.json(assessment);
+    } catch (e: any) {
+      console.error("Admin endpoint error:", e.message);
+      return res.status(500).json({ message: "Internal error" });
+    }
   });
 
   app.delete("/api/admin/assessments/:id", requireAdmin, async (req, res) => {
@@ -1496,16 +1519,18 @@ export async function registerRoutes(
 
   // Admin re-score: reset a stuck/failed assessment so scoring can be re-triggered
   app.post("/api/admin/assessments/:id/rescore", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const assessment = await storage.getAssessment(id);
+    if (!assessment) return res.status(404).json({ message: "Assessment not found" });
+
+    const user = await storage.getUser(assessment.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const originalStatus = assessment.status;
+
     try {
-      const id = parseInt(req.params.id);
-      const assessment = await storage.getAssessment(id);
-      if (!assessment) return res.status(404).json({ message: "Assessment not found" });
-
-      const user = await storage.getUser(assessment.userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-
-      // Reset to in_progress so the complete endpoint can re-lock it
-      await storage.updateAssessment(id, { status: "in_progress" });
+      // Use state machine to transition to in_progress
+      await transitionAssessment(storage, id, assessment.status, "in_progress");
 
       // Now trigger scoring directly (same logic as the /complete endpoint)
       let messages: Array<{ role: string; content: string }> = [];
@@ -1523,7 +1548,13 @@ export async function registerRoutes(
           contextSummary: "Assessment completed with limited conversation data. Level based on survey responses.",
           workContextSummary: user.roleTitle || null,
           brightSpotsText: JSON.stringify(["You took the first step by starting the assessment."]),
+          scoringConfidence: "insufficient",
         });
+
+        const allLevels = await storage.getLevels();
+        const levelName = allLevels.find(l => l.sortOrder === surveyLevel)?.displayName || "Accelerator";
+        sendWelcomeEmail(user, levelName, surveyLevel, APP_URL).catch(console.error);
+
         return res.json({ message: "Scored with survey defaults (limited conversation data)", assessmentLevel: surveyLevel });
       }
 
@@ -1556,6 +1587,23 @@ export async function registerRoutes(
       const signatureSkill = allSkills.find(s => s.name === result.signatureSkillName)
         || allSkills.find(s => s.name.toLowerCase() === result.signatureSkillName?.toLowerCase());
 
+      // Compute scoringConfidence (same logic as the normal completion path)
+      const redCount = Object.values(result.scores).filter(
+        (s: any) => s.status === "red",
+      ).length;
+      const allRed = redCount > 0 && redCount === Object.keys(result.scores).length;
+
+      let scoringConfidence: string;
+      if (allRed && userMessages.length < 5) {
+        scoringConfidence = "insufficient";
+      } else if (userMessages.length < 5) {
+        scoringConfidence = "low";
+      } else if (userMessages.length <= 10) {
+        scoringConfidence = "low";
+      } else {
+        scoringConfidence = "high";
+      }
+
       await storage.updateAssessment(id, {
         status: "completed",
         completedAt: new Date(),
@@ -1572,6 +1620,7 @@ export async function registerRoutes(
         futureSelfText: result.futureSelfText || null,
         nextLevelIdentity: result.nextLevelIdentity || null,
         triggerMoment: result.triggerMoment || null,
+        scoringConfidence,
       });
 
       const scoresLower: Record<string, { status: string; explanation: string }> = {};
@@ -1590,9 +1639,20 @@ export async function registerRoutes(
         }
       }
 
+      // Send results email
+      const allLevels = await storage.getLevels();
+      const levelName = allLevels.find(l => l.sortOrder === result.assessmentLevel)?.displayName || "Accelerator";
+      sendWelcomeEmail(user, levelName, result.assessmentLevel, APP_URL).catch(console.error);
+
       return res.json({ message: "Re-scored successfully", assessmentLevel: result.assessmentLevel });
     } catch (e: any) {
       console.error("Admin rescore error:", e);
+      // Restore the original status on failure
+      try {
+        await storage.updateAssessment(id, { status: originalStatus });
+      } catch (restoreErr) {
+        console.error("Failed to restore assessment status:", restoreErr);
+      }
       return res.status(500).json({ message: e.message });
     }
   });
@@ -1763,8 +1823,13 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/analytics", requireAdmin, async (_req, res) => {
-    const analytics = await storage.getAnalytics();
-    return res.json(analytics);
+    try {
+      const analytics = await storage.getAnalytics();
+      return res.json(analytics);
+    } catch (e: any) {
+      console.error("Admin endpoint error:", e.message);
+      return res.status(500).json({ message: "Internal error" });
+    }
   });
 
   // Admin nudge generate/deliver disabled — assessment-only product
@@ -2054,16 +2119,19 @@ export async function registerRoutes(
   });
 
   // ========== ISSUE REPORTING ==========
+  // TODO: Add express-rate-limit to this endpoint (e.g. 10 req/min per IP)
   app.post("/api/report-issue", async (req, res) => {
     try {
       const { error, assessmentId, browser, timestamp, connectionType } = req.body || {};
+      const truncatedError = String(error || "unknown").slice(0, 5000);
+      const truncatedBrowser = browser ? String(browser).slice(0, 500) : null;
       const userId = req.session?.userId || null;
-      console.log(`[issue-report] userId=${userId} assessmentId=${assessmentId || "N/A"} error=${error || "unknown"} browser=${browser || "unknown"}`);
+      console.log(`[issue-report] userId=${userId} assessmentId=${assessmentId || "N/A"} error=${truncatedError.slice(0, 200)} browser=${truncatedBrowser || "unknown"}`);
       await storage.createIssueReport({
         userId,
         assessmentId: assessmentId ? Number(assessmentId) : null,
-        error: String(error || "unknown"),
-        browser: browser ? String(browser) : null,
+        error: truncatedError,
+        browser: truncatedBrowser,
         connectionType: connectionType ? String(connectionType).slice(0, 50) : null,
       });
       return res.json({ ok: true });
