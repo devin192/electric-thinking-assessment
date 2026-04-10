@@ -356,6 +356,10 @@ export async function registerRoutes(
           workContextSummary: user.roleTitle || null,
           brightSpotsText: JSON.stringify(["You took the first step by starting the assessment."]),
         });
+        // Still send the results email even for short assessments
+        const allLevels = await storage.getLevels();
+        const levelName = allLevels.find(l => l.sortOrder === surveyLevel)?.displayName || "Accelerator";
+        sendWelcomeEmail(user, levelName, surveyLevel, APP_URL).catch(console.error);
         return res.json({ assessmentLevel: surveyLevel, activeLevel: surveyLevel, scores: {} });
       }
 
@@ -400,6 +404,10 @@ export async function registerRoutes(
           workContextSummary: user.roleTitle || null,
           brightSpotsText: JSON.stringify(["You completed the assessment conversation."]),
         });
+        // Still send the results email even when scoring fails
+        const allLevels = await storage.getLevels();
+        const levelName = allLevels.find(l => l.sortOrder === surveyLevel)?.displayName || "Accelerator";
+        sendWelcomeEmail(user, levelName, surveyLevel, APP_URL).catch(console.error);
         return res.json({ assessmentLevel: surveyLevel, activeLevel: surveyLevel, scores: {} });
       }
 

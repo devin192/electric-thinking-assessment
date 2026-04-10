@@ -71,6 +71,8 @@ export default function AssessmentPage() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const connectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const signedUrlRef = useRef<string | null>(null);
+  const connectingLockRef = useRef<boolean>(false);
   const nextPlayTimeRef = useRef<number>(0);
   const isMutedRef = useRef<boolean>(false);
   const isSpeakingRef = useRef<boolean>(false);
@@ -183,8 +185,11 @@ export default function AssessmentPage() {
     }
   };
 
-  const connectVoice = useCallback(async () => {
+  const connectVoice = useCallback(async (isReconnect = false) => {
     if (!assessmentId) return;
+    // Prevent concurrent connectVoice calls (stale closure + reconnect race)
+    if (connectingLockRef.current) return;
+    connectingLockRef.current = true;
 
     // Close any existing WebSocket before creating a new one.
     // Without this, reconnects leave the old socket open — both sockets
@@ -199,7 +204,6 @@ export default function AssessmentPage() {
         stale.close();
       }
     }
-
     setVoiceConnecting(true);
     setVoiceError(null);
     setConnectSeconds(0);
@@ -238,14 +242,20 @@ export default function AssessmentPage() {
         await audioContextRef.current!.resume();
       }
 
-      const tokenRes = await apiRequest("GET", "/api/assessment/voice-token");
-      const tokenData = await tokenRes.json();
-
-      if (!tokenData.signedUrl) {
-        throw new Error(tokenData.message || "Could not get voice connection");
+      // On reconnect, reuse the same signed URL to avoid spawning a new agent instance
+      // (each new signed URL = new ElevenLabs conversation = repeated opening message)
+      let signedUrl = isReconnect ? signedUrlRef.current : null;
+      if (!signedUrl) {
+        const tokenRes = await apiRequest("GET", "/api/assessment/voice-token");
+        const tokenData = await tokenRes.json();
+        if (!tokenData.signedUrl) {
+          throw new Error(tokenData.message || "Could not get voice connection");
+        }
+        signedUrl = tokenData.signedUrl;
+        signedUrlRef.current = signedUrl;
       }
 
-      const ws = new WebSocket(tokenData.signedUrl);
+      const ws = new WebSocket(signedUrl!);
       wsRef.current = ws;
 
       let activityReceived = false;
@@ -420,12 +430,16 @@ export default function AssessmentPage() {
           reconnectAttemptsRef.current += 1;
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 8000);
           console.log(`WebSocket closed unexpectedly (code ${event.code}). Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`);
+          connectingLockRef.current = false; // release lock so reconnect can proceed
           setTimeout(() => {
-            connectVoice();
+            connectVoice(true); // isReconnect=true: reuse signed URL, don't spawn new agent
           }, delay);
           return;
         }
 
+        // Connection fully done — clear the signed URL so next fresh connect gets a new one
+        signedUrlRef.current = null;
+        connectingLockRef.current = false;
         saveTranscript();
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
@@ -436,6 +450,8 @@ export default function AssessmentPage() {
       ws.onerror = () => {
         clearInterval(timer);
         reconnectAttemptsRef.current = maxReconnectAttempts; // prevent onclose from reconnecting
+        signedUrlRef.current = null;
+        connectingLockRef.current = false;
         setVoiceConnecting(false);
         setVoiceConnected(false);
         voiceConnectedRef.current = false;
@@ -449,6 +465,8 @@ export default function AssessmentPage() {
       const timeout = setTimeout(() => {
         if (!voiceConnectedRef.current && ws.readyState !== WebSocket.OPEN) {
           reconnectAttemptsRef.current = maxReconnectAttempts; // prevent onclose from reconnecting
+          signedUrlRef.current = null;
+          connectingLockRef.current = false;
           if (connectTimerRef.current) { clearInterval(connectTimerRef.current); connectTimerRef.current = null; }
           ws.close();
           setVoiceConnecting(false);
@@ -465,6 +483,8 @@ export default function AssessmentPage() {
     } catch (err: any) {
       clearInterval(timer);
       connectTimerRef.current = null;
+      signedUrlRef.current = null;
+      connectingLockRef.current = false;
       setVoiceConnecting(false);
 
       if (mediaStreamRef.current) {
@@ -502,7 +522,7 @@ export default function AssessmentPage() {
     if (voiceMode === "full-duplex" && assessmentId && activeAssessment && !voiceConnected && !voiceConnecting && !voiceError) {
       connectVoice();
     }
-  }, [voiceMode, assessmentId, activeAssessment]);
+  }, [voiceMode, assessmentId, activeAssessment, voiceConnected, voiceConnecting, voiceError, connectVoice]);
 
   const playAudioChunk = (base64Audio: string) => {
     if (!base64Audio || !audioContextRef.current) return;
