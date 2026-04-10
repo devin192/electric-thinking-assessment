@@ -72,6 +72,14 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  // Allow API key authentication for automated tools
+  const apiKey = req.headers["x-admin-key"] as string | undefined;
+  const expectedKey = process.env.ADMIN_API_KEY;
+  if (apiKey && expectedKey && apiKey === expectedKey) {
+    return next();
+  }
+
+  // Fall back to session-based authentication
   if (!req.session.userId) {
     return res.status(401).json({ message: "Not authenticated" });
   }

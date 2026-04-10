@@ -190,7 +190,7 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
       ${ctaButton("Open Your Dashboard", `${appUrl}/dashboard`)}
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -201,6 +201,16 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=welcome to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "welcome",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send welcome email:", e);
     try {
@@ -273,6 +283,16 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill, app
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=nudge to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "nudge",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id, nudgeId: nudge.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
 
     return result?.data?.id || null;
   } catch (e) {
@@ -322,7 +342,7 @@ export async function sendSkillCompleteEmail(user: User, skillName: string, next
       ${ctaButton("See Your Results", `${appUrl}/results`)}
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -333,6 +353,16 @@ export async function sendSkillCompleteEmail(user: User, skillName: string, next
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=skill_complete to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "skill_complete",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id, skillName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send skill complete email:", e);
     try {
@@ -383,7 +413,7 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
       </table>
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -394,6 +424,16 @@ export async function sendLevelUpEmail(user: User, levelName: string, level: num
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=level_up to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "level_up",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id, level, levelName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send level up email:", e);
     try {
@@ -430,7 +470,7 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
       </table>
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -441,6 +481,16 @@ export async function sendReEngagementEmail(user: User, appUrl: string): Promise
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=re_engagement to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "re_engagement",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send re-engagement email:", e);
     try {
@@ -477,7 +527,7 @@ export async function sendReAssessmentEmail(user: User, appUrl: string): Promise
       </table>
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -488,6 +538,16 @@ export async function sendReAssessmentEmail(user: User, appUrl: string): Promise
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=re_assessment to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "re_assessment",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send re-assessment email:", e);
     try {
@@ -520,7 +580,7 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
       </table>
     `), unsubscribeUrl);
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
@@ -531,6 +591,16 @@ export async function sendAbandonedAssessmentEmail(user: User, appUrl: string): 
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[email-sent] type=abandoned_assessment to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "abandoned_assessment",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send abandoned assessment email:", e);
     try {
@@ -563,13 +633,22 @@ export async function sendInviteEmail(email: string, inviterName: string, orgNam
       ${ctaButton("Join Your Team", `${appUrl}/join?token=${token}`)}
     `));
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: email,
       replyTo,
       subject: `${escapeHtml(inviterName)} invited you to Electric Thinking`,
       html,
     });
+    console.log(`[email-sent] type=invite to=${email} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        emailType: "invite",
+        recipientEmail: email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id, inviterName, orgName } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send invite email:", e);
     try {
@@ -623,13 +702,23 @@ export async function sendManagerOnboardingEmail(user: User, step: number, appUr
       ${bodies[step]}
     `));
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
       subject: subjects[step],
       html,
     });
+    console.log(`[email-sent] type=manager_onboarding to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        userId: user.id,
+        emailType: "manager_onboarding",
+        recipientEmail: user.email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id, step } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error(`Failed to send manager onboarding email step ${step}:`, e);
     try {
@@ -665,13 +754,22 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string): P
       ${smallText("This link expires in 1 hour. If you didn't request this, you can safely ignore this email.")}
     `));
 
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail || from,
       to: email,
       replyTo,
       subject: "Reset your password",
       html,
     });
+    console.log(`[email-sent] type=password_reset to=${email} resendId=${result?.data?.id}`);
+    try {
+      await storage.createEmailLog({
+        emailType: "password_reset",
+        recipientEmail: email,
+        event: "sent",
+        metadata: { resendId: result?.data?.id } as Record<string, any>,
+      });
+    } catch (_) { /* don't let logging failure mask success */ }
   } catch (e) {
     console.error("Failed to send password reset email:", e);
     try {

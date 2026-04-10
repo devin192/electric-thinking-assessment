@@ -1940,14 +1940,48 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assessment/voice-token", requireAuth, async (_req, res) => {
+  app.get("/api/assessment/voice-token", requireAuth, async (req, res) => {
     try {
+      const userId = req.session.userId;
+      const activeAssessment = userId ? await storage.getActiveAssessment(userId) : undefined;
+      const assessmentId = activeAssessment?.id ?? (req.query.assessmentId as string) ?? null;
+      console.log(`[voice-token] userId=${userId} assessmentId=${assessmentId} at ${new Date().toISOString()}`);
       const signedUrl = await getConversationSignedUrl();
       return res.json({ signedUrl });
     } catch (e: any) {
       console.error("Voice token error:", e.message);
       return res.status(500).json({ message: "Voice assessment temporarily unavailable" });
     }
+  });
+
+  // ========== HEALTH CHECK ==========
+  app.get("/api/health", async (_req, res) => {
+    const checks: Record<string, { ok: boolean; value?: string }> = {};
+
+    // Database connectivity
+    try {
+      await storage.getSystemConfig("healthcheck");
+      checks.database = { ok: true };
+    } catch {
+      checks.database = { ok: false };
+    }
+
+    // API key presence
+    checks.elevenlabs_api_key = { ok: !!process.env.ELEVENLABS_API_KEY };
+    checks.resend_api_key = { ok: !!process.env.RESEND_API_KEY };
+    checks.anthropic_api_key = { ok: !!process.env.ANTHROPIC_API_KEY };
+    checks.app_url = { ok: !!process.env.APP_URL, value: process.env.APP_URL || undefined };
+
+    const dbDown = !checks.database.ok;
+    const nonCriticalFailed = !checks.elevenlabs_api_key.ok || !checks.resend_api_key.ok
+      || !checks.anthropic_api_key.ok || !checks.app_url.ok;
+    const status = dbDown ? "unhealthy" : nonCriticalFailed ? "degraded" : "healthy";
+
+    return res.status(dbDown ? 503 : 200).json({
+      status,
+      checks,
+      timestamp: new Date().toISOString(),
+    });
   });
 
   return httpServer;
