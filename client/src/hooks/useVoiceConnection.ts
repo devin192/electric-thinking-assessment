@@ -478,7 +478,16 @@ export function useVoiceConnection({
 
           if (data.agent_response_event?.agent_response) {
             const text = data.agent_response_event.agent_response;
-            onTranscriptUpdateRef.current(prev => [...prev, { role: "assistant", content: text }]);
+            // ElevenLabs sends agent_response events as TTS streams — the same
+            // opening text can arrive multiple times. Use replace-or-append pattern
+            // (same as correction handler) to avoid duplicate transcript entries.
+            onTranscriptUpdateRef.current(prev => {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && prev[lastIdx].role === "assistant") {
+                return [...prev.slice(0, lastIdx), { role: "assistant", content: text }];
+              }
+              return [...prev, { role: "assistant", content: text }];
+            });
           }
 
           if (data.agent_response_event?.agent_response_correction) {

@@ -14,6 +14,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   in_progress: ["scoring", "completed", "abandoned"],
   scoring: ["completed", "in_progress"],
   completed: ["in_progress"],
+  abandoned: ["in_progress"],  // admin re-score recovery
 };
 
 export function validateTransition(current: string, next: string): boolean {
