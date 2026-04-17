@@ -3,8 +3,8 @@ import { eq, and } from "drizzle-orm";
 import { db } from "./db";
 import { assessments as assessmentsTable } from "@shared/schema";
 import { storage } from "./storage";
-import { generateNudge } from "./nudge-ai";
-import { generateEmailSubjectLine } from "./email-headline";
+import { generateNudge, generateLevelDripNudge } from "./nudge-ai";
+import type { NudgeContent } from "./nudge-ai";
 import {
   sendNudgeEmail,
   sendReEngagementEmail,
@@ -15,16 +15,32 @@ import {
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
 export function startCronJobs() {
-  console.log(`${new Date().toLocaleTimeString()} [cron] Cron jobs disabled — assessment-only product (no nudges/challenges). Keeping abandoned assessment check.`);
+  // Nudge generation + delivery: Tuesday and Friday at 9am server time
+  // Gated by system config "nudges_enabled" and per-user flags inside the functions
+  cron.schedule("0 9 * * 2,5", async () => {
+    console.log(`${new Date().toLocaleTimeString()} [cron] Running nudge cycle (Tue/Fri)...`);
+    try {
+      const enabled = await storage.getSystemConfig("nudges_enabled");
+      if (enabled !== "true") {
+        console.log(`${new Date().toLocaleTimeString()} [cron] Nudges disabled via system config. Skipping.`);
+        return;
+      }
+      const genResult = await runNudgeGeneration();
+      console.log(`${new Date().toLocaleTimeString()} [cron] Nudge generation complete: ${genResult.generated} generated, ${genResult.failed} failed`);
+      const delResult = await runNudgeDelivery();
+      console.log(`${new Date().toLocaleTimeString()} [cron] Nudge delivery complete: ${delResult.sent} sent, ${delResult.failed} failed`);
+    } catch (e: any) {
+      console.error(`${new Date().toLocaleTimeString()} [cron] Nudge cycle error:`, e.message);
+    }
+  });
 
-  // Nudge generation, delivery, and re-assessment reminders disabled for assessment-only product.
-  // These were generating AI content and sending emails for the removed Power Ups feature.
-
-  // Keep only the abandoned assessment email (useful for assessment-only flow)
+  // Daily checks: abandoned assessments, etc.
   cron.schedule("0 10 * * *", async () => {
     console.log(`${new Date().toLocaleTimeString()} [cron] Running daily checks...`);
     await runDailyChecks();
   });
+
+  console.log(`${new Date().toLocaleTimeString()} [cron] Cron jobs started: nudges (Tue/Fri 9am), daily checks (10am)`);
 }
 
 export async function runNudgeGeneration(): Promise<{ generated: number; failed: number; errors: string[] }> {
@@ -33,88 +49,151 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
   let failed = 0;
 
   try {
+    // Feature flag: global kill switch
+    const enabled = await storage.getSystemConfig("nudges_enabled");
+    if (enabled !== "true") {
+      console.log("[cron] Nudges disabled via system config. Skipping generation.");
+      return { generated, failed, errors };
+    }
+
     const costThresholdStr = await storage.getSystemConfig("nudge_cost_threshold");
     const costThreshold = parseFloat(costThresholdStr || "50");
 
     const activeUsers = await storage.getActiveNudgeUsers();
     const allSkills = await storage.getSkills();
+    const allLevels = await storage.getLevels();
+
+    // Build a map of levelId -> level sortOrder for ordering skills by level
+    const levelSortMap = new Map<number, number>();
+    for (const level of allLevels) {
+      levelSortMap.set(level.id, level.sortOrder);
+    }
 
     for (const user of activeUsers) {
       try {
-        const freq = user.challengeFrequency || "weekly";
-        const now = new Date();
-        const dayOfWeek = now.getDay();
+        // Per-user flags
+        if (!user.nudgesActive || !user.emailPrefsNudges) continue;
 
-        // Map day names to JS getDay() values
-        const dayNameToNumber: Record<string, number> = {
-          "Sunday": 0, "Monday": 1, "Tuesday": 2, "Wednesday": 3,
-          "Thursday": 4, "Friday": 5, "Saturday": 6,
-        };
-        const preferredDay = dayNameToNumber[user.nudgeDay || "Monday"] ?? 1;
+        // Check if it's an appropriate send day (Tuesday=2 or Friday=5)
+        // Convert to user's timezone for the day-of-week check
+        const userTz = user.timezone || "America/Los_Angeles";
+        const nowInUserTz = new Date(new Date().toLocaleString("en-US", { timeZone: userTz }));
+        const userDayOfWeek = nowInUserTz.getDay();
+        if (userDayOfWeek !== 2 && userDayOfWeek !== 5) continue;
 
-        let shouldGenerate = false;
-        if (freq === "daily") {
-          shouldGenerate = true;
-        } else if (freq === "every_other_day") {
-          shouldGenerate = dayOfWeek % 2 === 0;
-        } else if (freq === "twice_weekly") {
-          shouldGenerate = dayOfWeek === preferredDay || dayOfWeek === ((preferredDay + 3) % 7);
-        } else {
-          // weekly: use user's preferred nudge day
-          shouldGenerate = dayOfWeek === preferredDay;
-        }
-
-        if (!shouldGenerate) continue;
-
+        // Get the user's skill statuses and all previous nudges
         const statuses = await storage.getUserSkillStatuses(user.id);
-        const yellowStatuses = statuses.filter(s => s.status === "yellow");
+        const allUserNudges = await storage.getUserNudges(user.id, 200);
 
-        if (yellowStatuses.length === 0) continue;
-
-        const activeSkillStatus = yellowStatuses.sort((a, b) => {
-          const skillA = allSkills.find(s => s.id === a.skillId);
-          const skillB = allSkills.find(s => s.id === b.skillId);
-          return (skillA?.sortOrder || 0) - (skillB?.sortOrder || 0);
-        })[0];
-
-        const skill = allSkills.find(s => s.id === activeSkillStatus.skillId);
-        if (!skill) continue;
-
-        const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
-        const nudgeContent = await generateNudge(user, skill, previousNudges);
-
-        // Generate a personalized email subject line
-        let subjectLine = nudgeContent.subject_line;
-        try {
-          const latestAssessment = (await storage.getCompletedAssessments(user.id))[0];
-          const betterSubject = await generateEmailSubjectLine(
-            {
-              name: user.name || "there",
-              roleTitle: user.roleTitle || "professional",
-              workContextSummary: latestAssessment?.workContextSummary || undefined,
-              contextSummary: latestAssessment?.contextSummary || undefined,
-            },
-            nudgeContent
-          );
-          if (betterSubject) {
-            subjectLine = betterSubject;
-          }
-        } catch (headlineErr) {
-          console.error(`[cron] Email headline generation failed for user ${user.id}, using default:`, headlineErr);
+        // Build set of skillIds that already have a nudge for this user
+        const nudgedSkillIds = new Set<number>();
+        for (const n of allUserNudges) {
+          if (n.skillId !== null) nudgedSkillIds.add(n.skillId);
         }
 
-        await storage.createNudge({
-          userId: user.id,
-          skillId: skill.id,
-          contentJson: nudgeContent,
-          subjectLine,
-        });
+        // Phase 1: Red/Yellow Sweep
+        // Find all red and yellow skills, ordered by level (lowest first), then skill sort order
+        const redYellowStatuses = statuses
+          .filter(s => s.status === "red" || s.status === "yellow")
+          .sort((a, b) => {
+            const skillA = allSkills.find(s => s.id === a.skillId);
+            const skillB = allSkills.find(s => s.id === b.skillId);
+            const levelOrderA = levelSortMap.get(skillA?.levelId ?? 0) ?? 999;
+            const levelOrderB = levelSortMap.get(skillB?.levelId ?? 0) ?? 999;
+            if (levelOrderA !== levelOrderB) return levelOrderA - levelOrderB;
+            return (skillA?.sortOrder || 0) - (skillB?.sortOrder || 0);
+          });
 
-        generated++;
+        // Find the next red/yellow skill that hasn't had a nudge yet
+        const nextRedYellow = redYellowStatuses.find(s => !nudgedSkillIds.has(s.skillId));
 
+        if (nextRedYellow) {
+          // Phase 1: Generate a skill-specific nudge
+          const skill = allSkills.find(s => s.id === nextRedYellow.skillId);
+          if (!skill) continue;
+
+          const latestAssessment = (await storage.getCompletedAssessments(user.id))[0];
+          if (!latestAssessment) continue;
+
+          const userRecord = user as any;
+          const currentLevel: number = userRecord.currentLevel ?? latestAssessment.assessmentLevel ?? 1;
+          const contextSummary = latestAssessment.contextSummary || "No assessment context available.";
+          const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
+
+          const nudgeContent: NudgeContent = await generateNudge(
+            user,
+            currentLevel,
+            contextSummary,
+            previousNudges,
+            { name: skill.name, description: skill.description },
+          );
+
+          await storage.createNudge({
+            userId: user.id,
+            skillId: skill.id,
+            contentJson: nudgeContent as any,
+            subjectLine: nudgeContent.subjectLine,
+          });
+          console.log(`[nudge-generated] userId=${user.id} skillName=${skill.name} level=${currentLevel} phase=red-yellow-sweep`);
+          generated++;
+        } else {
+          // Phase 2: Level Drip
+          // All red/yellow skills have been covered. Send a general level nudge.
+          // Use currentLevel if available (Agent 4 adds this column), fall back to assessment level
+          const latestAssessment = (await storage.getCompletedAssessments(user.id))[0];
+          if (!latestAssessment) continue; // No completed assessment, nothing to drip
+
+          const userRecord = user as any;
+          const currentLevel: number = userRecord.currentLevel ?? latestAssessment.assessmentLevel ?? 1;
+
+          // Find a skill at the user's current level to use as the nudge anchor
+          // Pick one that hasn't been nudged recently (or at all)
+          const levelObj = allLevels.find(l => l.sortOrder === currentLevel);
+          if (!levelObj) continue;
+
+          const levelSkills = allSkills.filter(s => s.levelId === levelObj.id);
+          if (levelSkills.length === 0) continue;
+
+          // Find a level skill we haven't nudged yet, or pick the one with the fewest nudges
+          let targetSkill = levelSkills.find(s => !nudgedSkillIds.has(s.id));
+          if (!targetSkill) {
+            // All skills at this level have been nudged at least once.
+            // Pick the one with the oldest/fewest nudges to avoid repetition.
+            let minNudgeCount = Infinity;
+            for (const s of levelSkills) {
+              const count = allUserNudges.filter(n => n.skillId === s.id).length;
+              if (count < minNudgeCount) {
+                minNudgeCount = count;
+                targetSkill = s;
+              }
+            }
+          }
+          if (!targetSkill) continue;
+
+          const contextSummary = latestAssessment.contextSummary || "No assessment context available.";
+          const previousNudges = allUserNudges.slice(0, 20);
+
+          const nudgeContent: NudgeContent = await generateLevelDripNudge(
+            user,
+            currentLevel,
+            contextSummary,
+            previousNudges,
+          );
+
+          await storage.createNudge({
+            userId: user.id,
+            skillId: targetSkill.id,
+            contentJson: nudgeContent as any,
+            subjectLine: nudgeContent.subjectLine,
+          });
+          console.log(`[nudge-generated] userId=${user.id} skillName=${targetSkill.name} level=${currentLevel} phase=level-drip`);
+          generated++;
+        }
+
+        // Cost threshold check
         const estimatedCost = generated * 0.015;
         if (estimatedCost > costThreshold) {
-          console.log(`[cron] Cost threshold reached ($${estimatedCost}). Pausing generation.`);
+          console.log(`[cron] Cost threshold reached ($${estimatedCost.toFixed(2)}). Pausing generation.`);
           break;
         }
       } catch (e: any) {
@@ -139,6 +218,13 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
   let failed = 0;
 
   try {
+    // Feature flag: global kill switch
+    const enabled = await storage.getSystemConfig("nudges_enabled");
+    if (enabled !== "true") {
+      console.log("[cron] Nudges disabled via system config. Skipping delivery.");
+      return { sent, failed };
+    }
+
     const unsentNudges = await storage.getUnsentNudges();
     const allSkills = await storage.getSkills();
 
@@ -149,8 +235,8 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
           continue;
         }
 
-        const skill = allSkills.find(s => s.id === nudge.skillId);
-        if (!skill) continue;
+        const skill = nudge.skillId ? allSkills.find(s => s.id === nudge.skillId) ?? null : null;
+        if (nudge.skillId && !skill) continue;
 
         const emailId = await sendNudgeEmail(user, nudge, skill, APP_URL);
 
@@ -170,6 +256,7 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
           });
         }
 
+        console.log(`[nudge-sent] userId=${user.id} nudgeId=${nudge.id} to=${user.email}`);
         sent++;
       } catch (e: any) {
         failed++;
@@ -178,6 +265,7 @@ export async function runNudgeDelivery(): Promise<{ sent: number; failed: number
     }
 
     await storage.setSystemConfig("nudge_delivery_last_run", new Date().toISOString());
+    await storage.setSystemConfig("nudge_delivery_last_result", JSON.stringify({ sent, failed }));
   } catch (e: any) {
     console.error("[cron] Nudge delivery batch error:", e);
   }

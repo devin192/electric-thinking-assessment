@@ -2,12 +2,12 @@ import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
-import { getAssessmentResponse, scoreAssessment } from "./assessment-ai";
+import { getAssessmentResponse, scoreAssessment, runLexSafetyCheck } from "./assessment-ai";
 // nudge-ai imports removed — assessment-only product (no Power Ups/challenges)
 // Anthropic SDK import removed — coach conversation feature removed (assessment-only product)
 import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail, sendPasswordResetEmail } from "./email";
 import { seedDatabase } from "./seed";
-import { startCronJobs } from "./cron";
+import { startCronJobs, runNudgeGeneration, runNudgeDelivery } from "./cron";
 import { generateBadgeSVG } from "./badge-svg";
 import { getConversationSignedUrl } from "./elevenlabs";
 import { transitionAssessment } from "./assessment-state";
@@ -488,7 +488,9 @@ export async function registerRoutes(
       const levelName = allLevels.find(l => l.sortOrder === result.assessmentLevel)?.displayName || "Accelerator";
       sendWelcomeEmail(user, levelName, result.assessmentLevel, APP_URL).catch(console.error);
 
-      // Nudge generation disabled — assessment-only product (no Power Ups/challenges)
+      // Lex safety check: review transcript against survey-based skill statuses (fire-and-forget)
+      const skillStatuses = await storage.getUserSkillStatuses(user.id);
+      runLexSafetyCheck(user.id, transcriptText, skillStatuses).catch(console.error);
 
       return res.json({
         assessmentLevel: result.assessmentLevel,
@@ -852,13 +854,29 @@ export async function registerRoutes(
     return res.status(410).json({ message: "This feature has been removed" });
   });
 
-  // ========== NUDGE FEEDBACK (removed — assessment-only product) ==========
-  app.post("/api/nudges/:id/feedback", async (_req, res) => {
-    return res.status(410).json({ message: "This feature has been removed" });
-  });
-
-  app.get("/api/nudges/:id/feedback", async (_req, res) => {
-    return res.status(410).send(feedbackResponseHtml("This feature has been removed", false));
+  // ========== NUDGE FEEDBACK (thumbs up/down from email links) ==========
+  app.get("/api/nudges/:id/feedback", async (req, res) => {
+    try {
+      const nudgeId = parseInt(req.params.id);
+      const vote = req.query.vote as string;
+      if (isNaN(nudgeId) || (vote !== "up" && vote !== "down")) {
+        return res.status(400).send(feedbackResponseHtml("Invalid feedback link.", false));
+      }
+      const nudge = await storage.getNudge(nudgeId);
+      if (!nudge) {
+        return res.status(404).send(feedbackResponseHtml("Nudge not found.", false));
+      }
+      await storage.updateNudge(nudgeId, { feedbackVote: vote });
+      console.log(`[nudge-feedback] nudgeId=${nudgeId} vote=${vote}`);
+      if (vote === "up") {
+        return res.send(feedbackResponseHtml("Thanks for the feedback! \ud83d\udc4d", true));
+      } else {
+        return res.send(feedbackResponseHtml("Thanks for the feedback! \ud83d\udc4e We'll adjust.", true));
+      }
+    } catch (e) {
+      console.error("Nudge feedback error:", e);
+      return res.status(500).send(feedbackResponseHtml("Something went wrong. Try again later.", false));
+    }
   });
 
   // ========== SKILL VERIFICATION (removed — assessment-only product) ==========
@@ -956,6 +974,118 @@ export async function registerRoutes(
 
     await storage.updateUser(user.id, updates);
     return res.json({ message: "Preferences updated" });
+  });
+
+  // ========== LEVEL-UP ==========
+  app.get("/api/user/level-info", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) return res.status(400).json({ message: "Token required" });
+
+      const user = await storage.getUserByUnsubscribeToken(token);
+      if (!user) return res.status(404).json({ message: "Invalid token" });
+
+      const allLevels = await storage.getLevels();
+      const allSkills = await storage.getSkills();
+
+      // Determine effective level: currentLevel field, or fall back to most recent assessment
+      let effectiveLevel = user.currentLevel;
+      if (effectiveLevel == null) {
+        const completed = await storage.getCompletedAssessments(user.id);
+        if (completed.length > 0) {
+          effectiveLevel = completed[0].activeLevel ?? completed[0].assessmentLevel ?? null;
+        }
+      }
+
+      if (effectiveLevel == null) {
+        return res.status(400).json({ message: "No assessment level found" });
+      }
+
+      const currentLevelObj = allLevels.find(l => l.sortOrder === effectiveLevel);
+      const nextLevelObj = allLevels.find(l => l.sortOrder === effectiveLevel! + 1);
+      const prevLevelObj = effectiveLevel > 1 ? allLevels.find(l => l.sortOrder === effectiveLevel! - 1) : null;
+
+      const nextLevelSkills = nextLevelObj
+        ? allSkills.filter(s => s.levelId === nextLevelObj.id && s.isActive).map(s => ({ id: s.id, name: s.name, description: s.description }))
+        : [];
+
+      return res.json({
+        currentLevel: effectiveLevel,
+        currentLevelName: currentLevelObj?.displayName ?? `Level ${effectiveLevel}`,
+        nextLevel: nextLevelObj ? effectiveLevel + 1 : null,
+        nextLevelName: nextLevelObj?.displayName ?? null,
+        nextLevelSkills,
+        canGoDown: effectiveLevel > 1,
+        prevLevel: prevLevelObj ? effectiveLevel - 1 : null,
+        prevLevelName: prevLevelObj?.displayName ?? null,
+      });
+    } catch (e: any) {
+      console.error("Level info error:", e);
+      return res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/user/level-up", async (req, res) => {
+    try {
+      const { token, direction } = z.object({
+        token: z.string().min(1),
+        direction: z.enum(["up", "down"]),
+      }).parse(req.body);
+
+      const user = await storage.getUserByUnsubscribeToken(token);
+      if (!user) return res.status(404).json({ message: "Invalid token" });
+
+      const allLevels = await storage.getLevels();
+      const allSkills = await storage.getSkills();
+
+      // Determine current effective level
+      let effectiveLevel = user.currentLevel;
+      if (effectiveLevel == null) {
+        const completed = await storage.getCompletedAssessments(user.id);
+        if (completed.length > 0) {
+          effectiveLevel = completed[0].activeLevel ?? completed[0].assessmentLevel ?? null;
+        }
+      }
+
+      if (effectiveLevel == null) {
+        return res.status(400).json({ message: "No assessment level found" });
+      }
+
+      const maxLevel = Math.max(...allLevels.map(l => l.sortOrder));
+      const newLevel = direction === "up"
+        ? Math.min(effectiveLevel + 1, maxLevel)
+        : Math.max(effectiveLevel - 1, 1);
+
+      if (newLevel === effectiveLevel) {
+        return res.status(400).json({
+          message: direction === "up" ? "Already at the highest level" : "Already at the lowest level",
+        });
+      }
+
+      await storage.updateUser(user.id, { currentLevel: newLevel });
+      console.log(`[level-up] userId=${user.id} from=${effectiveLevel} to=${newLevel}`);
+
+      const newLevelObj = allLevels.find(l => l.sortOrder === newLevel);
+      const nextLevelObj = allLevels.find(l => l.sortOrder === newLevel + 1);
+      const nextLevelSkills = nextLevelObj
+        ? allSkills.filter(s => s.levelId === nextLevelObj.id && s.isActive).map(s => ({ id: s.id, name: s.name, description: s.description }))
+        : [];
+
+      return res.json({
+        currentLevel: newLevel,
+        currentLevelName: newLevelObj?.displayName ?? `Level ${newLevel}`,
+        nextLevel: nextLevelObj ? newLevel + 1 : null,
+        nextLevelName: nextLevelObj?.displayName ?? null,
+        nextLevelSkills,
+        canGoDown: newLevel > 1,
+      });
+    } catch (e: any) {
+      if (e.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input: token and direction (up/down) required" });
+      }
+      console.error("Level-up error:", e);
+      return res.status(500).json({ message: "Internal error" });
+    }
   });
 
   // ========== ORGANIZATION ==========
@@ -1810,6 +1940,19 @@ export async function registerRoutes(
     return res.json({ message: "Saved" });
   });
 
+  // Nudge feature flag toggle
+  app.post("/api/admin/config/nudges-toggle", requireAdmin, async (_req, res) => {
+    try {
+      const current = await storage.getSystemConfig("nudges_enabled");
+      const newValue = current === "true" ? "false" : "true";
+      await storage.setSystemConfig("nudges_enabled", newValue);
+      console.log(`[nudge-config] nudges_enabled toggled to ${newValue}`);
+      return res.json({ nudges_enabled: newValue });
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get("/api/admin/nudge-guide", requireAdmin, async (_req, res) => {
     const text = await storage.getNudgeVoiceGuide();
     return res.json({ text: text || "" });
@@ -1830,13 +1973,31 @@ export async function registerRoutes(
     }
   });
 
-  // Admin nudge generate/deliver disabled — assessment-only product
+  // Admin nudge generate/deliver — manually trigger nudge cycle
   app.post("/api/admin/nudge/generate", requireAdmin, async (_req, res) => {
-    return res.status(410).json({ message: "Nudge generation is disabled" });
+    try {
+      const enabled = await storage.getSystemConfig("nudges_enabled");
+      if (enabled !== "true") {
+        return res.status(400).json({ message: "Nudges are disabled. Toggle nudges_enabled first." });
+      }
+      const result = await runNudgeGeneration();
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
   });
 
   app.post("/api/admin/nudge/deliver", requireAdmin, async (_req, res) => {
-    return res.status(410).json({ message: "Nudge delivery is disabled" });
+    try {
+      const enabled = await storage.getSystemConfig("nudges_enabled");
+      if (enabled !== "true") {
+        return res.status(400).json({ message: "Nudges are disabled. Toggle nudges_enabled first." });
+      }
+      const result = await runNudgeDelivery();
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
   });
 
   app.get("/api/admin/system-health", requireAdmin, async (_req, res) => {
@@ -1925,10 +2086,8 @@ export async function registerRoutes(
           const nudges = await storage.getUserNudges(userId);
           if (nudges[0]) {
             const skill = nudges[0].skillId ? await storage.getSkill(nudges[0].skillId) : null;
-            if (skill) {
-              const { sendNudgeEmail } = await import("./email");
-              await sendNudgeEmail(targetUser, nudges[0], skill, APP_URL);
-            }
+            const { sendNudgeEmail } = await import("./email");
+            await sendNudgeEmail(targetUser, nudges[0], skill, APP_URL);
           }
           break;
         }

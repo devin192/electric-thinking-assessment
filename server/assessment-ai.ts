@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
-import type { Skill, Level } from "@shared/schema";
+import type { Skill, Level, UserSkillStatus } from "@shared/schema";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -249,4 +249,101 @@ Respond in this exact JSON format (no markdown, just raw JSON):
     nextLevelIdentity: "",
     triggerMoment: "",
   };
+}
+
+/**
+ * Lex safety check: reviews the assessment transcript against the user's
+ * survey-based skill statuses and corrects mismatches based on demonstrated behavior.
+ * Called fire-and-forget after scoring completes.
+ */
+export async function runLexSafetyCheck(
+  userId: number,
+  transcript: string,
+  skillStatuses: UserSkillStatus[],
+): Promise<void> {
+  const allSkills = await storage.getSkills();
+
+  // Build the skill status summary for the prompt
+  const statusSummary = skillStatuses.map(ss => {
+    const skill = allSkills.find(s => s.id === ss.skillId);
+    return skill ? `- ${skill.name}: ${ss.status}` : null;
+  }).filter(Boolean).join("\n");
+
+  if (!statusSummary) {
+    console.log(`[lex-safety-check] userId=${userId} corrections=0 (no skill statuses to check)`);
+    return;
+  }
+
+  const prompt = `Review this AI fluency assessment conversation transcript. The user's self-assessment survey rated them as follows:
+
+${statusSummary}
+
+Based on what they DEMONSTRATED in the conversation (not what they claimed), flag any mismatches where the conversation evidence clearly contradicts the survey-based status.
+
+Rules:
+- Only flag clear mismatches. If the transcript doesn't cover a skill, leave it alone.
+- A "red" skill where the user clearly demonstrated competence should become "yellow" or "green".
+- A "green" skill where the user showed no evidence or contradicted it should become "yellow" or "red".
+- Be conservative. The survey is the baseline; only override with strong transcript evidence.
+
+TRANSCRIPT:
+${transcript}
+
+Respond in this exact JSON format (no markdown, just raw JSON):
+{
+  "corrections": [
+    {
+      "skillName": "exact skill name",
+      "surveyStatus": "red|yellow|green",
+      "demonstratedStatus": "red|yellow|green",
+      "evidence": "one sentence explaining the mismatch"
+    }
+  ]
+}
+
+If there are no mismatches, return: { "corrections": [] }`;
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1500,
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  const textBlock = response.content.find(b => b.type === "text");
+  const text = textBlock?.text || "{}";
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log(`[lex-safety-check] userId=${userId} corrections=0 (failed to parse response)`);
+      return;
+    }
+    parsed = JSON.parse(jsonMatch[0]);
+  }
+
+  const corrections: Array<{ skillName: string; surveyStatus: string; demonstratedStatus: string; evidence: string }> = parsed.corrections || [];
+
+  if (corrections.length === 0) {
+    console.log(`[lex-safety-check] userId=${userId} corrections=0`);
+    return;
+  }
+
+  // Apply corrections
+  for (const correction of corrections) {
+    const skill = allSkills.find(s => s.name === correction.skillName)
+      || allSkills.find(s => s.name.toLowerCase() === correction.skillName.toLowerCase());
+    if (!skill) continue;
+
+    await storage.upsertUserSkillStatus({
+      userId,
+      skillId: skill.id,
+      status: correction.demonstratedStatus,
+      explanation: `[Lex safety check] ${correction.evidence} (survey: ${correction.surveyStatus}, demonstrated: ${correction.demonstratedStatus})`,
+    });
+  }
+
+  console.log(`[lex-safety-check] userId=${userId} corrections=${corrections.length}`);
 }

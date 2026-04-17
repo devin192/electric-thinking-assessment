@@ -109,7 +109,7 @@ export interface IStorage {
     completedAssessments: number;
     levelDistribution: Record<number, number>;
     skillCompletionRates: Record<number, { total: number; green: number; yellow: number; red: number }>;
-    nudgeStats: { total: number; sent: number; opened: number; read: number };
+    nudgeStats: { total: number; sent: number; opened: number; read: number; thumbsUp: number; thumbsDown: number; avgPerUser: number };
     npsStats: { average: number | null; count: number; promoters: number; passives: number; detractors: number; npsScore: number | null };
   }>;
 
@@ -552,6 +552,15 @@ export class DatabaseStorage implements IStorage {
     const sentNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.emailSent, true));
     const openedNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.emailOpened, true));
     const readNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.inAppRead, true));
+    const thumbsUpNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.feedbackVote, "up"));
+    const thumbsDownNudges = await db.select({ count: count() }).from(nudges).where(eq(nudges.feedbackVote, "down"));
+
+    // Average nudges per user: count distinct users who have nudges, then divide
+    const nudgeUserIds = await db.selectDistinct({ userId: nudges.userId }).from(nudges);
+    const nudgeUserCount = nudgeUserIds.length;
+    const avgNudgesPerUser = nudgeUserCount > 0
+      ? Math.round((allNudges[0].count / nudgeUserCount) * 10) / 10
+      : 0;
 
     // NPS stats
     const npsResponses = completedList.filter(a => a.npsScore !== null && a.npsScore !== undefined);
@@ -585,6 +594,9 @@ export class DatabaseStorage implements IStorage {
         sent: sentNudges[0].count,
         opened: openedNudges[0].count,
         read: readNudges[0].count,
+        thumbsUp: thumbsUpNudges[0].count,
+        thumbsDown: thumbsDownNudges[0].count,
+        avgPerUser: avgNudgesPerUser,
       },
       npsStats,
     };

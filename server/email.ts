@@ -229,57 +229,82 @@ export async function sendWelcomeEmail(user: User, levelName: string, level: num
 }
 
 /**
- * 2. POWER UP EMAIL (nudge delivery)
- * The core retention mechanism. Delivers one skill Power Up.
- * Visually broken up with bold headlines, bullet points, and clear CTA.
+ * 2. NUDGE EMAIL (level-adapted drip)
+ * Twice-weekly insight emails. Short, actionable, under 200 words visible.
+ * Content shape: { universalInsight, levelAdaptation, tryThis, subjectLine, targetSkillName }
  */
-export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill, appUrl: string): Promise<string | null> {
+export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill | null, appUrl: string): Promise<string | null> {
   if (!user.emailValid || !user.emailPrefsNudges) return null;
   try {
     const { client, fromEmail } = await getUncachableResendClient();
     const { from, replyTo } = await getFromConfig();
     const content = nudge.contentJson as any;
     const unsubscribeUrl = `${appUrl}/unsubscribe/${user.unsubscribeToken}`;
-    const feedbackBaseUrl = `${appUrl}/api/nudges/${nudge.id}/feedback?token=${user.unsubscribeToken}`;
+    const feedbackUpUrl = `${appUrl}/api/nudges/${nudge.id}/feedback?vote=up`;
+    const feedbackDownUrl = `${appUrl}/api/nudges/${nudge.id}/feedback?vote=down`;
 
-    const html = baseTemplate(card(`
-      ${bodyText(content?.opener || "")}
-      ${divider()}
-      ${sectionHeading("The Idea")}
-      ${bodyText(content?.idea || "")}
-      ${divider()}
-      ${sectionHeading("Try This")}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="padding: 0 0 4px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>Your use case:</strong> ${content?.use_case || ""}</td></tr>
-        <tr><td style="padding: 0 0 4px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.charcoal};" class="email-text">&#8226; <strong>The action:</strong> ${content?.action || ""}</td></tr>
+    // Resolve the user's current level (0-indexed) and name
+    // currentLevel is the self-declared level; fall back to 0 if not set
+    const userLevel = user.currentLevel ?? 0;
+    const levelNames: Record<number, string> = { 0: "Accelerator", 1: "Thought Partner", 2: "Team Builder", 3: "Systems Designer" };
+    const levelName = levelNames[userLevel] || "Accelerator";
+    const nextLevel = userLevel + 1;
+    const levelUpUrl = `${appUrl}/level-up?token=${user.unsubscribeToken}`;
+    const levelColor = BRAND.levelColors[userLevel] || BRAND.pink;
+
+    const html = baseTemplate(`
+      ${card(`
+        ${bodyText(escapeHtml(content?.universalInsight || ""))}
+        ${divider()}
+        <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.charcoal}; margin: 0 0 16px 0; background-color: rgba(0,0,0,0.03); padding: 12px 16px; border-left: 3px solid ${levelColor}; border-radius: 0 8px 8px 0;" class="email-text">${escapeHtml(content?.levelAdaptation || "")}</p>
+        ${divider()}
+        ${sectionHeading("Try this")}
+        ${bodyText(escapeHtml(content?.tryThis || ""))}
+      `)}
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 24px 0 8px 0;">
+        <tr>
+          <td align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding: 0 8px;">
+                  <!--[if mso]>
+                  <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${feedbackUpUrl}" style="height:48px;v-text-anchor:middle;width:64px;" arcsize="50%" fillcolor="${BRAND.cardBg}" stroke="t" strokecolor="${BRAND.border}"><w:anchorlock/><center style="color:${BRAND.charcoal};font-size:24px;">&#128077;</center></v:roundrect>
+                  <![endif]-->
+                  <!--[if !mso]><!-->
+                  <a href="${feedbackUpUrl}" style="display: inline-block; width: 64px; height: 48px; line-height: 48px; text-align: center; font-size: 24px; text-decoration: none; background-color: ${BRAND.cardBg}; border: 1px solid ${BRAND.border}; border-radius: 999px;">&#128077;</a>
+                  <!--<![endif]-->
+                </td>
+                <td style="padding: 0 8px;">
+                  <!--[if mso]>
+                  <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${feedbackDownUrl}" style="height:48px;v-text-anchor:middle;width:64px;" arcsize="50%" fillcolor="${BRAND.cardBg}" stroke="t" strokecolor="${BRAND.border}"><w:anchorlock/><center style="color:${BRAND.charcoal};font-size:24px;">&#128078;</center></v:roundrect>
+                  <![endif]-->
+                  <!--[if !mso]><!-->
+                  <a href="${feedbackDownUrl}" style="display: inline-block; width: 64px; height: 48px; line-height: 48px; text-align: center; font-size: 24px; text-decoration: none; background-color: ${BRAND.cardBg}; border: 1px solid ${BRAND.border}; border-radius: 999px;">&#128078;</a>
+                  <!--<![endif]-->
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
       </table>
-      ${divider()}
-      ${sectionHeading("Reflect")}
-      <p style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: ${BRAND.charcoal}; margin: 0 0 4px 0; font-style: italic;" class="email-text">${content?.reflection || ""}</p>
-      ${divider()}
-      ${smallText(content?.story || "")}
-      ${divider()}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="padding-top: 8px;" align="center">
-          ${ctaButton("Open Your Power Up", `${appUrl}/dashboard`)}
-        </td></tr>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="padding: 16px 0 0 0;">
+        <tr>
+          <td style="text-align: center; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: ${BRAND.textLight}; line-height: 1.6;" class="email-text-light">
+            You're getting this at Level ${userLevel + 1} (${escapeHtml(levelName)}).${nextLevel <= 3
+              ? ` <a href="${levelUpUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Ready for Level ${nextLevel + 1}?</a>`
+              : ""}
+          </td>
+        </tr>
       </table>
-      ${divider()}
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="text-align: center; padding-top: 4px;">
-          <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: ${BRAND.textLight};">Was this relevant? </span>
-          <a href="${feedbackBaseUrl}&relevant=true" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: ${BRAND.pink}; text-decoration: none;">This was helpful</a>
-          <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: ${BRAND.textLight};"> &middot; </span>
-          <a href="${feedbackBaseUrl}&relevant=false" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: ${BRAND.textLight}; text-decoration: none;">Not relevant to my work</a>
-        </td></tr>
-      </table>
-    `), unsubscribeUrl);
+    `, unsubscribeUrl);
+
+    const subject = content?.subjectLine || nudge.subjectLine || "A quick thought on AI";
 
     const result = await client.emails.send({
       from: fromEmail || from,
       to: user.email,
       replyTo,
-      subject: content?.subject_line || nudge.subjectLine || `Your challenge for ${skill.name}`,
+      subject,
       html,
       headers: {
         "List-Unsubscribe": `<${unsubscribeUrl}>`,

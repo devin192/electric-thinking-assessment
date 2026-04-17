@@ -28,6 +28,12 @@ const migrations: string[] = [
   // Post-assessment micro-survey (added 2026-04-09)
   `ALTER TABLE assessments ADD COLUMN IF NOT EXISTS user_feedback_text text`,
 
+  // Level-up: self-declared current level (added 2026-04-17)
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS current_level integer`,
+
+  // Nudge feedback vote: thumbs up/down from email (added 2026-04-17)
+  `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS feedback_vote varchar(10)`,
+
   // Issue reports table (added 2026-04-09)
   `CREATE TABLE IF NOT EXISTS issue_reports (
     id serial PRIMARY KEY,

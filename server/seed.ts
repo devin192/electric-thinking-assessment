@@ -275,6 +275,8 @@ async function ensureMigrations() {
     { table: "assessments", column: "survey_responses_json", type: "jsonb" },
     { table: "assessments", column: "survey_level", type: "integer" },
     { table: "organizations", column: "join_code", type: "varchar(50)" },
+    { table: "nudges", column: "feedback_vote", type: "varchar(10)" },
+    { table: "users", column: "current_level", type: "integer" },
   ];
 
   for (const { table, column, type } of migrations) {

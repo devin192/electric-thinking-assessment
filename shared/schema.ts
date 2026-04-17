@@ -45,6 +45,7 @@ export const users = pgTable(
     emailPrefsProgress: boolean("email_prefs_progress").default(true),
     emailPrefsReminders: boolean("email_prefs_reminders").default(true),
     unsubscribeToken: varchar("unsubscribe_token", { length: 255 }),
+    currentLevel: integer("current_level"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -158,6 +159,7 @@ export const nudges = pgTable(
     inAppRead: boolean("in_app_read").default(false),
     isFirstChallenge: boolean("is_first_challenge").default(false),
     feedbackRelevant: boolean("feedback_relevant"),
+    feedbackVote: varchar("feedback_vote", { length: 10 }),
     feedbackText: text("feedback_text"),
     sentAt: timestamp("sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
