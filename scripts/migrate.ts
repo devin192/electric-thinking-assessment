@@ -14,6 +14,9 @@ import pg from "pg";
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
 const migrations: string[] = [
+  // NPS score (pre-existing, added before migration script existed)
+  `ALTER TABLE assessments ADD COLUMN IF NOT EXISTS nps_score integer`,
+
   // Scoring validation (added 2026-04-09)
   `ALTER TABLE assessments ADD COLUMN IF NOT EXISTS scoring_confidence varchar(20)`,
 
