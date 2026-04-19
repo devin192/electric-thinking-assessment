@@ -71,6 +71,8 @@ export interface IStorage {
   updateNudge(id: number, data: Partial<Nudge>): Promise<void>;
   getUnsentNudges(): Promise<Nudge[]>;
   getConsecutiveUnopenedNudges(userId: number): Promise<number>;
+  getAllNudges(limit?: number): Promise<Nudge[]>;
+  getRecentNudgesAcrossUsers(sinceDate: Date): Promise<Nudge[]>;
 
   createVerificationAttempt(data: InsertVerificationAttempt): Promise<VerificationAttempt>;
   getUserVerificationAttempts(userId: number, skillId: number): Promise<VerificationAttempt[]>;
@@ -109,7 +111,19 @@ export interface IStorage {
     completedAssessments: number;
     levelDistribution: Record<number, number>;
     skillCompletionRates: Record<number, { total: number; green: number; yellow: number; red: number }>;
-    nudgeStats: { total: number; sent: number; opened: number; read: number; thumbsUp: number; thumbsDown: number; avgPerUser: number };
+    nudgeStats: {
+      total: number;
+      sent: number;
+      opened: number;
+      read: number;
+      thumbsUp: number;
+      thumbsDown: number;
+      avgPerUser: number;
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalCostCents: number;
+      avgCostPerNudgeCents: number;
+    };
     npsStats: { average: number | null; count: number; promoters: number; passives: number; detractors: number; npsScore: number | null };
   }>;
 
@@ -379,6 +393,20 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(nudges.emailSent, false)));
   }
 
+  async getAllNudges(limit = 1000): Promise<Nudge[]> {
+    return db.select().from(nudges)
+      .orderBy(desc(nudges.createdAt))
+      .limit(limit);
+  }
+
+  async getRecentNudgesAcrossUsers(sinceDate: Date): Promise<Nudge[]> {
+    // All nudges created since `sinceDate`, most recent first. Used for
+    // cross-user similarity checks at generation time. Caller filters by user.
+    return db.select().from(nudges)
+      .where(gte(nudges.createdAt, sinceDate))
+      .orderBy(desc(nudges.createdAt));
+  }
+
   async getConsecutiveUnopenedNudges(userId: number): Promise<number> {
     const userNudges = await db.select().from(nudges)
       .where(and(eq(nudges.userId, userId), eq(nudges.emailSent, true)))
@@ -562,6 +590,27 @@ export class DatabaseStorage implements IStorage {
       ? Math.round((allNudges[0].count / nudgeUserCount) * 10) / 10
       : 0;
 
+    // Nudge generation cost aggregates
+    // generation_cost is stored in CENTS with 4 decimal places (decimal(6,4))
+    // Postgres returns decimal as string; wrap in Number() before arithmetic.
+    const nudgeCostRow = await db
+      .select({
+        inputTokens: sql<string>`COALESCE(SUM(${nudges.inputTokens}), 0)`,
+        outputTokens: sql<string>`COALESCE(SUM(${nudges.outputTokens}), 0)`,
+        costCents: sql<string>`COALESCE(SUM(${nudges.generationCost}), 0)`,
+        countWithCost: sql<string>`COUNT(${nudges.generationCost})`,
+      })
+      .from(nudges);
+    const totalInputTokens = Number(nudgeCostRow[0]?.inputTokens ?? 0);
+    const totalOutputTokens = Number(nudgeCostRow[0]?.outputTokens ?? 0);
+    const totalCostCentsRaw = Number(nudgeCostRow[0]?.costCents ?? 0);
+    const countWithCost = Number(nudgeCostRow[0]?.countWithCost ?? 0);
+    // Round to 4 decimals to match storage precision
+    const totalCostCents = Math.round(totalCostCentsRaw * 10_000) / 10_000;
+    const avgCostPerNudgeCents = countWithCost > 0
+      ? Math.round((totalCostCentsRaw / countWithCost) * 10_000) / 10_000
+      : 0;
+
     // NPS stats
     const npsResponses = completedList.filter(a => a.npsScore !== null && a.npsScore !== undefined);
     const npsCount = npsResponses.length;
@@ -597,6 +646,10 @@ export class DatabaseStorage implements IStorage {
         thumbsUp: thumbsUpNudges[0].count,
         thumbsDown: thumbsDownNudges[0].count,
         avgPerUser: avgNudgesPerUser,
+        totalInputTokens,
+        totalOutputTokens,
+        totalCostCents,
+        avgCostPerNudgeCents,
       },
       npsStats,
     };

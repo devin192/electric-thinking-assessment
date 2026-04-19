@@ -3,7 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, hashPassword, comparePasswords, requireAuth, requireAdmin, getCurrentUser } from "./auth";
 import { getAssessmentResponse, scoreAssessment, runLexSafetyCheck } from "./assessment-ai";
-// nudge-ai imports removed — assessment-only product (no Power Ups/challenges)
+import { generateNudgeWithDedup } from "./nudge-ai";
 // Anthropic SDK import removed — coach conversation feature removed (assessment-only product)
 import { sendWelcomeEmail, sendSkillCompleteEmail, sendLevelUpEmail, sendInviteEmail, sendManagerOnboardingEmail, sendPasswordResetEmail } from "./email";
 import { seedDatabase } from "./seed";
@@ -14,6 +14,7 @@ import { transitionAssessment } from "./assessment-state";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { registerSchema, loginSchema, insertLiveSessionSchema } from "@shared/schema";
+import type { Skill } from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 
@@ -21,6 +22,38 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: { me
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// Return the next `count` Tuesday/Friday dates, evaluated in `timeZone`. Matches
+// the nudge cron's day-of-week semantics (Tue=2, Fri=5 in the user's tz). Each
+// entry's `iso` is a YYYY-MM-DD string in the user's local wall clock.
+function computeNextTueFriDates(
+  count: number,
+  timeZone: string,
+): Array<{ iso: string; dayOfWeek: "Tuesday" | "Friday" }> {
+  const out: Array<{ iso: string; dayOfWeek: "Tuesday" | "Friday" }> = [];
+  const now = new Date();
+  // Walk forward one UTC day at a time; evaluate the weekday in the user's tz.
+  const startMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dayFmt = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    timeZone,
+  });
+  const partsFmt = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone,
+  });
+  for (let i = 1; i <= 365 && out.length < count; i++) {
+    const probe = new Date(startMs + i * 24 * 60 * 60 * 1000);
+    const weekday = dayFmt.format(probe); // "Tue", "Fri", etc.
+    if (weekday === "Tue" || weekday === "Fri") {
+      const iso = partsFmt.format(probe); // en-CA → YYYY-MM-DD
+      out.push({ iso, dayOfWeek: weekday === "Tue" ? "Tuesday" : "Friday" });
+    }
+  }
+  return out;
 }
 
 function requireManager(req: Request, res: Response, next: NextFunction) {
@@ -976,6 +1009,31 @@ export async function registerRoutes(
     return res.json({ message: "Preferences updated" });
   });
 
+  // RFC 8058 one-click unsubscribe endpoint.
+  // The List-Unsubscribe email header points browsers/MUAs to
+  // `${appUrl}/unsubscribe/:token`. A human GET on that URL hits the SPA and
+  // renders the preferences page. Gmail/Outlook/Apple Mail's one-click button
+  // sends an unauthenticated POST with body `List-Unsubscribe=One-Click`
+  // (Content-Type: application/x-www-form-urlencoded). This handler intercepts
+  // that POST before it reaches the Vite/static SPA fallback and unsubscribes
+  // the user from all bulk email categories.
+  app.post("/unsubscribe/:token", async (req, res) => {
+    const user = await storage.getUserByUnsubscribeToken(req.params.token);
+    if (!user) return res.status(404).send("Invalid token");
+    try {
+      await storage.updateUser(user.id, {
+        emailPrefsNudges: false,
+        emailPrefsProgress: false,
+        emailPrefsReminders: false,
+      });
+      // Spec says 2xx is enough; body is ignored by MUAs.
+      return res.status(200).send("Unsubscribed");
+    } catch (e) {
+      console.error("One-click unsubscribe failed:", e);
+      return res.status(500).send("Error processing unsubscribe");
+    }
+  });
+
   // ========== LEVEL-UP ==========
   app.get("/api/user/level-info", async (req, res) => {
     try {
@@ -1084,6 +1142,58 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid input: token and direction (up/down) required" });
       }
       console.error("Level-up error:", e);
+      return res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // ========== NUDGE PAUSE/RESUME ==========
+  app.get("/api/user/nudge-status", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      if (!token) return res.status(400).json({ message: "Token required" });
+
+      const user = await storage.getUserByUnsubscribeToken(token);
+      if (!user) return res.status(404).json({ message: "Invalid token" });
+
+      return res.json({
+        name: user.name,
+        email: user.email,
+        nudgesActive: user.nudgesActive ?? true,
+        emailPrefsNudges: user.emailPrefsNudges ?? true,
+        currentLevel: user.currentLevel,
+      });
+    } catch (e: any) {
+      console.error("Nudge status error:", e);
+      return res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  app.post("/api/user/nudge-pause", async (req, res) => {
+    try {
+      const { token, action } = z.object({
+        token: z.string().min(1),
+        action: z.enum(["pause", "resume"]),
+      }).parse(req.body);
+
+      const user = await storage.getUserByUnsubscribeToken(token);
+      if (!user) return res.status(404).json({ message: "Invalid token" });
+
+      const nudgesActive = action === "resume";
+      await storage.updateUser(user.id, { nudgesActive });
+      console.log(`[nudge-pause] userId=${user.id} action=${action} nudgesActive=${nudgesActive}`);
+
+      return res.json({
+        name: user.name,
+        email: user.email,
+        nudgesActive,
+        emailPrefsNudges: user.emailPrefsNudges ?? true,
+        currentLevel: user.currentLevel,
+      });
+    } catch (e: any) {
+      if (e.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid input: token and action (pause/resume) required" });
+      }
+      console.error("Nudge pause error:", e);
       return res.status(500).json({ message: "Internal error" });
     }
   });
@@ -1953,6 +2063,21 @@ export async function registerRoutes(
     }
   });
 
+  // Slack notifications feature flag toggle (posts nudge summaries to a
+  // webhook for spot-checking). Default is "false" — only posts when this
+  // is "true" AND SLACK_NUDGE_WEBHOOK_URL is set.
+  app.post("/api/admin/config/slack-toggle", requireAdmin, async (_req, res) => {
+    try {
+      const current = await storage.getSystemConfig("slack_notifications_enabled");
+      const newValue = current === "true" ? "false" : "true";
+      await storage.setSystemConfig("slack_notifications_enabled", newValue);
+      console.log(`[slack-config] slack_notifications_enabled toggled to ${newValue}`);
+      return res.json({ slack_notifications_enabled: newValue });
+    } catch (e: any) {
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
   app.get("/api/admin/nudge-guide", requireAdmin, async (_req, res) => {
     const text = await storage.getNudgeVoiceGuide();
     return res.json({ text: text || "" });
@@ -1970,6 +2095,86 @@ export async function registerRoutes(
     } catch (e: any) {
       console.error("Admin endpoint error:", e.message);
       return res.status(500).json({ message: "Internal error" });
+    }
+  });
+
+  // Admin: list all nudges with user/skill joined context for the review dashboard
+  app.get("/api/admin/nudges", requireAdmin, async (req, res) => {
+    try {
+      const userIdFilter = req.query.userId ? parseInt(req.query.userId as string) : null;
+      const levelFilter = req.query.level !== undefined && req.query.level !== "" && req.query.level !== "all"
+        ? parseInt(req.query.level as string)
+        : null;
+      const feedbackFilter = typeof req.query.feedback === "string" && req.query.feedback !== "all"
+        ? (req.query.feedback as string)
+        : null;
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string) || 50, 500) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) || 0 : 0;
+
+      const [allUsers, allSkills, allLevels] = await Promise.all([
+        storage.getAllUsers(),
+        storage.getSkills(),
+        storage.getLevels(),
+      ]);
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+      const skillMap = new Map(allSkills.map(s => [s.id, s]));
+      const levelMap = new Map(allLevels.map(l => [l.id, l]));
+
+      // Pull a superset of nudges, then filter in-memory to keep storage layer simple.
+      const rawLimit = Math.max(limit + offset, 1000);
+      const all = await storage.getAllNudges(rawLimit);
+
+      let filtered = all.map(n => {
+        const u = userMap.get(n.userId);
+        const skill = n.skillId ? skillMap.get(n.skillId) : null;
+        const skillLevel = skill ? levelMap.get(skill.levelId) : null;
+        return {
+          id: n.id,
+          userId: n.userId,
+          userName: u?.name || null,
+          userEmail: u?.email || null,
+          userRole: u?.roleTitle || null,
+          userLevel: u?.currentLevel ?? null,
+          skillId: n.skillId,
+          skillName: skill?.name || null,
+          skillLevelSortOrder: skillLevel?.sortOrder ?? null,
+          contentJson: n.contentJson,
+          subjectLine: n.subjectLine,
+          emailSent: n.emailSent,
+          emailOpened: n.emailOpened,
+          inAppRead: n.inAppRead,
+          feedbackVote: n.feedbackVote,
+          feedbackText: n.feedbackText,
+          sentAt: n.sentAt,
+          createdAt: n.createdAt,
+        };
+      });
+
+      if (userIdFilter !== null && !isNaN(userIdFilter)) {
+        filtered = filtered.filter(n => n.userId === userIdFilter);
+      }
+      if (levelFilter !== null && !isNaN(levelFilter)) {
+        // Level filter matches the skill's level sortOrder (0-indexed) or the user's current level
+        filtered = filtered.filter(n => n.skillLevelSortOrder === levelFilter || n.userLevel === levelFilter);
+      }
+      if (feedbackFilter) {
+        if (feedbackFilter === "up") filtered = filtered.filter(n => n.feedbackVote === "up");
+        else if (feedbackFilter === "down") filtered = filtered.filter(n => n.feedbackVote === "down");
+        else if (feedbackFilter === "none") filtered = filtered.filter(n => !n.feedbackVote);
+      }
+
+      const total = filtered.length;
+      const paged = filtered.slice(offset, offset + limit);
+
+      return res.json({
+        total,
+        limit,
+        offset,
+        nudges: paged,
+      });
+    } catch (e: any) {
+      console.error("Admin nudges list error:", e.message);
+      return res.status(500).json({ message: e.message || "Internal error" });
     }
   });
 
@@ -1997,6 +2202,331 @@ export async function registerRoutes(
       return res.json(result);
     } catch (e: any) {
       return res.status(500).json({ message: e.message });
+    }
+  });
+
+  // Preview what nudges a user would receive over the next 12 weeks (24 slots,
+  // Tue/Fri cadence). Mirrors the phase logic in cron.ts — phase 1 = red/yellow
+  // sweep in level order, phase 2 = level drip — but generates no content and
+  // writes nothing to the database. Used by admins to sanity-check ordering
+  // before enabling nudges for a user.
+  app.get("/api/admin/nudges/simulate/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (!Number.isFinite(userId)) {
+        return res.status(400).json({ message: "Invalid userId" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const [statuses, allSkills, allLevels, allUserNudges, completedAssessments] = await Promise.all([
+        storage.getUserSkillStatuses(userId),
+        storage.getSkills(),
+        storage.getLevels(),
+        storage.getUserNudges(userId, 200),
+        storage.getCompletedAssessments(userId),
+      ]);
+
+      const skillById = new Map(allSkills.map(s => [s.id, s]));
+      const levelById = new Map(allLevels.map(l => [l.id, l]));
+      const levelBySortOrder = new Map(allLevels.map(l => [l.sortOrder, l]));
+
+      // Skills already nudged (same exclusion used by cron phase 1)
+      const nudgedSkillIds = new Set<number>();
+      for (const n of allUserNudges) {
+        if (n.skillId !== null) nudgedSkillIds.add(n.skillId);
+      }
+
+      // Phase 1 queue — red/yellow skills in (levelSortOrder asc, skill sortOrder asc),
+      // filtering out skills that have already had a nudge.
+      const phase1Queue = statuses
+        .filter(s => s.status === "red" || s.status === "yellow")
+        .map(s => ({ status: s, skill: skillById.get(s.skillId) }))
+        .filter((x): x is { status: typeof statuses[number]; skill: Skill } => Boolean(x.skill))
+        .filter(x => !nudgedSkillIds.has(x.skill.id))
+        .sort((a, b) => {
+          const levelA = levelById.get(a.skill.levelId)?.sortOrder ?? 999;
+          const levelB = levelById.get(b.skill.levelId)?.sortOrder ?? 999;
+          if (levelA !== levelB) return levelA - levelB;
+          return (a.skill.sortOrder || 0) - (b.skill.sortOrder || 0);
+        });
+
+      // Level for phase 2 drip — same resolution as cron.
+      const latestAssessment = completedAssessments[0];
+      const currentLevel: number =
+        (user as any).currentLevel ?? latestAssessment?.assessmentLevel ?? 1;
+      const dripLevelObj = levelBySortOrder.get(currentLevel);
+      const dripLevelSkills = dripLevelObj
+        ? allSkills
+            .filter(s => s.levelId === dripLevelObj.id)
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+        : [];
+      const dripLevelName = dripLevelObj?.displayName || `Level ${currentLevel + 1}`;
+
+      // Drip-skill rotation the cron uses: prefer an un-nudged level skill,
+      // otherwise the one with the fewest historical nudges. Fold simulated
+      // slots into the count so the preview reuses a skill only after the
+      // others at the level have each been picked.
+      const simulatedNudgedSkillIds = new Set(nudgedSkillIds);
+      const simulatedSkillCounts = new Map<number, number>();
+      for (const n of allUserNudges) {
+        if (n.skillId !== null) {
+          simulatedSkillCounts.set(n.skillId, (simulatedSkillCounts.get(n.skillId) || 0) + 1);
+        }
+      }
+
+      const pickDripSkill = (): Skill | null => {
+        if (dripLevelSkills.length === 0) return null;
+        const unseen = dripLevelSkills.find(s => !simulatedNudgedSkillIds.has(s.id));
+        if (unseen) return unseen;
+        let best = dripLevelSkills[0];
+        let bestCount = simulatedSkillCounts.get(best.id) ?? Infinity;
+        for (const s of dripLevelSkills) {
+          const c = simulatedSkillCounts.get(s.id) ?? 0;
+          if (c < bestCount) {
+            best = s;
+            bestCount = c;
+          }
+        }
+        return best;
+      };
+
+      // Next-24 Tue/Fri dates, computed in the user's timezone to match cron.
+      const userTz = user.timezone || "America/Los_Angeles";
+      const nextDates = computeNextTueFriDates(24, userTz);
+
+      type SimSlot = {
+        slotNumber: number;
+        expectedDate: string;
+        dayOfWeek: string;
+        phase: "red-yellow-sweep" | "level-drip";
+        targetSkillId: number | null;
+        targetSkillName: string | null;
+        targetSkillStatus: "red" | "yellow" | null;
+        levelName: string;
+        estimatedLevel: number;
+      };
+      const slots: SimSlot[] = [];
+
+      let phase1Index = 0;
+      for (let i = 0; i < 24; i++) {
+        const dateInfo = nextDates[i];
+        if (phase1Index < phase1Queue.length) {
+          const entry = phase1Queue[phase1Index];
+          const skillLevel = levelById.get(entry.skill.levelId);
+          slots.push({
+            slotNumber: i + 1,
+            expectedDate: dateInfo.iso,
+            dayOfWeek: dateInfo.dayOfWeek,
+            phase: "red-yellow-sweep",
+            targetSkillId: entry.skill.id,
+            targetSkillName: entry.skill.name,
+            targetSkillStatus: entry.status.status as "red" | "yellow",
+            levelName: skillLevel?.displayName || `Level ${(skillLevel?.sortOrder ?? 0) + 1}`,
+            estimatedLevel: (skillLevel?.sortOrder ?? 0) + 1,
+          });
+          phase1Index++;
+        } else {
+          const dripSkill = pickDripSkill();
+          slots.push({
+            slotNumber: i + 1,
+            expectedDate: dateInfo.iso,
+            dayOfWeek: dateInfo.dayOfWeek,
+            phase: "level-drip",
+            targetSkillId: dripSkill?.id ?? null,
+            targetSkillName: dripSkill?.name ?? null,
+            targetSkillStatus: null,
+            levelName: dripLevelName,
+            estimatedLevel: currentLevel + 1,
+          });
+          if (dripSkill) {
+            simulatedNudgedSkillIds.add(dripSkill.id);
+            simulatedSkillCounts.set(
+              dripSkill.id,
+              (simulatedSkillCounts.get(dripSkill.id) || 0) + 1,
+            );
+          }
+        }
+      }
+
+      const redYellowTotal = statuses.filter(s => s.status === "red" || s.status === "yellow").length;
+      const phaseTransitionIdx = phase1Queue.length;
+      const phaseTransitionSlot =
+        phaseTransitionIdx > 0 && phaseTransitionIdx < 24 ? phaseTransitionIdx + 1 : null;
+      const phaseTransitionDate =
+        phaseTransitionSlot !== null ? nextDates[phaseTransitionIdx].iso : null;
+
+      return res.json({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          timezone: userTz,
+          currentLevel: currentLevel + 1,
+          currentLevelName: dripLevelName,
+          nudgesActive: user.nudgesActive,
+          emailPrefsNudges: user.emailPrefsNudges,
+        },
+        summary: {
+          redYellowRemaining: phase1Queue.length,
+          redYellowTotal,
+          alreadyNudgedCount: nudgedSkillIds.size,
+          phaseTransitionSlot,
+          phaseTransitionDate,
+        },
+        slots,
+      });
+    } catch (e: any) {
+      console.error("Admin nudges simulate error:", e.message);
+      return res.status(500).json({ message: e.message || "Internal error" });
+    }
+  });
+
+  // Preview what a specific user's NEXT nudge would be, WITHOUT saving it.
+  // Mirrors the phase logic in cron.ts (phase 1 = red/yellow sweep, phase 2 =
+  // level drip) to pick the target skill, then calls generateNudgeWithDedup to
+  // produce the content. Returns the generated content plus phase info, target
+  // skill, and estimated token/cost usage.
+  //
+  // This DOES hit the Anthropic API (so it has a real cost), but it does not
+  // write a row to the nudges table. Useful for reviewing content before
+  // enabling nudges for a cohort.
+  app.post("/api/admin/nudges/preview/:userId", requireAdmin, async (req, res) => {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (!Number.isFinite(userId)) {
+        return res.status(400).json({ message: "Invalid userId" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const [statuses, allSkills, allLevels, allUserNudges, completedAssessments] = await Promise.all([
+        storage.getUserSkillStatuses(userId),
+        storage.getSkills(),
+        storage.getLevels(),
+        storage.getUserNudges(userId, 200),
+        storage.getCompletedAssessments(userId),
+      ]);
+
+      const latestAssessment = completedAssessments[0];
+      if (!latestAssessment) {
+        return res.status(400).json({
+          message: "User has no completed assessment — cannot generate a nudge without assessment context",
+        });
+      }
+
+      const levelSortMap = new Map<number, number>();
+      for (const level of allLevels) {
+        levelSortMap.set(level.id, level.sortOrder);
+      }
+
+      // Build set of skillIds that already have a nudge for this user
+      const nudgedSkillIds = new Set<number>();
+      for (const n of allUserNudges) {
+        if (n.skillId !== null) nudgedSkillIds.add(n.skillId);
+      }
+
+      // Phase 1: Red/Yellow Sweep — same ordering as cron
+      const redYellowStatuses = statuses
+        .filter(s => s.status === "red" || s.status === "yellow")
+        .sort((a, b) => {
+          const skillA = allSkills.find(s => s.id === a.skillId);
+          const skillB = allSkills.find(s => s.id === b.skillId);
+          const levelOrderA = levelSortMap.get(skillA?.levelId ?? 0) ?? 999;
+          const levelOrderB = levelSortMap.get(skillB?.levelId ?? 0) ?? 999;
+          if (levelOrderA !== levelOrderB) return levelOrderA - levelOrderB;
+          return (skillA?.sortOrder || 0) - (skillB?.sortOrder || 0);
+        });
+
+      const nextRedYellow = redYellowStatuses.find(s => !nudgedSkillIds.has(s.skillId));
+
+      const userRecord = user as any;
+      const currentLevel: number = userRecord.currentLevel ?? latestAssessment.assessmentLevel ?? 1;
+      const contextSummary = latestAssessment.contextSummary || "No assessment context available.";
+
+      type Phase = "red-yellow-sweep" | "level-drip";
+      let phase: Phase;
+      let targetSkill: Skill | null = null;
+      let previousNudges: typeof allUserNudges = [];
+
+      if (nextRedYellow) {
+        // Phase 1: skill-specific nudge
+        phase = "red-yellow-sweep";
+        const skill = allSkills.find(s => s.id === nextRedYellow.skillId) || null;
+        if (!skill) {
+          return res.status(500).json({ message: "Skill for next red/yellow status not found" });
+        }
+        targetSkill = skill;
+        previousNudges = await storage.getNudgesByUserAndSkill(userId, skill.id);
+      } else {
+        // Phase 2: level drip — mirrors cron's drip-skill selection
+        phase = "level-drip";
+        const levelObj = allLevels.find(l => l.sortOrder === currentLevel);
+        if (!levelObj) {
+          return res.status(400).json({ message: `No level found for sortOrder ${currentLevel}` });
+        }
+
+        const levelSkills = allSkills.filter(s => s.levelId === levelObj.id);
+        if (levelSkills.length === 0) {
+          return res.status(400).json({ message: `No skills configured for level ${currentLevel}` });
+        }
+
+        // Prefer an un-nudged level skill; otherwise pick the one with the
+        // fewest historical nudges. Identical to cron.ts logic.
+        let dripSkill = levelSkills.find(s => !nudgedSkillIds.has(s.id)) || null;
+        if (!dripSkill) {
+          let minNudgeCount = Infinity;
+          for (const s of levelSkills) {
+            const count = allUserNudges.filter(n => n.skillId === s.id).length;
+            if (count < minNudgeCount) {
+              minNudgeCount = count;
+              dripSkill = s;
+            }
+          }
+        }
+        if (!dripSkill) {
+          return res.status(400).json({ message: "Could not pick a drip skill" });
+        }
+        targetSkill = dripSkill;
+        previousNudges = allUserNudges.slice(0, 20);
+      }
+
+      // Call the SAME generator the cron uses. In phase 2, pass null so it
+      // takes the level-drip path (targetSkill is still useful metadata we
+      // return for the admin UI, but the generator should not treat it as a
+      // red/yellow target).
+      const result = await generateNudgeWithDedup(
+        user,
+        currentLevel,
+        contextSummary,
+        previousNudges,
+        phase === "red-yellow-sweep" && targetSkill
+          ? { name: targetSkill.name, description: targetSkill.description }
+          : null,
+      );
+
+      return res.json({
+        phase,
+        targetSkill: targetSkill
+          ? { name: targetSkill.name, description: targetSkill.description }
+          : null,
+        content: {
+          universalInsight: result.content.universalInsight,
+          levelAdaptation: result.content.levelAdaptation,
+          tryThis: result.content.tryThis,
+          subjectLine: result.content.subjectLine,
+        },
+        estimatedCostCents: result.usage.generationCostCents,
+        tokensUsed: {
+          input: result.usage.inputTokens,
+          output: result.usage.outputTokens,
+        },
+      });
+    } catch (e: any) {
+      console.error("Admin nudges preview error:", e.message);
+      return res.status(500).json({ message: e.message || "Internal error" });
     }
   });
 

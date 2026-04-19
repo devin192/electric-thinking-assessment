@@ -18,6 +18,7 @@ import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
 import UnsubscribePage from "@/pages/unsubscribe";
 import LevelUpPage from "@/pages/level-up";
+import NudgeControlPage from "@/pages/nudge-control";
 import PrivacyPage from "@/pages/privacy";
 import TermsPage from "@/pages/terms";
 import JoinPage from "@/pages/join";
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/admin">{() => <ProtectedRoute><AdminPage /></ProtectedRoute>}</Route>
       <Route path="/unsubscribe/:token" component={UnsubscribePage} />
       <Route path="/level-up" component={LevelUpPage} />
+      <Route path="/nudge-control" component={NudgeControlPage} />
       <Route path="/privacy" component={PrivacyPage} />
       <Route path="/terms" component={TermsPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />

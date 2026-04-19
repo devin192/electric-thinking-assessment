@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   index,
   serial,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -161,6 +162,11 @@ export const nudges = pgTable(
     feedbackRelevant: boolean("feedback_relevant"),
     feedbackVote: varchar("feedback_vote", { length: 10 }),
     feedbackText: text("feedback_text"),
+    // Generation cost tracking (added 2026-04-18)
+    // generationCost is stored in CENTS with 4 decimal places, so 0.4500 = 0.45 cents
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    generationCost: decimal("generation_cost", { precision: 6, scale: 4 }),
     sentAt: timestamp("sent_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

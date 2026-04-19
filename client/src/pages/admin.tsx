@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Wordmark } from "@/components/wordmark";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -19,7 +20,8 @@ import {
   ArrowLeft, Users, BarChart3, Settings, MessageSquare, Layers,
   Save, Trash2, Plus, Eye, FileText, Clock, Loader2,
   Activity, AlertTriangle, CheckCircle2, RefreshCw,
-  Video, Calendar, Link as LinkIcon, KeyRound
+  Video, Calendar, Link as LinkIcon, KeyRound,
+  Zap, ThumbsUp, ThumbsDown
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -80,6 +82,7 @@ export default function AdminPage() {
             <TabsTrigger value="skills" data-testid="tab-skills"><Layers className="w-4 h-4 mr-1" /> Skills</TabsTrigger>
             <TabsTrigger value="questions" data-testid="tab-questions"><MessageSquare className="w-4 h-4 mr-1" /> Questions</TabsTrigger>
             <TabsTrigger value="assessments" data-testid="tab-assessments"><FileText className="w-4 h-4 mr-1" /> Assessments</TabsTrigger>
+            <TabsTrigger value="nudges" data-testid="tab-nudges"><Zap className="w-4 h-4 mr-1" /> Nudges</TabsTrigger>
             <TabsTrigger value="system" data-testid="tab-system"><Activity className="w-4 h-4 mr-1" /> System</TabsTrigger>
             <TabsTrigger value="sessions" data-testid="tab-sessions"><Video className="w-4 h-4 mr-1" /> Sessions</TabsTrigger>
             <TabsTrigger value="config" data-testid="tab-config"><Settings className="w-4 h-4 mr-1" /> Config</TabsTrigger>
@@ -90,6 +93,7 @@ export default function AdminPage() {
           <TabsContent value="skills"><SkillsTab /></TabsContent>
           <TabsContent value="questions"><QuestionsTab /></TabsContent>
           <TabsContent value="assessments"><AssessmentsTab /></TabsContent>
+          <TabsContent value="nudges"><NudgesTab /></TabsContent>
           <TabsContent value="system"><SystemHealthTab /></TabsContent>
           <TabsContent value="sessions"><SessionsTab /></TabsContent>
           <TabsContent value="config"><ConfigTab /></TabsContent>
@@ -361,6 +365,8 @@ function SystemHealthTab() {
 function UsersTab() {
   const { toast } = useToast();
   const { data: users } = useQuery<any[]>({ queryKey: ["/api/admin/users"] });
+  const [simulateUser, setSimulateUser] = useState<{ id: number; name: string | null; email: string } | null>(null);
+  const [previewUser, setPreviewUser] = useState<{ id: number; name: string | null; email: string } | null>(null);
 
   const handleRoleChange = async (userId: number, role: string) => {
     try {
@@ -428,6 +434,24 @@ function UsersTab() {
                   <SelectItem value="system_admin">System Admin</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSimulateUser({ id: u.id, name: u.name, email: u.email })}
+                data-testid={`button-simulate-${u.id}`}
+                title="Preview the next 24 nudges this user would receive"
+              >
+                <Calendar className="w-4 h-4 mr-1" /> Simulate
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewUser({ id: u.id, name: u.name, email: u.email })}
+                data-testid={`button-preview-nudge-${u.id}`}
+                title="Generate and preview this user's next nudge (without sending)"
+              >
+                <Eye className="w-4 h-4 mr-1" /> Preview Next Nudge
+              </Button>
               <Button variant="ghost" size="icon" title="Reset password" onClick={() => handlePasswordReset(u.id, u.email)}>
                 <KeyRound className="w-4 h-4" />
               </Button>
@@ -444,7 +468,411 @@ function UsersTab() {
       {(!users || users.length === 0) && (
         <p className="text-muted-foreground text-center py-8">No users yet</p>
       )}
+
+      <SimulateTimelineDialog
+        user={simulateUser}
+        onClose={() => setSimulateUser(null)}
+      />
+      <PreviewNextNudgeDialog
+        user={previewUser}
+        onClose={() => setPreviewUser(null)}
+      />
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// SimulateTimelineDialog — admin preview of a user's next 24 nudge slots.
+// -----------------------------------------------------------------------------
+type SimulateSlot = {
+  slotNumber: number;
+  expectedDate: string;
+  dayOfWeek: string;
+  phase: "red-yellow-sweep" | "level-drip";
+  targetSkillId: number | null;
+  targetSkillName: string | null;
+  targetSkillStatus: "red" | "yellow" | null;
+  levelName: string;
+  estimatedLevel: number;
+};
+
+type SimulateResponse = {
+  user: {
+    id: number;
+    name: string | null;
+    email: string;
+    timezone: string;
+    currentLevel: number;
+    currentLevelName: string;
+    nudgesActive: boolean | null;
+    emailPrefsNudges: boolean | null;
+  };
+  summary: {
+    redYellowRemaining: number;
+    redYellowTotal: number;
+    alreadyNudgedCount: number;
+    phaseTransitionSlot: number | null;
+    phaseTransitionDate: string | null;
+  };
+  slots: SimulateSlot[];
+};
+
+function SimulateTimelineDialog({
+  user,
+  onClose,
+}: {
+  user: { id: number; name: string | null; email: string } | null;
+  onClose: () => void;
+}) {
+  const open = user !== null;
+  const { data, isLoading, error } = useQuery<SimulateResponse>({
+    queryKey: ["/api/admin/nudges/simulate", user?.id],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/admin/nudges/simulate/${user!.id}`);
+      return res.json();
+    },
+    enabled: open,
+  });
+
+  function formatDate(iso: string, dayOfWeek: string): string {
+    // iso is YYYY-MM-DD in the user's tz. Format without causing another tz shift.
+    const [y, m, d] = iso.split("-").map(Number);
+    const mon = new Date(y, m - 1, d).toLocaleString("en-US", { month: "short" });
+    return `${dayOfWeek} · ${mon} ${d}`;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-heading flex items-center gap-2">
+            <Calendar className="w-5 h-5" /> Nudge Timeline Preview
+          </DialogTitle>
+          {user && (
+            <p className="text-sm text-muted-foreground">
+              {user.name || user.email} · next 24 nudges (Tue/Fri cadence, 12 weeks)
+            </p>
+          )}
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Building timeline...
+          </div>
+        )}
+
+        {error && (
+          <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm">
+            {(error as any).message || "Failed to load timeline"}
+          </div>
+        )}
+
+        {data && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-xs text-muted-foreground">Current level</div>
+                <div className="text-sm font-medium mt-0.5">L{data.user.currentLevel} · {data.user.currentLevelName}</div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-xs text-muted-foreground">Red/Yellow remaining</div>
+                <div className="text-sm font-medium mt-0.5">
+                  {data.summary.redYellowRemaining}
+                  <span className="text-muted-foreground"> / {data.summary.redYellowTotal}</span>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-xs text-muted-foreground">Already nudged</div>
+                <div className="text-sm font-medium mt-0.5">{data.summary.alreadyNudgedCount} skills</div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-xs text-muted-foreground">Drip starts</div>
+                <div className="text-sm font-medium mt-0.5">
+                  {data.summary.phaseTransitionSlot
+                    ? `Slot ${data.summary.phaseTransitionSlot}`
+                    : data.summary.redYellowRemaining === 0
+                    ? "Immediately"
+                    : "After slot 24"}
+                </div>
+              </div>
+            </div>
+
+            {(!data.user.nudgesActive || !data.user.emailPrefsNudges) && (
+              <div className="flex items-start gap-2 p-3 rounded-xl bg-et-yellow/10 border border-et-yellow/30 text-sm">
+                <AlertTriangle className="w-4 h-4 text-et-orange shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-xs">Nudges not active for this user</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {!data.user.nudgesActive && "nudgesActive=false"}
+                    {!data.user.nudgesActive && !data.user.emailPrefsNudges && " · "}
+                    {!data.user.emailPrefsNudges && "emailPrefsNudges=false"}
+                    {". "}This preview shows what they'd get if enabled.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              {data.slots.map((slot, i) => {
+                const prev = i > 0 ? data.slots[i - 1] : null;
+                const showPhaseDivider = prev && prev.phase !== slot.phase;
+                return (
+                  <div key={slot.slotNumber}>
+                    {showPhaseDivider && (
+                      <div className="flex items-center gap-2 py-2 my-1">
+                        <div className="flex-1 h-px bg-border" />
+                        <Badge variant="secondary" className="text-xs">
+                          Phase 2 · Level drip starts
+                        </Badge>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+                    )}
+                    <div
+                      className={`flex items-center gap-3 py-2 px-3 rounded-lg ${
+                        slot.phase === "red-yellow-sweep" ? "bg-et-pink/5" : "bg-accent/20"
+                      }`}
+                      data-testid={`timeline-slot-${slot.slotNumber}`}
+                    >
+                      <div className="w-8 text-xs text-muted-foreground text-right shrink-0">
+                        #{slot.slotNumber}
+                      </div>
+                      <div className="w-28 text-xs shrink-0">
+                        {formatDate(slot.expectedDate, slot.dayOfWeek)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">
+                          {slot.targetSkillName || <span className="text-muted-foreground italic">No skill at this level</span>}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {slot.phase === "red-yellow-sweep" ? "Red/Yellow sweep" : "Level drip"} · L{slot.estimatedLevel} {slot.levelName}
+                        </div>
+                      </div>
+                      {slot.targetSkillStatus && (
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs shrink-0 ${
+                            slot.targetSkillStatus === "red"
+                              ? "bg-destructive/15 text-destructive"
+                              : "bg-et-yellow/20 text-et-orange"
+                          }`}
+                        >
+                          {slot.targetSkillStatus}
+                        </Badge>
+                      )}
+                      {!slot.targetSkillStatus && slot.phase === "level-drip" && (
+                        <Badge variant="secondary" className="text-xs shrink-0">drip</Badge>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="text-xs text-muted-foreground italic pt-2 border-t border-border">
+              Preview only. No nudge content is generated and nothing is written to the database.
+              Actual send times use the user's timezone ({data.user.timezone}) at 9am on Tue/Fri.
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// PreviewNextNudgeDialog — admin preview of the actual generated content for a
+// user's next nudge. Hits POST /api/admin/nudges/preview/:userId on open.
+// Does not write to the DB. Useful for reviewing content before enabling
+// nudges for a cohort.
+// -----------------------------------------------------------------------------
+type PreviewNudgeResponse = {
+  phase: "red-yellow-sweep" | "level-drip";
+  targetSkill: { name: string; description: string | null } | null;
+  content: {
+    universalInsight: string;
+    levelAdaptation: string;
+    tryThis: string;
+    subjectLine: string;
+  };
+  estimatedCostCents: number;
+  tokensUsed: { input: number; output: number };
+};
+
+function PreviewNextNudgeDialog({
+  user,
+  onClose,
+}: {
+  user: { id: number; name: string | null; email: string } | null;
+  onClose: () => void;
+}) {
+  const open = user !== null;
+  const [data, setData] = useState<PreviewNudgeResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation<PreviewNudgeResponse, Error, number>({
+    mutationFn: async (userId: number) => {
+      const res = await apiRequest("POST", `/api/admin/nudges/preview/${userId}`);
+      return res.json();
+    },
+    onSuccess: (result) => {
+      setData(result);
+      setError(null);
+    },
+    onError: (err: any) => {
+      setError(err?.message || "Failed to generate preview");
+      setData(null);
+    },
+  });
+
+  // Fire the preview when the dialog opens for a new user.
+  useEffect(() => {
+    if (open && user) {
+      setData(null);
+      setError(null);
+      mutation.mutate(user.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.id]);
+
+  const isLoading = mutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-heading flex items-center gap-2">
+            <Eye className="w-5 h-5" /> Preview Next Nudge
+          </DialogTitle>
+          {user && (
+            <p className="text-sm text-muted-foreground">
+              {user.name || user.email} · content for this user's next scheduled nudge
+            </p>
+          )}
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Generating nudge with Claude...
+          </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="p-4 rounded-xl bg-destructive/10 text-destructive text-sm">
+            {error}
+            {user && (
+              <div className="mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => mutation.mutate(user.id)}
+                  data-testid="button-preview-retry"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" /> Retry
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {data && !isLoading && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge
+                variant="secondary"
+                className={
+                  data.phase === "red-yellow-sweep"
+                    ? "bg-et-pink/15 text-et-pink"
+                    : "bg-accent/40"
+                }
+              >
+                {data.phase === "red-yellow-sweep" ? "Phase 1 · Red/Yellow sweep" : "Phase 2 · Level drip"}
+              </Badge>
+              {data.targetSkill && (
+                <Badge variant="outline" className="text-xs">
+                  Target skill: {data.targetSkill.name}
+                </Badge>
+              )}
+            </div>
+
+            <div className="space-y-3 border border-border rounded-xl p-4 bg-card">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  Subject line
+                </div>
+                <div className="text-sm font-medium" data-testid="preview-subject-line">
+                  {data.content.subjectLine}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  Universal insight
+                </div>
+                <div className="text-sm whitespace-pre-wrap" data-testid="preview-universal-insight">
+                  {data.content.universalInsight}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  Level adaptation
+                </div>
+                <div className="text-sm whitespace-pre-wrap" data-testid="preview-level-adaptation">
+                  {data.content.levelAdaptation}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                  Try this
+                </div>
+                <div className="text-sm whitespace-pre-wrap" data-testid="preview-try-this">
+                  {data.content.tryThis}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-muted-foreground">Input tokens</div>
+                <div className="font-medium mt-0.5" data-testid="preview-input-tokens">
+                  {data.tokensUsed.input.toLocaleString()}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-muted-foreground">Output tokens</div>
+                <div className="font-medium mt-0.5" data-testid="preview-output-tokens">
+                  {data.tokensUsed.output.toLocaleString()}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <div className="text-muted-foreground">Estimated cost</div>
+                <div className="font-medium mt-0.5" data-testid="preview-cost">
+                  {data.estimatedCostCents.toFixed(4)}¢
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-border">
+              {user && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => mutation.mutate(user.id)}
+                  disabled={isLoading}
+                  data-testid="button-preview-regenerate"
+                >
+                  <RefreshCw className="w-4 h-4 mr-1" /> Regenerate
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground italic ml-auto">
+                Generated live. Nothing was written to the database.
+              </p>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -809,6 +1237,326 @@ function AssessmentsTab() {
       {(!assessments || assessments.length === 0) && (
         <p className="text-muted-foreground text-center py-8">No assessments yet</p>
       )}
+    </div>
+  );
+}
+
+type AdminNudge = {
+  id: number;
+  userId: number;
+  userName: string | null;
+  userEmail: string | null;
+  userRole: string | null;
+  userLevel: number | null;
+  skillId: number | null;
+  skillName: string | null;
+  skillLevelSortOrder: number | null;
+  contentJson: Record<string, any> | null;
+  subjectLine: string | null;
+  emailSent: boolean | null;
+  emailOpened: boolean | null;
+  inAppRead: boolean | null;
+  feedbackVote: string | null;
+  feedbackText: string | null;
+  sentAt: string | null;
+  createdAt: string;
+};
+
+function NudgesTab() {
+  const [levelFilter, setLevelFilter] = useState<string>("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState<string>("all");
+  const [viewing, setViewing] = useState<AdminNudge | null>(null);
+
+  const params = new URLSearchParams();
+  if (levelFilter !== "all") params.set("level", levelFilter);
+  if (feedbackFilter !== "all") params.set("feedback", feedbackFilter);
+  if (userFilter !== "all") params.set("userId", userFilter);
+  params.set("limit", "200");
+
+  const qs = params.toString();
+  const url = `/api/admin/nudges?${qs}`;
+
+  const { data, isLoading } = useQuery<{ total: number; limit: number; offset: number; nudges: AdminNudge[] }>({
+    queryKey: [url],
+  });
+
+  const nudges = data?.nudges || [];
+
+  // Summary stats: compute from the unfiltered dataset if possible, otherwise
+  // from the currently filtered view. Separate query with no filters for totals.
+  const { data: allData } = useQuery<{ total: number; nudges: AdminNudge[] }>({
+    queryKey: ["/api/admin/nudges?limit=1000"],
+  });
+  const allNudges = allData?.nudges || [];
+
+  const stats = (() => {
+    const src = allNudges.length > 0 ? allNudges : nudges;
+    const total = src.length;
+    const sent = src.filter(n => n.emailSent).length;
+    const thumbsUp = src.filter(n => n.feedbackVote === "up").length;
+    const thumbsDown = src.filter(n => n.feedbackVote === "down").length;
+    const feedbackGiven = thumbsUp + thumbsDown;
+    const responseRate = sent > 0 ? Math.round((feedbackGiven / sent) * 100) : 0;
+    return { total, sent, thumbsUp, thumbsDown, responseRate };
+  })();
+
+  // Build unique user list for the filter dropdown
+  const userOptions = (() => {
+    const seen = new Map<number, { id: number; label: string }>();
+    for (const n of allNudges) {
+      if (!seen.has(n.userId)) {
+        const label = n.userName || n.userEmail || `User ${n.userId}`;
+        seen.set(n.userId, { id: n.userId, label });
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label));
+  })();
+
+  const LEVEL_NAMES: Record<number, string> = {
+    0: "Accelerator", 1: "Thought Partner", 2: "Team Builder", 3: "Systems",
+  };
+
+  const formatDate = (ts: string | null) => ts ? new Date(ts).toLocaleString() : "—";
+
+  const feedbackBadge = (vote: string | null) => {
+    if (vote === "up") return <span className="inline-flex items-center gap-1 text-et-green"><ThumbsUp className="w-3 h-3" /> Up</span>;
+    if (vote === "down") return <span className="inline-flex items-center gap-1 text-destructive"><ThumbsDown className="w-3 h-3" /> Down</span>;
+    return <span className="text-muted-foreground">—</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Summary stats */}
+      <div className="grid sm:grid-cols-5 gap-3">
+        <Card className="rounded-2xl border border-border">
+          <CardContent className="pt-5 pb-5 text-center">
+            <p className="font-heading text-2xl font-bold text-et-orange" data-testid="text-admin-nudges-total">{stats.total}</p>
+            <p className="text-xs text-muted-foreground">Generated</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border border-border">
+          <CardContent className="pt-5 pb-5 text-center">
+            <p className="font-heading text-2xl font-bold text-et-blue" data-testid="text-admin-nudges-sent">{stats.sent}</p>
+            <p className="text-xs text-muted-foreground">Sent</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border border-border">
+          <CardContent className="pt-5 pb-5 text-center">
+            <p className="font-heading text-2xl font-bold text-et-green" data-testid="text-admin-nudges-up">{stats.thumbsUp}</p>
+            <p className="text-xs text-muted-foreground">Thumbs Up</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border border-border">
+          <CardContent className="pt-5 pb-5 text-center">
+            <p className="font-heading text-2xl font-bold text-destructive" data-testid="text-admin-nudges-down">{stats.thumbsDown}</p>
+            <p className="text-xs text-muted-foreground">Thumbs Down</p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border border-border">
+          <CardContent className="pt-5 pb-5 text-center">
+            <p className="font-heading text-2xl font-bold text-et-pink" data-testid="text-admin-nudges-response-rate">{stats.responseRate}%</p>
+            <p className="text-xs text-muted-foreground">Response Rate</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter bar */}
+      <Card className="rounded-2xl border border-border">
+        <CardContent className="py-4 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Level</Label>
+            <Select value={levelFilter} onValueChange={setLevelFilter}>
+              <SelectTrigger className="w-40 h-8 text-xs rounded-lg" data-testid="select-nudge-level">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All levels</SelectItem>
+                <SelectItem value="0">L1 Accelerator</SelectItem>
+                <SelectItem value="1">L2 Thought Partner</SelectItem>
+                <SelectItem value="2">L3 Team Builder</SelectItem>
+                <SelectItem value="3">L4 Systems</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">Feedback</Label>
+            <Select value={feedbackFilter} onValueChange={setFeedbackFilter}>
+              <SelectTrigger className="w-36 h-8 text-xs rounded-lg" data-testid="select-nudge-feedback">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All feedback</SelectItem>
+                <SelectItem value="up">Thumbs up</SelectItem>
+                <SelectItem value="down">Thumbs down</SelectItem>
+                <SelectItem value="none">No feedback</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-xs text-muted-foreground">User</Label>
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="w-48 h-8 text-xs rounded-lg" data-testid="select-nudge-user">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All users</SelectItem>
+                {userOptions.map(u => (
+                  <SelectItem key={u.id} value={String(u.id)}>{u.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="ml-auto text-xs text-muted-foreground">
+            {data ? `${nudges.length} of ${data.total}` : ""}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card className="rounded-2xl border border-border">
+        <CardContent className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead className="w-20">Level</TableHead>
+                <TableHead>Skill</TableHead>
+                <TableHead>Subject Line</TableHead>
+                <TableHead className="w-24">Feedback</TableHead>
+                <TableHead className="w-48">Sent At</TableHead>
+                <TableHead className="w-16 text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> Loading nudges…
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && nudges.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No nudges match these filters
+                  </TableCell>
+                </TableRow>
+              )}
+              {nudges.map(n => {
+                const levelKey = n.skillLevelSortOrder ?? n.userLevel;
+                return (
+                  <TableRow
+                    key={n.id}
+                    className="cursor-pointer hover:bg-accent/30"
+                    onClick={() => setViewing(n)}
+                    data-testid={`row-nudge-${n.id}`}
+                  >
+                    <TableCell>
+                      <div className="text-sm font-medium truncate max-w-[200px]">{n.userName || n.userEmail || `User ${n.userId}`}</div>
+                      {n.userRole && <div className="text-xs text-muted-foreground truncate max-w-[200px]">{n.userRole}</div>}
+                    </TableCell>
+                    <TableCell>
+                      {levelKey !== null && levelKey !== undefined ? (
+                        <Badge variant="secondary" className="text-xs">
+                          L{levelKey + 1} {LEVEL_NAMES[levelKey] || ""}
+                        </Badge>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm truncate max-w-[180px]">{n.skillName || <span className="text-muted-foreground">—</span>}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm truncate max-w-[280px]">{n.subjectLine || <span className="text-muted-foreground italic">(no subject)</span>}</div>
+                    </TableCell>
+                    <TableCell className="text-xs">{feedbackBadge(n.feedbackVote)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {n.sentAt ? formatDate(n.sentAt) : <span className="italic">Not sent</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setViewing(n); }}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Detail modal */}
+      <Dialog open={viewing !== null} onOpenChange={(open) => { if (!open) setViewing(null); }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Nudge Detail</DialogTitle>
+          </DialogHeader>
+          {viewing && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-muted-foreground mb-1">User</p>
+                  <p className="font-medium">{viewing.userName || viewing.userEmail}</p>
+                  <p className="text-muted-foreground">{viewing.userEmail}</p>
+                  {viewing.userRole && <p className="text-muted-foreground">{viewing.userRole}</p>}
+                </div>
+                <div className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-muted-foreground mb-1">Skill</p>
+                  <p className="font-medium">{viewing.skillName || "—"}</p>
+                  {(() => {
+                    const lk = viewing.skillLevelSortOrder ?? viewing.userLevel;
+                    return lk !== null && lk !== undefined ? (
+                      <p className="text-muted-foreground">L{lk + 1} {LEVEL_NAMES[lk] || ""}</p>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <p className="text-xs text-muted-foreground mb-1">Subject Line</p>
+                <p className="text-sm">{viewing.subjectLine || <span className="italic text-muted-foreground">(none)</span>}</p>
+              </div>
+              <div className="p-4 rounded-xl bg-accent/30 space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Universal Insight</p>
+                  <p className="text-sm leading-relaxed">{viewing.contentJson?.universalInsight || <span className="italic text-muted-foreground">—</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Level Adaptation</p>
+                  <p className="text-sm leading-relaxed">{viewing.contentJson?.levelAdaptation || <span className="italic text-muted-foreground">—</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Try This</p>
+                  <p className="text-sm leading-relaxed">{viewing.contentJson?.tryThis || <span className="italic text-muted-foreground">—</span>}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-muted-foreground mb-1">Email Sent</p>
+                  <p>{viewing.emailSent ? "Yes" : "No"}</p>
+                  {viewing.sentAt && <p className="text-muted-foreground">{formatDate(viewing.sentAt)}</p>}
+                </div>
+                <div className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-muted-foreground mb-1">Email Opened</p>
+                  <p>{viewing.emailOpened ? "Yes" : "No"}</p>
+                </div>
+                <div className="p-3 rounded-xl bg-accent/30">
+                  <p className="text-muted-foreground mb-1">In-App Read</p>
+                  <p>{viewing.inAppRead ? "Yes" : "No"}</p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/30">
+                <p className="text-xs text-muted-foreground mb-1">Feedback</p>
+                <p className="text-sm">{feedbackBadge(viewing.feedbackVote)}</p>
+                {viewing.feedbackText && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">&ldquo;{viewing.feedbackText}&rdquo;</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Created {formatDate(viewing.createdAt)}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

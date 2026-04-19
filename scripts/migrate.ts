@@ -37,6 +37,12 @@ const migrations: string[] = [
   // Nudge feedback vote: thumbs up/down from email (added 2026-04-17)
   `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS feedback_vote varchar(10)`,
 
+  // Nudge cost and token tracking (added 2026-04-18)
+  // generation_cost is stored in CENTS with 4 decimal places, so 0.4500 = 0.45 cents
+  `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS input_tokens integer`,
+  `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS output_tokens integer`,
+  `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS generation_cost decimal(6, 4)`,
+
   // Issue reports table (added 2026-04-09)
   `CREATE TABLE IF NOT EXISTS issue_reports (
     id serial PRIMARY KEY,

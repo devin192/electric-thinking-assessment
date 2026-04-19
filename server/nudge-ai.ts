@@ -1,6 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
 import type { User, Skill, Nudge } from "@shared/schema";
+import {
+  findSimilarNudge,
+  buildAvoidInstruction,
+  MAX_REGENERATION_ATTEMPTS,
+  type SimilarityCandidate,
+  type SimilarityMatch,
+} from "./nudge-similarity";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -15,6 +22,38 @@ export interface NudgeContent {
   tryThis: string;
   subjectLine: string;
   targetSkillName: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Token usage and cost tracking
+//
+// Claude Sonnet 4 pricing (as of 2026-04):
+//   $3.00 per million input tokens
+//   $15.00 per million output tokens
+// We store cost in CENTS with 4 decimal places (decimal(6,4)), so e.g. 0.4500
+// means 0.45 cents (~$0.0045) per nudge.
+// ---------------------------------------------------------------------------
+const INPUT_TOKEN_COST_PER_MILLION_USD = 3;
+const OUTPUT_TOKEN_COST_PER_MILLION_USD = 15;
+
+export interface NudgeUsage {
+  inputTokens: number;
+  outputTokens: number;
+  generationCostCents: number;
+}
+
+export interface NudgeGenerationResult {
+  content: NudgeContent;
+  usage: NudgeUsage;
+}
+
+export function calculateNudgeCostCents(inputTokens: number, outputTokens: number): number {
+  // Convert USD/MTok to cents/token, then total cents.
+  // (tokens / 1e6) * USD_per_MTok * 100 cents_per_USD
+  const inputCost = (inputTokens / 1_000_000) * INPUT_TOKEN_COST_PER_MILLION_USD * 100;
+  const outputCost = (outputTokens / 1_000_000) * OUTPUT_TOKEN_COST_PER_MILLION_USD * 100;
+  // Round to 4 decimal places to match decimal(6,4) storage
+  return Math.round((inputCost + outputCost) * 10_000) / 10_000;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,13 +140,31 @@ const LEVEL_DRIP_TOPICS: Record<number, string[]> = {
 // Shared writing rules and system prompt
 // ---------------------------------------------------------------------------
 const WRITING_RULES = `WRITING RULES (apply to ALL text you generate):
-- Never use em dashes (--  or —). Use periods or commas instead.
-- Never use these words: delve, tapestry, landscape, testament, multifaceted, nuanced, comprehensive, robust, leverage, foster, pivotal, groundbreaking, transformative, synergy, streamline, cutting-edge, game-changer, paradigm, holistic.
-- No "It's not just X, it's Y" constructions.
-- No Rule of Three patterns ("innovation, collaboration, and excellence"). Use the natural number of items.
-- Vary sentence length. Short sentences hit. Then something longer. Then short again.
+
+HARD BANS (zero tolerance, these will fail the output):
+- NO em dashes. Not "—", not "--", not any dash longer than a hyphen. Use a period, comma, or colon instead. If you catch yourself writing one, rewrite the sentence. Example: "they're undertrained on saying 'I don't know' — it's a core skill" is WRONG. Rewrite as: "they're undertrained on saying 'I don't know'. That's a core skill." Or: "they're undertrained on saying 'I don't know'. It matters."
+- NO "complex", "complexity", "complicated". These are overused filler. Say what you actually mean: "has a lot of moving parts", "hard to untangle", "multi-step", or just delete the word.
+- NO "isn't X, it's Y" or "isn't about X, it's about Y" or "not X, but Y" pivot constructions. They are formulaic. This also includes two-sentence variants like "It isn't X. It's Y." or "X isn't too important for Y. It's too important to Z." or any "not X. Y instead." pattern. Say the thing directly. Example: "This isn't about speed, it's about quality" is WRONG. Rewrite as: "This is about quality. Speed is secondary." Or just: "Focus on quality."
+- NO "the real X is Y" when used to pivot. Example: "The real skill is patience" is WRONG. Just say "Patience is the skill that matters" or state the point directly.
+- NO "the biggest X is Y" openers. Too formulaic. Example: "The biggest mistake people make is..." is WRONG. Rewrite with a specific observation: "Most people stop at one question. Don't."
+- NO banned AI words: delve, tapestry, landscape, testament, multifaceted, nuanced, comprehensive, robust, leverage, foster, pivotal, groundbreaking, transformative, synergy, streamline, cutting-edge, game-changer, paradigm, holistic, intricate, intricacies, underscore, enduring, vibrant, crucial, vital, pivotal.
+- NO Rule of Three lists ("innovation, collaboration, and excellence"). Use the actual number of items. Two or four is fine.
+- NO bold-header bullet lists ("**Speed:** faster code"). Write in sentences.
+- NO sycophantic phrases ("Great question!", "You're absolutely right"). Not in the content itself.
+- NO curly quotes. Use straight quotes: "like this", not "like this".
+- NO vague hedging ("it could potentially be argued", "some might say").
+
+STYLE:
+- Vary sentence length. Short sentences hit. Then something longer that takes a beat to land. Then short again.
 - Warm, direct, specific. Like advice from a colleague who's really good at this.
-- No sycophantic tone. No bold-header bullet lists. No synonym cycling.`;
+- Use "is/are/has" where it fits. Avoid "serves as", "stands as", "functions as".
+- First person is fine where appropriate.
+
+FINAL CHECK before you return the JSON:
+1. Scan for em dashes. If you find any, rewrite that sentence.
+2. Scan for "complex", "complexity", "complicated". If found, replace with the concrete meaning.
+3. Scan for "isn't X, it's Y" and "the real X is Y" patterns. If found, rewrite directly.
+4. Read each field aloud. If any sentence sounds like a newsletter, a LinkedIn post, or a TED talk opener, rewrite it.`;
 
 function buildSystemPrompt(voiceGuide: string | null | undefined): string {
   return voiceGuide || `You write personalized AI fluency nudges for Electric Thinking. Your tone is warm, direct, and specific. You sound like a smart friend who happens to know a lot about working with AI. Not a newsletter. Not a corporate training email. Not a LinkedIn thought leader. A colleague who pulls you aside and says "hey, try this."`;
@@ -145,9 +202,10 @@ export async function generateNudge(
   assessmentContext: string,
   previousNudges: Nudge[],
   targetSkill?: { name: string; description: string | null | undefined } | null,
-): Promise<NudgeContent> {
+  avoidInstruction?: string,
+): Promise<NudgeGenerationResult> {
   if (!targetSkill) {
-    return generateLevelDripNudge(user, userLevel, assessmentContext, previousNudges);
+    return generateLevelDripNudge(user, userLevel, assessmentContext, previousNudges, avoidInstruction);
   }
 
   const voiceGuide = await storage.getNudgeVoiceGuide();
@@ -180,8 +238,29 @@ FORMAT — respond with ONLY valid JSON, no markdown:
 
 ${WRITING_RULES}
 
-${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different angle, different example, different action." : ""}
+GOOD EXAMPLES (study these carefully):
 
+GOOD universalInsight: "People type around 40 words a minute. They talk around 150. When you type a prompt, you unconsciously strip it down to the minimum. When you talk, you give the full picture. That extra context is the gap between generic output and something you'd actually send."
+
+GOOD levelAdaptation: "At Level 2, you've got the basics. The risk now is bringing a hard problem in, getting a mediocre first pass, and assuming AI can't handle the important stuff. It can. You just have to stay in the conversation longer."
+
+GOOD tryThis: "Open Claude on your phone. Hit the mic button. Spend 90 seconds describing the inventory problem you were about to email Dave about. Then ask Claude to draft the message. Compare it to what you'd have typed in two sentences."
+
+BAD EXAMPLES (DO NOT produce anything like these):
+
+BAD universalInsight: "This isn't just about prompting, it's about building a real relationship with your AI. The biggest mistake people make is treating AI as a complex tool rather than a teammate. The real skill is learning to collaborate." (uses banned "isn't X, it's Y", "the biggest X is Y", "complex", "the real skill is")
+
+BAD levelAdaptation: "At Level 2, it's important to delve deeper into the nuanced landscape of AI collaboration — you need a comprehensive, robust approach." (uses em dash, banned words "delve", "nuanced", "landscape", "comprehensive", "robust")
+
+BAD tryThis: "Spend some time thinking about how you could potentially use AI in your work. Consider various approaches and explore what might resonate with your role." (vague, no concrete output, no platform reference, generic advice anyone could get)
+
+PERSONALIZATION CHECK (run before finalizing):
+(a) Is the universalInsight generic advice anyone could receive, or is it pattern-breaking and specific? If it would apply equally to a marketing manager, a nurse, and a farmer, rewrite it to land harder for this person.
+(b) Does the levelAdaptation reference something specific to their role (${user.roleTitle || "their work"}) or their assessment context? If it's just "at Level ${level}, do X", add a detail tied to what they actually do.
+(c) Is the tryThis concrete enough that if they did it in 5 minutes, they'd be looking at a specific output? Not "think about", not "consider", not "explore". Something they could screenshot and send back.
+
+${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different angle, different example, different action." : ""}
+${avoidInstruction ? `\n${avoidInstruction}\n` : ""}
 Respond with ONLY valid JSON, no markdown:`;
 
   const response = await anthropic.messages.create({
@@ -193,8 +272,11 @@ Respond with ONLY valid JSON, no markdown:`;
 
   const parsed = parseNudgeResponse(response);
   return {
-    ...parsed,
-    targetSkillName: targetSkill.name,
+    content: {
+      ...parsed,
+      targetSkillName: targetSkill.name,
+    },
+    usage: extractUsage(response),
   };
 }
 
@@ -209,7 +291,8 @@ export async function generateLevelDripNudge(
   userLevel: number,
   assessmentContext: string,
   previousNudges: Nudge[],
-): Promise<NudgeContent> {
+  avoidInstruction?: string,
+): Promise<NudgeGenerationResult> {
   const voiceGuide = await storage.getNudgeVoiceGuide();
   const level = Math.max(1, Math.min(4, userLevel));
   const meta = LEVEL_META[level];
@@ -245,8 +328,29 @@ FORMAT — respond with ONLY valid JSON, no markdown:
 
 ${WRITING_RULES}
 
-${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different topic, different angle, different action." : ""}
+GOOD EXAMPLES (study these carefully):
 
+GOOD universalInsight: "Anthropic looked at what predicts whether someone gets good at AI. Not IQ. Not technical background. The number of conversation turns. People who go back and forth 5 or 6 times get dramatically better output than people who ask once and walk away."
+
+GOOD levelAdaptation: "At Level 3, you already know this. The question is whether you've built a dedicated specialist for the work you repeat most often, or whether your best prompts are still buried in old threads you keep reopening."
+
+GOOD tryThis: "Pick the analysis you ran last week. Paste the findings into Claude and ask it to challenge your interpretation. When it pushes back, tell it what it got wrong about your context. Keep going for at least four rounds. Save the final exchange somewhere you can find it."
+
+BAD EXAMPLES (DO NOT produce anything like these):
+
+BAD universalInsight: "AI fluency isn't just about using the tools, it's about a complex, multifaceted approach to collaboration — the real unlock is embracing the nuanced landscape of possibilities." (em dash, "isn't X, it's Y", "complex", "multifaceted", "nuanced", "landscape", "the real unlock is")
+
+BAD levelAdaptation: "The biggest challenge at Level 2 is that you need to leverage your existing skills to foster deeper engagement with AI." (banned "the biggest X is Y" opener, banned words "leverage" and "foster")
+
+BAD tryThis: "Think about how you might use AI more effectively. Explore different approaches and see what resonates with your workflow." (vague, no specific output, no role or platform reference, generic advice)
+
+PERSONALIZATION CHECK (run before finalizing):
+(a) Is the universalInsight generic advice anyone could receive, or is it pattern-breaking and specific? If it would apply equally to a marketing manager, a nurse, and a farmer, rewrite it to land harder for this person's role.
+(b) Does the levelAdaptation reference something specific to their role (${user.roleTitle || "their work"}) or their assessment context? If it's just "at Level ${level}, do X", add a detail tied to what they actually do.
+(c) Is the tryThis concrete enough that if they did it in 5 minutes, they'd be looking at a specific output? Not "think about", not "consider", not "explore". Something they could screenshot and send back.
+
+${previousNudges.length > 0 ? "CRITICAL: Generate something MEANINGFULLY DIFFERENT from all previous nudges listed above. Different topic, different angle, different action." : ""}
+${avoidInstruction ? `\n${avoidInstruction}\n` : ""}
 Respond with ONLY valid JSON, no markdown:`;
 
   const response = await anthropic.messages.create({
@@ -258,8 +362,120 @@ Respond with ONLY valid JSON, no markdown:`;
 
   const parsed = parseNudgeResponse(response);
   return {
-    ...parsed,
-    targetSkillName: null,
+    content: {
+      ...parsed,
+      targetSkillName: null,
+    },
+    usage: extractUsage(response),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// generateNudgeWithDedup()
+//
+// Cross-user de-duplication wrapper. Generates a nudge, checks it against the
+// last 7 days of nudges sent to OTHER users, and regenerates up to
+// MAX_REGENERATION_ATTEMPTS (2) times if it's too similar. After the retry
+// budget is spent, accepts whatever the last attempt produced.
+//
+// Token/cost usage is accumulated across attempts so callers see the true
+// cost of the dedup process, not just the final generation.
+// ---------------------------------------------------------------------------
+const DEDUP_WINDOW_DAYS = 7;
+
+export async function generateNudgeWithDedup(
+  user: User,
+  userLevel: number,
+  assessmentContext: string,
+  previousNudges: Nudge[],
+  targetSkill?: { name: string; description: string | null | undefined } | null,
+): Promise<NudgeGenerationResult> {
+  // Fetch the pool of recent nudges ONCE, then filter out the current user.
+  // Filtering here keeps the DB query simple and makes the test seam easy.
+  const since = new Date(Date.now() - DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const recent = await storage.getRecentNudgesAcrossUsers(since);
+  const otherUsersRecent = recent.filter(n => n.userId !== user.id);
+
+  let avoidInstruction: string | undefined;
+  let lastResult: NudgeGenerationResult | null = null;
+  let accumulatedInputTokens = 0;
+  let accumulatedOutputTokens = 0;
+  let accumulatedCostCents = 0;
+
+  // attempt 0 = initial, attempts 1..MAX are regenerations
+  for (let attempt = 0; attempt <= MAX_REGENERATION_ATTEMPTS; attempt++) {
+    const result = await generateNudge(
+      user,
+      userLevel,
+      assessmentContext,
+      previousNudges,
+      targetSkill,
+      avoidInstruction,
+    );
+
+    accumulatedInputTokens += result.usage.inputTokens;
+    accumulatedOutputTokens += result.usage.outputTokens;
+    accumulatedCostCents += result.usage.generationCostCents;
+    lastResult = result;
+
+    const candidate: SimilarityCandidate = {
+      subjectLine: result.content.subjectLine,
+      universalInsight: result.content.universalInsight,
+    };
+    const match: SimilarityMatch | null = findSimilarNudge(candidate, otherUsersRecent);
+
+    if (!match) {
+      // Clean result. Return with accumulated usage (in case we regenerated).
+      return {
+        content: result.content,
+        usage: {
+          inputTokens: accumulatedInputTokens,
+          outputTokens: accumulatedOutputTokens,
+          generationCostCents:
+            Math.round(accumulatedCostCents * 10_000) / 10_000,
+        },
+      };
+    }
+
+    // Similar. Log and prepare for another attempt (if budget remains).
+    console.log(
+      `[nudge-dedup] userId=${user.id} retry=${attempt + 1} reason=similar-to-${match.nudgeId} ` +
+      `(matchedUserId=${match.userId}, reason=${match.reason}, ` +
+      `subjectOverlap=${match.subjectOverlap.toFixed(2)}, insightOverlap=${match.insightOverlap.toFixed(2)})`,
+    );
+
+    if (attempt < MAX_REGENERATION_ATTEMPTS) {
+      avoidInstruction = buildAvoidInstruction(match);
+    }
+  }
+
+  // Retry budget exhausted. Accept the last attempt.
+  console.log(
+    `[nudge-dedup] userId=${user.id} retry-budget-exhausted accepting-last-attempt`,
+  );
+
+  // lastResult is non-null here because the loop ran at least once.
+  return {
+    content: lastResult!.content,
+    usage: {
+      inputTokens: accumulatedInputTokens,
+      outputTokens: accumulatedOutputTokens,
+      generationCostCents:
+        Math.round(accumulatedCostCents * 10_000) / 10_000,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Extract token usage and compute cost from an Anthropic response
+// ---------------------------------------------------------------------------
+function extractUsage(response: Anthropic.Message): NudgeUsage {
+  const inputTokens = response.usage?.input_tokens ?? 0;
+  const outputTokens = response.usage?.output_tokens ?? 0;
+  return {
+    inputTokens,
+    outputTokens,
+    generationCostCents: calculateNudgeCostCents(inputTokens, outputTokens),
   };
 }
 

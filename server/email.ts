@@ -2,17 +2,38 @@ import { getUncachableResendClient } from "./resend-client";
 import { storage } from "./storage";
 import type { User, Nudge, Skill, Level } from "@shared/schema";
 
+// ═══════════════════════════════════════════════════════════════════════
+// DELIVERABILITY NOTES
+// ═══════════════════════════════════════════════════════════════════════
+// The `hello@electricthinking.ai` sending domain MUST be verified in Resend
+// with the following DNS records published on `electricthinking.ai`:
+//   - SPF:    TXT  "v=spf1 include:_spf.resend.com ~all"  (or Resend's current include)
+//   - DKIM:   CNAME(s) for `resend._domainkey` per Resend's onboarding UI
+//   - DMARC:  TXT at `_dmarc`  "v=DMARC1; p=none; rua=mailto:dmarc@electricthinking.ai"
+//            (start at p=none to monitor, tighten to quarantine/reject once aligned)
+// Without aligned SPF + DKIM + DMARC, Gmail bulk-sender rules (Feb 2024+) send
+// nudge volume to spam. Verify in the Resend dashboard, not here — this comment
+// is a prompt to confirm DNS before any bulk send. Run `dig TXT electricthinking.ai`
+// and `dig TXT _dmarc.electricthinking.ai` as a quick sanity check.
+// ═══════════════════════════════════════════════════════════════════════
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 const DEFAULT_FROM = "Electric Thinking <hello@electricthinking.ai>";
 const DEFAULT_REPLY_TO = "support@electricthinking.ai";
+const DEFAULT_PHYSICAL_ADDRESS = "123 Thinking Way, San Francisco, CA 94105";
+const SUPPORT_EMAIL = "support@electricthinking.ai";
 
 async function getFromConfig() {
   const from = await storage.getSystemConfig("email_from") || DEFAULT_FROM;
   const replyTo = await storage.getSystemConfig("email_reply_to") || DEFAULT_REPLY_TO;
   return { from, replyTo };
+}
+
+async function getPhysicalAddress(): Promise<string> {
+  return (await storage.getSystemConfig("physical_address")) || DEFAULT_PHYSICAL_ADDRESS;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -36,7 +57,58 @@ const BRAND = {
   levelColors: ["#FFD236", "#FF2F86", "#FF6A2B", "#1C4BFF"],
 };
 
-function baseTemplate(content: string, unsubscribeUrl?: string): string {
+interface BaseTemplateOptions {
+  unsubscribeUrl?: string;
+  pauseNudgesUrl?: string;
+  previewText?: string;
+  physicalAddress?: string;
+  // Nudge-style rich footer: three prominent links. When set, overrides
+  // the default "Manage email preferences" single-link footer and forces
+  // a prominent "Unsubscribe" link (Gmail bulk-sender requirement).
+  footerLinks?: {
+    unsubscribeUrl: string;
+    preferencesUrl: string;
+    pauseUrl: string;
+  };
+}
+
+function baseTemplate(
+  content: string,
+  optsOrUnsubscribe?: BaseTemplateOptions | string,
+  pauseNudgesUrlLegacy?: string
+): string {
+  // Back-compat: older callers pass `(content, unsubscribeUrl, pauseNudgesUrl?)`
+  // as positional strings. New callers pass a BaseTemplateOptions object.
+  const opts: BaseTemplateOptions = typeof optsOrUnsubscribe === "string" || optsOrUnsubscribe === undefined
+    ? { unsubscribeUrl: optsOrUnsubscribe as string | undefined, pauseNudgesUrl: pauseNudgesUrlLegacy }
+    : optsOrUnsubscribe;
+  const { unsubscribeUrl, pauseNudgesUrl, previewText, physicalAddress, footerLinks } = opts;
+
+  // Invisible preview text that shows in inbox preview (Gmail, iOS Mail, etc.)
+  // before the email is opened. Uses display:none and zero opacity so it
+  // renders nothing visible in the body.
+  const previewBlock = previewText
+    ? `<div style="display:none;font-size:1px;color:${BRAND.pageBg};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHtml(previewText)}</div>`
+    : "";
+
+  const addressLine = physicalAddress
+    ? `<br><span style="color: #999999;">Electric Thinking &bull; ${escapeHtml(physicalAddress)}</span>`
+    : "";
+
+  let footerInner: string;
+  if (footerLinks) {
+    // Prominent three-link footer for marketing-style cadence (nudges).
+    // Unsubscribe is bold + underlined because Gmail explicitly looks for
+    // a visible "Unsubscribe" string as a deliverability signal.
+    footerInner = `<a href="${footerLinks.unsubscribeUrl}" style="color: ${BRAND.pink}; text-decoration: underline; font-weight: 600;">Unsubscribe</a>
+              <span style="color: #cccccc;"> &middot; </span>
+              <a href="${footerLinks.preferencesUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Manage preferences</a>
+              <span style="color: #cccccc;"> &middot; </span>
+              <a href="${footerLinks.pauseUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Pause nudges</a>${addressLine}`;
+  } else {
+    footerInner = `Electric Thinking${unsubscribeUrl ? `<br><a href="${unsubscribeUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Manage email preferences</a>` : ""}${pauseNudgesUrl ? ` &nbsp;&middot;&nbsp; <a href="${pauseNudgesUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Pause nudges</a>` : ""}${addressLine}`;
+  }
+
   return `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -66,6 +138,7 @@ function baseTemplate(content: string, unsubscribeUrl?: string): string {
   </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: ${BRAND.pageBg}; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;" class="email-body">
+  ${previewBlock}
   <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto;">
     <tr>
@@ -88,9 +161,8 @@ function baseTemplate(content: string, unsubscribeUrl?: string): string {
       <td style="padding: 24px; text-align: center;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
           <tr>
-            <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center; padding-top: 16px; border-top: 1px solid ${BRAND.border};">
-              Electric Thinking
-              ${unsubscribeUrl ? `<br><a href="${unsubscribeUrl}" style="color: ${BRAND.pink}; text-decoration: none;">Manage email preferences</a>` : ""}
+            <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center; padding-top: 16px; border-top: 1px solid ${BRAND.border}; line-height: 1.7;">
+              ${footerInner}
             </td>
           </tr>
         </table>
@@ -238,10 +310,18 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill | nu
   try {
     const { client, fromEmail } = await getUncachableResendClient();
     const { from, replyTo } = await getFromConfig();
+    const physicalAddress = await getPhysicalAddress();
     const content = nudge.contentJson as any;
     const unsubscribeUrl = `${appUrl}/unsubscribe/${user.unsubscribeToken}`;
+    const preferencesUrl = `${appUrl}/unsubscribe/${user.unsubscribeToken}`;
+    const pauseNudgesUrl = `${appUrl}/nudge-control?token=${user.unsubscribeToken}`;
     const feedbackUpUrl = `${appUrl}/api/nudges/${nudge.id}/feedback?vote=up`;
     const feedbackDownUrl = `${appUrl}/api/nudges/${nudge.id}/feedback?vote=down`;
+
+    // Preview text (first ~100 chars of the universal insight) shows in
+    // Gmail/iOS inbox list as a teaser next to the subject line.
+    const rawPreview = (content?.universalInsight || "").toString().replace(/\s+/g, " ").trim();
+    const previewText = rawPreview.length > 100 ? `${rawPreview.slice(0, 97)}...` : rawPreview;
 
     // Resolve the user's current level (0-indexed) and name
     // currentLevel is the self-declared level; fall back to 0 if not set
@@ -296,7 +376,16 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill | nu
           </td>
         </tr>
       </table>
-    `, unsubscribeUrl);
+    `, {
+      unsubscribeUrl,
+      previewText,
+      physicalAddress,
+      footerLinks: {
+        unsubscribeUrl,
+        preferencesUrl,
+        pauseUrl: pauseNudgesUrl,
+      },
+    });
 
     const subject = content?.subjectLine || nudge.subjectLine || "A quick thought on AI";
 
@@ -307,8 +396,18 @@ export async function sendNudgeEmail(user: User, nudge: Nudge, skill: Skill | nu
       subject,
       html,
       headers: {
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        // RFC 2369 / 8058. Both endpoints MUST be in the header for Gmail's
+        // one-click unsubscribe to appear. The mailto: is the legacy fallback;
+        // the URL must accept POST (see POST handler in routes.ts) for the
+        // one-click button rendered by Gmail/Outlook/Apple Mail.
+        "List-Unsubscribe": `<mailto:${SUPPORT_EMAIL}?subject=Unsubscribe>, <${unsubscribeUrl}>`,
+        // RFC 8058 one-click unsubscribe. Required by Gmail (Feb 2024+) for
+        // senders >5k/day. The POST handler at /unsubscribe/:token must treat
+        // an empty body (or `List-Unsubscribe=One-Click`) as full unsubscribe.
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        // Aids Gmail's threading/dedup and helps spam filters cluster
+        // legitimate resends vs. abuse. Prefix with the nudge id namespace.
+        "X-Entity-Ref-ID": `nudge-${nudge.id}`,
       },
     });
     console.log(`[email-sent] type=nudge to=${user.email} userId=${user.id} resendId=${result?.data?.id}`);

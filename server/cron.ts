@@ -3,14 +3,15 @@ import { eq, and } from "drizzle-orm";
 import { db } from "./db";
 import { assessments as assessmentsTable } from "@shared/schema";
 import { storage } from "./storage";
-import { generateNudge, generateLevelDripNudge } from "./nudge-ai";
-import type { NudgeContent } from "./nudge-ai";
+import { generateNudgeWithDedup } from "./nudge-ai";
+import type { NudgeGenerationResult } from "./nudge-ai";
 import {
   sendNudgeEmail,
   sendReEngagementEmail,
   sendReAssessmentEmail,
   sendAbandonedAssessmentEmail,
 } from "./email";
+import { postNudgeToSlack } from "./slack";
 
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
@@ -120,21 +121,26 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
           const contextSummary = latestAssessment.contextSummary || "No assessment context available.";
           const previousNudges = await storage.getNudgesByUserAndSkill(user.id, skill.id);
 
-          const nudgeContent: NudgeContent = await generateNudge(
+          const result: NudgeGenerationResult = await generateNudgeWithDedup(
             user,
             currentLevel,
             contextSummary,
             previousNudges,
             { name: skill.name, description: skill.description },
           );
+          const { content: nudgeContent, usage } = result;
 
-          await storage.createNudge({
+          const createdNudge = await storage.createNudge({
             userId: user.id,
             skillId: skill.id,
             contentJson: nudgeContent as any,
             subjectLine: nudgeContent.subjectLine,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            generationCost: usage.generationCostCents.toFixed(4),
           });
-          console.log(`[nudge-generated] userId=${user.id} skillName=${skill.name} level=${currentLevel} phase=red-yellow-sweep`);
+          console.log(`[nudge-generated] userId=${user.id} skillName=${skill.name} level=${currentLevel} phase=red-yellow-sweep inputTokens=${usage.inputTokens} outputTokens=${usage.outputTokens} costCents=${usage.generationCostCents.toFixed(4)}`);
+          postNudgeToSlack(createdNudge, user, skill).catch(console.error);
           generated++;
         } else {
           // Phase 2: Level Drip
@@ -173,20 +179,29 @@ export async function runNudgeGeneration(): Promise<{ generated: number; failed:
           const contextSummary = latestAssessment.contextSummary || "No assessment context available.";
           const previousNudges = allUserNudges.slice(0, 20);
 
-          const nudgeContent: NudgeContent = await generateLevelDripNudge(
+          const result: NudgeGenerationResult = await generateNudgeWithDedup(
             user,
             currentLevel,
             contextSummary,
             previousNudges,
+            null,
           );
+          const { content: nudgeContent, usage } = result;
 
-          await storage.createNudge({
+          const createdNudge = await storage.createNudge({
             userId: user.id,
             skillId: targetSkill.id,
             contentJson: nudgeContent as any,
             subjectLine: nudgeContent.subjectLine,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            generationCost: usage.generationCostCents.toFixed(4),
           });
-          console.log(`[nudge-generated] userId=${user.id} skillName=${targetSkill.name} level=${currentLevel} phase=level-drip`);
+          console.log(`[nudge-generated] userId=${user.id} skillName=${targetSkill.name} level=${currentLevel} phase=level-drip inputTokens=${usage.inputTokens} outputTokens=${usage.outputTokens} costCents=${usage.generationCostCents.toFixed(4)}`);
+          // Phase 2 is a level drip — the Slack message shows "Level drip"
+          // instead of a target skill, so pass null even though a skill is
+          // attached to the DB row for anchoring purposes.
+          postNudgeToSlack(createdNudge, user, null).catch(console.error);
           generated++;
         }
 
