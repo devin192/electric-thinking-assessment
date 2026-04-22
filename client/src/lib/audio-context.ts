@@ -14,9 +14,14 @@ export function getSharedAudioContext(): AudioContext | null {
   // MOBILE FIX: Check if the AudioContext was closed or is in an unusable state.
   // This can happen if iOS reclaims audio resources while the user is on the
   // warmup page (e.g., incoming phone call, switching apps).
-  if (sharedAudioContext && sharedAudioContext.state === "closed") {
-    sharedAudioContext = null;
-    return null;
+  // iOS Safari uses "interrupted" state when audio is preempted (phone calls,
+  // Siri, other audio apps). Treat it as unusable so caller creates a fresh context.
+  if (sharedAudioContext) {
+    const state = sharedAudioContext.state as AudioContextState | "interrupted";
+    if (state === "closed" || state === "interrupted") {
+      sharedAudioContext = null;
+      return null;
+    }
   }
   return sharedAudioContext;
 }

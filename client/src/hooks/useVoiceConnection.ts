@@ -317,7 +317,33 @@ export function useVoiceConnection({
         signedUrlRef.current = signedUrl;
       }
 
-      const ws = new WebSocket(signedUrl!);
+      // MOBILE DIAGNOSTIC: Validate URL scheme + log breadcrumb before opening socket.
+      // iOS Safari rejects non-wss:// WebSockets; this catches bad tokens early
+      // and gives Sentry context for the next failure.
+      const signedUrlStr = signedUrl!;
+      if (!signedUrlStr.startsWith("wss://")) {
+        Sentry.captureMessage("Voice signed URL missing wss:// scheme", {
+          level: "warning",
+          extra: { protocol: signedUrlStr.split(":")[0] },
+        });
+        throw new Error("Invalid voice URL scheme");
+      }
+      try {
+        Sentry.addBreadcrumb({
+          category: "voice",
+          message: "Opening voice WebSocket",
+          level: "info",
+          data: {
+            host: new URL(signedUrlStr).host,
+            isReconnect,
+            connectionType: (navigator as any).connection?.effectiveType || "unknown",
+            visibility: document.visibilityState,
+            audioContextState: audioContextRef.current?.state || "none",
+          },
+        });
+      } catch { /* breadcrumb failure shouldn't block connect */ }
+
+      const ws = new WebSocket(signedUrlStr);
       wsRef.current = ws;
 
       let activityReceived = false;
@@ -543,7 +569,17 @@ export function useVoiceConnection({
       };
 
       ws.onerror = (_event) => {
-        Sentry.captureException(new Error("WebSocket connection error"), { tags: { component: "useVoiceConnection", action: "ws.onerror" } });
+        Sentry.captureException(new Error("WebSocket connection error"), {
+          tags: { component: "useVoiceConnection", action: "ws.onerror" },
+          extra: {
+            wsReadyState: ws.readyState,
+            audioContextState: audioContextRef.current?.state || "none",
+            connectionType: (navigator as any).connection?.effectiveType || "unknown",
+            visibility: document.visibilityState,
+            userAgent: navigator.userAgent,
+            isReconnect,
+          },
+        });
         clearInterval(timer);
         reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // prevent onclose from reconnecting
         signedUrlRef.current = null;
