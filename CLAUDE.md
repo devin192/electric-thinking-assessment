@@ -77,6 +77,22 @@ After any change, verify based on scope:
 
 Always run `npm run build` before pushing. Always.
 
+## Red-Team Rule
+
+**Any time you propose code changes and claim they are "safe," "low risk," "simple," or "won't break anything," you MUST first red-team yourself.** Specifically:
+
+1. **List 3 concrete ways each change could break something** before recommending it. Not hypothetical "any code can have bugs" — specific mechanisms (state race, user-gesture expiry, cascade failure, cached value staleness, backward-compat break, etc.).
+2. **If you can't list 3**, you haven't thought hard enough. Read more of the code and try again.
+3. **Rank the risks honestly.** "Reintroduces a bug we previously fixed" is a high risk. "Deprecated API" is low.
+4. **Present the red-team BEFORE the recommendation**, not after.
+5. **Distinguish** between genuinely safe (diagnostic-only, additive checks, test-only data) and "probably safe but needs staging test first."
+
+The goal is NOT to never ship — it's to never tell Devin something is safe without showing the work. When in doubt, split the recommendation: ship the truly-safe subset immediately, flag the riskier fixes for staging testing.
+
+**Skip the red-team** only for: pure documentation/comment edits, adding test cases, running QA against already-shipped code.
+
+**Trigger phrases that require red-team:** "low risk," "safe to ship," "won't break anything," "quick fix," "simple change," "contained," "just a tweak." If you catch yourself about to use one of these, stop and red-team first.
+
 ## Known Gotchas
 - `brightSpotsText` is a JSON-stringified array stored in a text column. Client parses with `JSON.parse()`.
 - `outcomeOptionsJson` is proper JSONB. No parse needed on client.
