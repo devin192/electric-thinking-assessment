@@ -77,6 +77,23 @@ After any change, verify based on scope:
 
 Always run `npm run build` before pushing. Always.
 
+## The Engineering Team (invoke by name)
+
+This codebase is owned by an engineering team of AI personas. When Devin is in Chief-of-Staff workspace and wants engineering work done, he calls them by name:
+
+- **Eddie** (VP Engineering) — architecture, trade-offs, "is this safe to ship"
+- **Nina** (Backend/Data) — schema, queries, server routes, migrations, cron
+- **Felix** (Frontend) — React, hooks, animations, client-side state
+- **Dex** (DevOps) — Railway, deploys, env vars, Sentry, email deliverability
+- **Perry** (PM) — state tracking, standups, backlog
+- **Rex** (Red-Team) — pressure-test risky changes (peer, not always on)
+- **Sage** (Security) — auth, secrets, PII, GDPR (peer, invoked as needed)
+- **Grayson** (Growth) — funnels, metrics, experiments (peer, invoked as needed)
+
+Full org chart: `Chief-of-Staff/projects/assessment-platform/ENG-ORG-CHART.md`
+
+When running inside THIS repo (not Chief-of-Staff), Claude Code isn't invoking these personas — it's just Claude Code with this CLAUDE.md as context. The personas live in the Chief-of-Staff skill library. If working cross-workspace, prefer invoking by name.
+
 ## Red-Team Rule
 
 **Any time you propose code changes and claim they are "safe," "low risk," "simple," or "won't break anything," you MUST first red-team yourself.** Specifically:
