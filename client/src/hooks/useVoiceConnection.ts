@@ -343,6 +343,13 @@ export function useVoiceConnection({
         await audioContextRef.current!.resume();
       }
 
+      // MOBILE/RACE FIX: capture the AudioContext and stream in closure variables.
+      // If something (React cleanup, mode switch, etc) nulls audioContextRef.current
+      // between here and ws.onopen, we can still use these captured references —
+      // provided they haven't been closed or stopped.
+      const capturedCtx = audioContextRef.current!;
+      const capturedStream = mediaStreamRef.current!;
+
       // On reconnect, reuse the same signed URL to avoid spawning a new agent instance
       // (each new signed URL = new ElevenLabs conversation = repeated opening message)
       let signedUrl = isReconnect ? signedUrlRef.current : null;
@@ -456,10 +463,35 @@ export function useVoiceConnection({
         }, 15000);
         ws.addEventListener("close", () => clearTimeout(activityTimeout));
 
-        const ctx = audioContextRef.current;
+        // Try the ref first, fall back to captured closure ref if the race nulled it.
+        // If the captured ctx is still valid (not closed), restore it to the ref and use it.
+        let ctx = audioContextRef.current;
+        if (!ctx && capturedCtx && capturedCtx.state !== "closed") {
+          // Race recovery: the ref got nulled but our closure-captured ctx is still alive.
+          audioContextRef.current = capturedCtx;
+          ctx = capturedCtx;
+          try {
+            Sentry.addBreadcrumb({
+              category: "voice",
+              message: "AudioContext null on ws.onopen — recovered from closure capture",
+              level: "warning",
+              data: { capturedState: capturedCtx.state },
+            });
+            Sentry.captureMessage("AudioContext recovered via closure capture (race detected)", {
+              level: "warning",
+              tags: { component: "voice", action: "race-recovery" },
+            });
+          } catch { /* breadcrumb */ }
+        }
+        // Same for stream: recover from closure if ref was nulled, but only if tracks are still live.
+        if (!mediaStreamRef.current && capturedStream) {
+          const liveTracks = capturedStream.getAudioTracks().filter(t => t.readyState === "live");
+          if (liveTracks.length > 0) {
+            mediaStreamRef.current = capturedStream;
+          }
+        }
         if (!ctx) {
-          // AudioContext was closed or never created (e.g., mic permission revoked).
-          // Fall back to text mode rather than crashing.
+          // AudioContext truly gone (closed or never existed). Fall back to text.
           console.warn("AudioContext is null on ws.onopen — falling back to text");
           Sentry.captureException(new Error("AudioContext null on ws.onopen"), { tags: { component: "voice" } });
           ws.close();
