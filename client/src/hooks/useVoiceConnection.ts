@@ -179,6 +179,22 @@ export function useVoiceConnection({
 
   // ── Disconnect ─────────────────────────────────────────────────────
   const disconnectVoice = useCallback(() => {
+    // DIAGNOSTIC: record who called disconnect and what state we were in.
+    // Helps diagnose "AudioContext null on ws.onopen" — we need to know if
+    // disconnect fires between connectVoice assigning the AC and ws.onopen firing.
+    try {
+      Sentry.addBreadcrumb({
+        category: "voice",
+        message: "disconnectVoice called",
+        level: "info",
+        data: {
+          wsReadyState: wsRef.current?.readyState ?? "no-ws",
+          acState: audioContextRef.current?.state ?? "no-ac",
+          voiceConnected: voiceConnectedRef.current,
+        },
+      });
+    } catch { /* breadcrumb failure must not block cleanup */ }
+
     reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS;
 
     // Report voice quality metrics before tearing down
@@ -195,6 +211,13 @@ export function useVoiceConnection({
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
+      try {
+        Sentry.addBreadcrumb({
+          category: "voice",
+          message: "AudioContext cleared (disconnectVoice)",
+          level: "info",
+        });
+      } catch { /* breadcrumb failure */ }
     }
     if (connectTimerRef.current) {
       clearInterval(connectTimerRef.current);
@@ -283,6 +306,14 @@ export function useVoiceConnection({
         audioContextRef.current = preCtx;
         mediaStreamRef.current = preStream;
         clearSharedAudio();
+        try {
+          Sentry.addBreadcrumb({
+            category: "voice",
+            message: "AudioContext assigned from warmup singleton",
+            level: "info",
+            data: { acState: preCtx.state, isReconnect },
+          });
+        } catch { /* breadcrumb */ }
       } else {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioCtx) throw new Error("AudioContext not supported");
@@ -296,6 +327,14 @@ export function useVoiceConnection({
           }
         });
         mediaStreamRef.current = stream;
+        try {
+          Sentry.addBreadcrumb({
+            category: "voice",
+            message: "AudioContext created fresh (no warmup singleton)",
+            level: "info",
+            data: { acState: audioContextRef.current?.state, isReconnect },
+          });
+        } catch { /* breadcrumb */ }
       }
 
       const stream = mediaStreamRef.current!;
@@ -625,6 +664,14 @@ export function useVoiceConnection({
       if (audioContextRef.current) {
         audioContextRef.current.close().catch(() => {});
         audioContextRef.current = null;
+        try {
+          Sentry.addBreadcrumb({
+            category: "voice",
+            message: "AudioContext cleared (connectVoice catch block)",
+            level: "warning",
+            data: { errorMessage: err?.message },
+          });
+        } catch { /* breadcrumb */ }
       }
 
       const msg = err.message || "Failed to connect voice";
