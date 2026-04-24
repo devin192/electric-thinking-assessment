@@ -76,6 +76,14 @@ export function useVoiceConnection({
   const voiceConnectedRef = useRef<boolean>(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const reconnectAttemptsRef = useRef<number>(0);
+  // Ensures we only trigger the "voice failed, switching to text" UX once per
+  // session, even if multiple code paths (ws.onerror, ws.onclose final cleanup,
+  // timeout, orphaned WS) try to trigger it simultaneously.
+  const voiceFallbackTriggeredRef = useRef<boolean>(false);
+  // Tracks whether disconnectVoice was called explicitly (user ended conversation,
+  // switched modes, navigated away). Lets ws.onclose distinguish intentional closes
+  // from unexpected drops so we don't show an error UI for user-initiated exits.
+  const userInitiatedDisconnectRef = useRef<boolean>(false);
 
   // Voice quality metrics
   const sessionStartTimeRef = useRef<number | null>(null);
@@ -179,6 +187,10 @@ export function useVoiceConnection({
 
   // ── Disconnect ─────────────────────────────────────────────────────
   const disconnectVoice = useCallback(() => {
+    // Flag that this close is user-initiated — ws.onclose uses this to skip the
+    // "voice disconnected unexpectedly" error UI.
+    userInitiatedDisconnectRef.current = true;
+
     // DIAGNOSTIC: record who called disconnect and what state we were in.
     // Helps diagnose "AudioContext null on ws.onopen" — we need to know if
     // disconnect fires between connectVoice assigning the AC and ws.onopen firing.
@@ -287,6 +299,8 @@ export function useVoiceConnection({
       timeToFirstAudioRef.current = null;
       reconnectCountRef.current = 0;
       metricsReportedRef.current = false;
+      voiceFallbackTriggeredRef.current = false;
+      userInitiatedDisconnectRef.current = false;
     }
 
     setVoiceConnecting(true);
@@ -393,6 +407,11 @@ export function useVoiceConnection({
       wsRef.current = ws;
 
       let activityReceived = false;
+      // Diagnostics — tracks whether audio chunks are actually flowing out to EL.
+      // If processor.onaudioprocess never fires on iOS (documented ScriptProcessorNode
+      // flakiness), EL sees a silent connection and closes with code 1002.
+      let firstAudioProcessSeen = false;
+      let audioChunkCount = 0;
 
       ws.onopen = () => {
         clearInterval(timer);
@@ -410,7 +429,13 @@ export function useVoiceConnection({
           reconnectCountRef.current += 1;
         }
 
-        reconnectAttemptsRef.current = 0;
+        // NOTE: We intentionally do NOT reset reconnectAttemptsRef here.
+        // Previously this reset on every ws.onopen, but EL can open the WS
+        // successfully and then close it with 1002 within ~4 seconds when
+        // our audio chunks never arrive. Resetting on open created an infinite
+        // retry loop (Jamie's April 24 case: 10 retries × 4s = 45s of purgatory).
+        // Counter is now reset only when we see real conversational activity
+        // (agent_response, audio, user transcript) — see ws.onmessage below.
 
         // Send survey context to ElevenLabs agent as dynamic variables
         const currentAssessment = activeAssessmentRef.current;
@@ -509,6 +534,27 @@ export function useVoiceConnection({
 
         processor.onaudioprocess = (e) => {
           if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
+
+          // DIAGNOSTIC: prove whether audio is actually flowing on iOS.
+          // ScriptProcessorNode is deprecated and has a history of silently
+          // not firing on iOS Safari. If EL closes with 1002 and we never
+          // see this breadcrumb, that's our smoking gun.
+          if (!firstAudioProcessSeen) {
+            firstAudioProcessSeen = true;
+            try {
+              Sentry.addBreadcrumb({
+                category: "voice",
+                message: "First audio chunk processed",
+                level: "info",
+                data: {
+                  acState: ctx.state,
+                  sampleRate: ctx.sampleRate,
+                  wsReadyState: ws.readyState,
+                },
+              });
+            } catch { /* breadcrumb */ }
+          }
+
           const inputData = e.inputBuffer.getChannelData(0);
 
           // Echo suppression: reduce mic gain while Lex is speaking.
@@ -531,6 +577,18 @@ export function useVoiceConnection({
             base64 += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
           }
           ws.send(JSON.stringify({ user_audio_chunk: btoa(base64) }));
+          audioChunkCount++;
+          // Milestone breadcrumbs (not per-chunk — would flood Sentry).
+          // 50 chunks ≈ 4s of audio, 500 ≈ 40s, 5000 ≈ 6–7min.
+          if (audioChunkCount === 50 || audioChunkCount === 500 || audioChunkCount === 5000) {
+            try {
+              Sentry.addBreadcrumb({
+                category: "voice",
+                message: `Audio chunks sent: ${audioChunkCount}`,
+                level: "info",
+              });
+            } catch { /* breadcrumb */ }
+          }
         };
       };
 
@@ -540,16 +598,21 @@ export function useVoiceConnection({
 
           if (data.type === "agent_response" && data.agent_response_event === "agent_response") {
             activityReceived = true;
+            // Reset retry counter on real conversational activity.
+            // Empty ws.onopen no longer resets it — see note above.
+            reconnectAttemptsRef.current = 0;
             setIsSpeaking(true);
           }
 
           if (data.type === "agent_response" && data.agent_response_event === "agent_response_correction") {
             activityReceived = true;
+            reconnectAttemptsRef.current = 0;
             setIsSpeaking(true);
           }
 
           if (data.type === "audio") {
             activityReceived = true;
+            reconnectAttemptsRef.current = 0;
             setIsSpeaking(true);
             // Voice metrics: capture time to first audio chunk
             if (timeToFirstAudioRef.current === null && sessionStartTimeRef.current !== null) {
@@ -559,6 +622,12 @@ export function useVoiceConnection({
           }
 
           if (data.user_transcription_event) {
+            // User transcription means mic audio is reaching EL — counts as activity
+            // (prevents fast-fallback to text mode on unexpected close), but does NOT
+            // reset the retry counter. Reason: if user keeps talking but agent never
+            // responds, we'd infinite-loop reconnects with the counter always resetting.
+            // Counter resets only on reciprocal agent activity (audio / agent_response).
+            activityReceived = true;
             const text = data.user_transcription_event.user_transcript;
             const isFinal = data.user_transcription_event.is_final;
             if (text && text.trim()) {
@@ -610,6 +679,26 @@ export function useVoiceConnection({
       };
 
       ws.onclose = (event) => {
+        // DIAGNOSTIC: capture full close context in Sentry (code + reason + whether
+        // any activity was received + how many audio chunks were sent). Previously
+        // this was only in console.log and got lost.
+        try {
+          Sentry.addBreadcrumb({
+            category: "voice",
+            message: `WebSocket closed (code ${event.code})`,
+            level: event.code === 1000 || event.code === 1001 ? "info" : "warning",
+            data: {
+              code: event.code,
+              reason: event.reason || null,
+              wasClean: event.wasClean,
+              activityReceived,
+              audioChunkCount,
+              firstAudioProcessSeen,
+              isReconnect,
+            },
+          });
+        } catch { /* breadcrumb failure must not block cleanup */ }
+
         if (connectTimerRef.current) { clearInterval(connectTimerRef.current); connectTimerRef.current = null; }
         setVoiceConnected(false);
         voiceConnectedRef.current = false;
@@ -617,10 +706,21 @@ export function useVoiceConnection({
         setIsSpeaking(false);
 
         const isAbnormalClose = event.code !== 1000 && event.code !== 1001;
-        if (isAbnormalClose && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+        // Retry budget depends on BOTH activity (did we ever get a real response?)
+        // AND close code (protocol reject vs network blip):
+        //   - activity received: full budget — it was working, might recover
+        //   - no activity + code 1002 (protocol reject from EL): 1 retry only —
+        //     retrying the same broken state rarely helps
+        //   - no activity + other abnormal (1006 network, 1011 server, etc): 2
+        //     retries — often recovers from transient cellular/wifi blips
+        const isProtocolReject = event.code === 1002;
+        const effectiveMaxRetries = activityReceived
+          ? MAX_RECONNECT_ATTEMPTS
+          : (isProtocolReject ? 1 : 2);
+        if (isAbnormalClose && reconnectAttemptsRef.current < effectiveMaxRetries) {
           reconnectAttemptsRef.current += 1;
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 8000);
-          console.log(`WebSocket closed unexpectedly (code ${event.code}). Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+          console.log(`WebSocket closed unexpectedly (code ${event.code}). Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${effectiveMaxRetries})`);
           connectingLockRef.current = false; // release lock so reconnect can proceed
           setTimeout(() => {
             connectVoice(true); // isReconnect=true: reuse signed URL, don't spawn new agent
@@ -637,6 +737,35 @@ export function useVoiceConnection({
           mediaStreamRef.current.getTracks().forEach(t => t.stop());
           mediaStreamRef.current = null;
         }
+
+        // UX safety net for unexpected closes (WS dropped but user didn't ask to leave).
+        // Without this, the assessment UI shows a blank screen after retries exhaust,
+        // OR the parent auto-connect effect spawns a fresh agent (which greets again).
+        // Two branches:
+        //   - No activity ever (silent failure, e.g. iOS audio didn't flow, EL rejected
+        //     us with 1002): fall back to text automatically. Voice was never working.
+        //   - Activity received (user was mid-conversation): show voiceError so the
+        //     error UI appears with Try Again / Switch to Text buttons. Let them choose.
+        // Skipped if: user initiated disconnect, or a different code path already
+        // triggered fallback (onerror / timeout / catch).
+        if (!userInitiatedDisconnectRef.current && !voiceFallbackTriggeredRef.current) {
+          voiceFallbackTriggeredRef.current = true;
+          setVoiceConnecting(false);
+          if (isAbnormalClose && !activityReceived) {
+            // Silent failure path
+            toastRef.current({
+              title: "Voice isn't connecting",
+              description: "Starting in text mode instead.",
+              action: makeReportAction(`WebSocket closed (code ${event.code})`),
+            });
+            onVoiceFallbackRef.current({ startTextGreeting: false });
+          } else if (isAbnormalClose) {
+            // Mid-session disconnect — surface error, let user decide
+            setVoiceError("Voice disconnected unexpectedly");
+          }
+          // Clean close (code 1000/1001) without user-initiated flag is strange but
+          // not worth interrupting the user over. Leave UI alone.
+        }
       };
 
       ws.onerror = (_event) => {
@@ -649,6 +778,8 @@ export function useVoiceConnection({
             visibility: document.visibilityState,
             userAgent: navigator.userAgent,
             isReconnect,
+            audioChunkCount,
+            firstAudioProcessSeen,
           },
         });
         clearInterval(timer);
@@ -659,9 +790,13 @@ export function useVoiceConnection({
         setVoiceConnected(false);
         voiceConnectedRef.current = false;
         stream.getTracks().forEach(t => t.stop());
-        // Auto-fallback to text mode instead of showing error screen
-        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction("Voice isn't available right now") });
-        onVoiceFallbackRef.current({ startTextGreeting: false });
+        // Auto-fallback to text mode instead of showing error screen.
+        // Flag prevents the onclose-final-path fallback from double-triggering.
+        if (!voiceFallbackTriggeredRef.current) {
+          voiceFallbackTriggeredRef.current = true;
+          toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction("Voice isn't available right now") });
+          onVoiceFallbackRef.current({ startTextGreeting: false });
+        }
       };
 
       const timeout = setTimeout(() => {
@@ -673,9 +808,13 @@ export function useVoiceConnection({
           ws.close();
           setVoiceConnecting(false);
           stream.getTracks().forEach(t => t.stop());
-          // Auto-fallback to text mode instead of showing timeout error
-          toastRef.current({ title: "Voice connection timed out", description: "Starting in text mode instead.", action: makeReportAction("Voice connection timed out") });
-          onVoiceFallbackRef.current({ startTextGreeting: false });
+          // Auto-fallback to text mode instead of showing timeout error.
+          // Flag prevents the onclose-final-path fallback from double-triggering.
+          if (!voiceFallbackTriggeredRef.current) {
+            voiceFallbackTriggeredRef.current = true;
+            toastRef.current({ title: "Voice connection timed out", description: "Starting in text mode instead.", action: makeReportAction("Voice connection timed out") });
+            onVoiceFallbackRef.current({ startTextGreeting: false });
+          }
         }
       }, 20000);
 
@@ -709,8 +848,11 @@ export function useVoiceConnection({
       const msg = err.message || "Failed to connect voice";
       const isVoiceUnavailable = msg.includes("not configured") || msg.includes("agent ID") || msg.includes("temporarily unavailable") || msg.includes("500:");
       if (isVoiceUnavailable) {
-        toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction(msg) });
-        onVoiceFallbackRef.current({ startTextGreeting: true });
+        if (!voiceFallbackTriggeredRef.current) {
+          voiceFallbackTriggeredRef.current = true;
+          toastRef.current({ title: "Voice isn't available right now", description: "Starting in text mode instead.", action: makeReportAction(msg) });
+          onVoiceFallbackRef.current({ startTextGreeting: true });
+        }
       } else {
         setVoiceError(msg);
       }

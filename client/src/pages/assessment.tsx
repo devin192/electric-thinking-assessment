@@ -55,6 +55,13 @@ export default function AssessmentPage() {
   const urlParams = new URLSearchParams(window.location.search);
   const requestedMode = urlParams.get("mode");
   const [voiceMode, setVoiceMode] = useState<VoiceMode>(requestedMode === "voice" ? "full-duplex" : "text-only");
+
+  // Track whether the auto-connect effect has already fired for the current voiceMode session.
+  // Without this, the auto-connect effect re-fires on every WS disconnect (because
+  // voiceConnected/voiceConnecting are deps) and spawns a brand-new ElevenLabs agent
+  // on each disconnect — which greets again from scratch. Evan's April 24 bug.
+  // Reset when voiceMode changes so switching modes re-triggers auto-connect for the new mode.
+  const autoConnectAttemptedRef = useRef(false);
   const [showFallbackConfirm, setShowFallbackConfirm] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -137,9 +144,27 @@ export default function AssessmentPage() {
     messagesRef.current = messages;
   }, [messages, messagesRef]);
 
-  // Auto-connect voice when in full-duplex mode with an active assessment
+  // Reset the auto-connect flag when voiceMode changes so the new mode can auto-connect once.
   useEffect(() => {
-    if (voiceMode === "full-duplex" && assessmentId && activeAssessment && !voiceConnected && !voiceConnecting && !voiceError) {
+    autoConnectAttemptedRef.current = false;
+  }, [voiceMode]);
+
+  // Auto-connect voice when in full-duplex mode with an active assessment.
+  // Only fires ONCE per voiceMode session — subsequent WS disconnects are handled by
+  // the hook itself (retry / fallback / voiceError), not by re-firing auto-connect.
+  // If the user wants to try voice again after a disconnect, they click the explicit
+  // "Try Again" button which calls connectVoice() directly.
+  useEffect(() => {
+    if (
+      voiceMode === "full-duplex" &&
+      assessmentId &&
+      activeAssessment &&
+      !voiceConnected &&
+      !voiceConnecting &&
+      !voiceError &&
+      !autoConnectAttemptedRef.current
+    ) {
+      autoConnectAttemptedRef.current = true;
       connectVoice();
     }
   }, [voiceMode, assessmentId, activeAssessment, voiceConnected, voiceConnecting, voiceError, connectVoice]);
