@@ -43,6 +43,10 @@ const migrations: string[] = [
   `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS output_tokens integer`,
   `ALTER TABLE nudges ADD COLUMN IF NOT EXISTS generation_cost decimal(6, 4)`,
 
+  // Voice attempt tracking (added 2026-04-23) — distinguishes "user chose text"
+  // from "user tried voice but it failed silently". Set true on first /voice-token call.
+  `ALTER TABLE assessments ADD COLUMN IF NOT EXISTS voice_attempted boolean DEFAULT false`,
+
   // Issue reports table (added 2026-04-09)
   `CREATE TABLE IF NOT EXISTS issue_reports (
     id serial PRIMARY KEY,

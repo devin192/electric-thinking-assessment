@@ -2797,6 +2797,15 @@ export async function registerRoutes(
       const activeAssessment = userId ? await storage.getActiveAssessment(userId) : undefined;
       const assessmentId = activeAssessment?.id ?? (req.query.assessmentId as string) ?? null;
       console.log(`[voice-token] userId=${userId} assessmentId=${assessmentId} at ${new Date().toISOString()}`);
+
+      // Track that voice was attempted for this assessment (distinguishes "user chose text"
+      // from "user tried voice, it failed silently"). Fire-and-forget — never block the token.
+      if (activeAssessment && !(activeAssessment as any).voiceAttempted) {
+        storage.updateAssessment(activeAssessment.id, { voiceAttempted: true } as any).catch(err => {
+          console.warn(`[voice-token] failed to mark voiceAttempted for assessment ${activeAssessment.id}:`, err?.message);
+        });
+      }
+
       const signedUrl = await getConversationSignedUrl();
       return res.json({ signedUrl });
     } catch (e: any) {

@@ -116,6 +116,7 @@ export const assessments = pgTable(
     voiceTimeToFirstAudio: integer("voice_time_to_first_audio"),
     voiceReconnectCount: integer("voice_reconnect_count"),
     voiceSessionDuration: integer("voice_session_duration"),
+    voiceAttempted: boolean("voice_attempted").default(false),
     abandonedEmailSent: boolean("abandoned_email_sent").default(false),
   },
   (table) => [
