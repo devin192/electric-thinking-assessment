@@ -48,7 +48,16 @@ export default function AssessmentWarmup() {
       await ctx.resume();
       setSharedAudioContext(ctx);
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // EXPERIMENT 2026-04-25 (silent-mic on iOS): same relaxed constraints as
+      // useVoiceConnection's getUserMedia fallback. Warmup creates the shared
+      // stream that the assessment page reuses, so constraints must match.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: true,
+        }
+      });
       setSharedMediaStream(stream);
     } catch {
       toast({ title: "Couldn't access your microphone", description: "Starting in text mode instead." });
