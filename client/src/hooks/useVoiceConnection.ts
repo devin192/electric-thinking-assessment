@@ -824,6 +824,38 @@ export function useVoiceConnection({
           // EXPERIMENT 2026-04-25: tag sessions with the constraints variant so
           // we can correlate Sentry events to which audio config was active.
           Sentry.setTag("audio_constraints_variant", "relaxed_2026_04_25");
+
+          // SMOKING-GUN AUTO-CAPTURE: 5 seconds after WS opens, if no audio
+          // chunks have flowed yet, fire a Sentry event with full context. This
+          // doesn't require the user to click anything — captures the silent-mic
+          // state automatically while it's happening.
+          setTimeout(() => {
+            if (firstAudioProcessSeen || audioChunkCount > 0) return;
+            if (ws.readyState !== WebSocket.OPEN) return;
+            try {
+              Sentry.captureMessage("Voice WS open 5s with zero audio chunks flowed", {
+                level: "warning",
+                tags: {
+                  component: "voice",
+                  action: "no-audio-flow-5s",
+                  voice_capture_mode: captureModeAtSetup,
+                },
+                extra: {
+                  captureModeAtSetup,
+                  firstAudioProcessSeen,
+                  audioChunkCount,
+                  activityReceived,
+                  acState: ctx.state,
+                  wsReadyState: ws.readyState,
+                  audioConstraints: "echoCancellation=false, noiseSuppression=false, autoGainControl=true",
+                  hasAudioWorklet: !!ctx.audioWorklet,
+                  hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
+                  userAgent: navigator.userAgent,
+                  isReconnect,
+                },
+              });
+            } catch { /* sentry failure shouldn't break voice */ }
+          }, 5000);
           Sentry.addBreadcrumb({
             category: "voice",
             message: `Audio capture mode: ${captureMode}`,
