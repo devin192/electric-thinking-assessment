@@ -48,13 +48,12 @@ export default function AssessmentWarmup() {
       await ctx.resume();
       setSharedAudioContext(ctx);
 
-      // EXPERIMENT 2026-04-25 (silent-mic on iOS): same relaxed constraints as
-      // useVoiceConnection's getUserMedia fallback. Warmup creates the shared
-      // stream that the assessment page reuses, so constraints must match.
+      // Reverted 2026-04-25 to default-safe constraints after EL quota was
+      // identified as the real root cause (see useVoiceConnection.ts comment).
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
+          echoCancellation: true,
+          noiseSuppression: true,
           autoGainControl: true,
         }
       });

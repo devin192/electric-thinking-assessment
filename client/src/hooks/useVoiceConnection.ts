@@ -106,13 +106,11 @@ class VoiceProcessor extends AudioWorkletProcessor {
         }
       }
       this.accumulatorLen -= this.bufferTarget;
-      // EXPERIMENT 2026-04-25: gain forced to 1.0 (was: this.isSpeaking ? 0.08 : 1.0).
-      // Hypothesis being tested: isSpeaking was getting "stuck" true while Lex
-      // looped his greeting, silencing the user's mic to 8% volume — EL heard
-      // a near-silent client and kept timing out the agent. With gain=1.0 the
-      // user's voice reaches EL at full volume; if EL hears Lex's voice via
-      // mic-speaker leakage, that's a separate problem to handle later.
-      const gain = 1.0;
+      // Echo suppression: reduce mic gain while Lex is speaking so the speaker
+      // output isn't picked up by the mic and looped back as user speech.
+      // (Reverted 2026-04-25 to original 0.08 after EL quota was identified
+      // as the actual root cause of the previous "loop" symptom.)
+      const gain = this.isSpeaking ? 0.08 : 1.0;
       const ratio = sampleRate / this.targetSampleRate;
       const outputLen = Math.floor(out.length / ratio);
       const pcm16 = new Int16Array(outputLen);
@@ -462,13 +460,11 @@ export function useVoiceConnection({
         audioContextRef.current.resume();
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            // EXPERIMENT 2026-04-25 (silent-mic on iOS):
-            // Disabled echo cancellation + noise suppression. Hypothesis: iOS
-            // aggressive AEC was treating user's voice as echo of Lex's playback
-            // and silencing it; NS was further muting low-amplitude voice.
-            // autoGainControl stays on to compensate for quiet iPhone mic levels.
-            echoCancellation: false,
-            noiseSuppression: false,
+            // Reverted 2026-04-25 after EL quota was identified as actual root
+            // cause. These were the proven-working defaults for BraceAbility
+            // and Jamie's completed sessions.
+            echoCancellation: true,
+            noiseSuppression: true,
             autoGainControl: true,
           }
         });
@@ -788,8 +784,8 @@ export function useVoiceConnection({
           processor.onaudioprocess = (e) => {
             if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
             const inputData = e.inputBuffer.getChannelData(0);
-            // EXPERIMENT 2026-04-25: gain forced to 1.0. See worklet code above.
-            const gain = 1.0;
+            // Echo suppression while Lex speaks (reverted 2026-04-25 to original).
+            const gain = isSpeakingRef.current ? 0.08 : 1.0;
             const outputLength = Math.floor(inputData.length / ratio);
             const pcm16 = new Int16Array(outputLength);
             for (let i = 0; i < outputLength; i++) {
@@ -840,9 +836,6 @@ export function useVoiceConnection({
         // capture path was used. Helps correlate SPN fallback events.
         try {
           Sentry.setTag("voice_capture_mode", captureMode);
-          // EXPERIMENT 2026-04-25: tag sessions with the constraints variant so
-          // we can correlate Sentry events to which audio config was active.
-          Sentry.setTag("audio_constraints_variant", "relaxed_2026_04_25");
 
           // SMOKING-GUN AUTO-CAPTURE: 5 seconds after WS opens, capture a Sentry
           // event with current audio-flow state. Fires UNCONDITIONALLY regardless
@@ -871,7 +864,7 @@ export function useVoiceConnection({
                     activityReceived,
                     acState: ctx.state,
                     wsReadyState: ws.readyState,
-                    audioConstraints: "echoCancellation=false, noiseSuppression=false, autoGainControl=true",
+                    audioConstraints: "default (AEC+NS+AGC on)",
                     hasAudioWorklet: !!ctx.audioWorklet,
                     hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
                     userAgent: navigator.userAgent,
@@ -889,8 +882,7 @@ export function useVoiceConnection({
               nativeSampleRate,
               hasAudioWorklet: !!ctx.audioWorklet,
               hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
-              audioConstraints: "echoCancellation=false, noiseSuppression=false, autoGainControl=true",
-              gainSuppression: "disabled (gain=1.0)",
+              audioConstraints: "default (AEC+NS+AGC on)",
             },
           });
         } catch { /* breadcrumb */ }
