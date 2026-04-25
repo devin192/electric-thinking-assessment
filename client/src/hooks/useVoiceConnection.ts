@@ -511,6 +511,11 @@ export function useVoiceConnection({
       wsRef.current = ws;
 
       let activityReceived = false;
+      // Smoking-gun diagnostic flags. Used by ws.onclose to capture a Sentry event
+      // when WS opens but audio never flows — that's exactly the case where iOS
+      // mic capture is broken and we need full breadcrumb context to debug.
+      let wsOnopenFired = false;
+      let captureModeAtSetup: "worklet" | "spn" | "unknown" = "unknown";
       // Diagnostics — tracks whether audio chunks are actually flowing out to EL.
       // If processor.onaudioprocess never fires on iOS (documented ScriptProcessorNode
       // flakiness), EL sees a silent connection and closes with code 1002.
@@ -518,6 +523,7 @@ export function useVoiceConnection({
       let audioChunkCount = 0;
 
       ws.onopen = async () => {
+        wsOnopenFired = true;
         clearInterval(timer);
         connectTimerRef.current = null;
         setVoiceConnecting(false);
@@ -774,8 +780,10 @@ export function useVoiceConnection({
           const usingWorklet = await trySetupWorklet();
           if (usingWorklet) {
             captureMode = "worklet";
+            captureModeAtSetup = "worklet";
           } else if (setupSpnFallback()) {
             captureMode = "spn";
+            captureModeAtSetup = "spn";
           } else {
             // Both paths bailed (typically AC closed during connect). Nothing more
             // to do — the disconnect that closed the AC will handle UI cleanup.
@@ -903,6 +911,39 @@ export function useVoiceConnection({
       };
 
       ws.onclose = (event) => {
+        // SMOKING-GUN DIAGNOSTIC: when WS opens but audio chunks never flow, fire
+        // a Sentry capture event so we get the full breadcrumb history + the
+        // voice_capture_mode tag. This is exactly the iOS-mic-broken case.
+        // Only fire on first attempt (not retries) and only if user didn't disconnect.
+        if (
+          wsOnopenFired &&
+          !firstAudioProcessSeen &&
+          !isReconnect &&
+          !userInitiatedDisconnectRef.current
+        ) {
+          try {
+            Sentry.captureMessage("Voice opened but no audio chunks flowed", {
+              level: "warning",
+              tags: {
+                component: "voice",
+                action: "no-audio-flow",
+                voice_capture_mode: captureModeAtSetup,
+              },
+              extra: {
+                closeCode: event.code,
+                closeReason: event.reason || null,
+                wasClean: event.wasClean,
+                activityReceived,
+                audioChunkCount,
+                firstAudioProcessSeen,
+                captureModeAtSetup,
+                wsOnopenFired,
+                acState: audioContextRef.current?.state || "no-ac",
+                userAgent: navigator.userAgent,
+              },
+            });
+          } catch { /* sentry capture failure shouldn't block close handling */ }
+        }
         // DIAGNOSTIC: capture full close context in Sentry (code + reason + whether
         // any activity was received + how many audio chunks were sent). Previously
         // this was only in console.log and got lost.
