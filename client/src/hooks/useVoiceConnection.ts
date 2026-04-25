@@ -1043,6 +1043,41 @@ export function useVoiceConnection({
         setIsSpeaking(false);
 
         const isAbnormalClose = event.code !== 1000 && event.code !== 1001;
+
+        // QUOTA / BILLING DETECTION: ElevenLabs sends close code 1002 with
+        // reason="This request exceeds your quota limit." when the EL plan's
+        // ConvAI minutes are exhausted. Retrying just burns the user's time
+        // and produces a confusing infinite loop (Apr 25 2026: 6 cycles before
+        // we figured this out). Bail to text immediately with a clear message.
+        const closeReason = event.reason || "";
+        const isQuotaExceeded =
+          closeReason.toLowerCase().includes("quota") ||
+          closeReason.toLowerCase().includes("exceeds");
+        if (isQuotaExceeded) {
+          try {
+            Sentry.captureMessage("ElevenLabs quota exceeded — voice unavailable", {
+              level: "error",
+              tags: { component: "voice", action: "quota-exceeded" },
+              extra: { closeCode: event.code, closeReason, audioChunkCount, firstAudioProcessSeen },
+            });
+          } catch { /* breadcrumb */ }
+          signedUrlRef.current = null;
+          connectingLockRef.current = false;
+          reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // prevent any retries
+          if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+          if (!voiceFallbackTriggeredRef.current) {
+            voiceFallbackTriggeredRef.current = true;
+            setVoiceConnecting(false);
+            toastRef.current({
+              title: "Voice temporarily unavailable",
+              description: "Switching to text mode.",
+              action: makeReportAction(`Voice quota exceeded: ${closeReason}`),
+            });
+            onVoiceFallbackRef.current({ startTextGreeting: false });
+          }
+          return;
+        }
+
         // Retry budget depends on BOTH activity (did we ever get a real response?)
         // AND close code (protocol reject vs network blip):
         //   - activity received: full budget — it was working, might recover
