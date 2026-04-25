@@ -170,6 +170,11 @@ export function useVoiceConnection({
   // AudioWorkletNode used for mic capture (preferred over deprecated ScriptProcessor).
   // Held in a ref so state-sync useEffects (mute, speaking) can postMessage to it.
   const workletNodeRef = useRef<AudioWorkletNode | null>(null);
+  // Pending reconnect setTimeout ID. Tracked so disconnectVoice can cancel it —
+  // otherwise a queued setTimeout fires AFTER the user clicks Switch-to-Text,
+  // spawning a ghost WebSocket + ghost AudioContext that plays a second Lex on
+  // top of the still-finishing original ("doubled Lex" bug Devin hit Apr 25).
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Voice quality metrics
   const sessionStartTimeRef = useRef<number | null>(null);
@@ -304,6 +309,15 @@ export function useVoiceConnection({
 
     reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS;
 
+    // Cancel any pending reconnect setTimeout BEFORE the AC + WS teardown.
+    // If we don't cancel and the timer fires after AC.close(), connectVoice
+    // creates a new AC + WS that plays a second Lex on top of the still-
+    // finishing original audio (Devin's "doubled Lex" bug 2026-04-25).
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
     // Report voice quality metrics before tearing down
     reportVoiceMetrics();
 
@@ -392,6 +406,11 @@ export function useVoiceConnection({
       if (stale.readyState === WebSocket.OPEN || stale.readyState === WebSocket.CONNECTING) {
         stale.close();
       }
+    }
+    // Cancel any pending reconnect from a prior session before starting fresh.
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
     }
     // Tear down any stale AudioWorkletNode from a prior session — leaving it
     // connected would mean two processors writing to the same WebSocket buffer
@@ -825,35 +844,41 @@ export function useVoiceConnection({
           // we can correlate Sentry events to which audio config was active.
           Sentry.setTag("audio_constraints_variant", "relaxed_2026_04_25");
 
-          // SMOKING-GUN AUTO-CAPTURE: 5 seconds after WS opens, if no audio
-          // chunks have flowed yet, fire a Sentry event with full context. This
-          // doesn't require the user to click anything — captures the silent-mic
-          // state automatically while it's happening.
+          // SMOKING-GUN AUTO-CAPTURE: 5 seconds after WS opens, capture a Sentry
+          // event with current audio-flow state. Fires UNCONDITIONALLY regardless
+          // of WS readyState — Devin's reconnect cycle was racing the timer and
+          // the WS would already be closed before we could capture, leaving us
+          // blind. Capturing always gives us the data.
           setTimeout(() => {
-            if (firstAudioProcessSeen || audioChunkCount > 0) return;
-            if (ws.readyState !== WebSocket.OPEN) return;
+            const audioFlowing = firstAudioProcessSeen && audioChunkCount > 0;
             try {
-              Sentry.captureMessage("Voice WS open 5s with zero audio chunks flowed", {
-                level: "warning",
-                tags: {
-                  component: "voice",
-                  action: "no-audio-flow-5s",
-                  voice_capture_mode: captureModeAtSetup,
-                },
-                extra: {
-                  captureModeAtSetup,
-                  firstAudioProcessSeen,
-                  audioChunkCount,
-                  activityReceived,
-                  acState: ctx.state,
-                  wsReadyState: ws.readyState,
-                  audioConstraints: "echoCancellation=false, noiseSuppression=false, autoGainControl=true",
-                  hasAudioWorklet: !!ctx.audioWorklet,
-                  hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
-                  userAgent: navigator.userAgent,
-                  isReconnect,
-                },
-              });
+              Sentry.captureMessage(
+                audioFlowing
+                  ? `Voice 5s check: audio flowing (${audioChunkCount} chunks)`
+                  : "Voice 5s check: ZERO audio chunks",
+                {
+                  level: audioFlowing ? "info" : "warning",
+                  tags: {
+                    component: "voice",
+                    action: "5s-check",
+                    voice_capture_mode: captureModeAtSetup,
+                    audio_flowing: audioFlowing ? "yes" : "no",
+                  },
+                  extra: {
+                    captureModeAtSetup,
+                    firstAudioProcessSeen,
+                    audioChunkCount,
+                    activityReceived,
+                    acState: ctx.state,
+                    wsReadyState: ws.readyState,
+                    audioConstraints: "echoCancellation=false, noiseSuppression=false, autoGainControl=true",
+                    hasAudioWorklet: !!ctx.audioWorklet,
+                    hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
+                    userAgent: navigator.userAgent,
+                    isReconnect,
+                  },
+                }
+              );
             } catch { /* sentry failure shouldn't break voice */ }
           }, 5000);
           Sentry.addBreadcrumb({
@@ -1034,7 +1059,11 @@ export function useVoiceConnection({
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current - 1), 8000);
           console.log(`WebSocket closed unexpectedly (code ${event.code}). Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${effectiveMaxRetries})`);
           connectingLockRef.current = false; // release lock so reconnect can proceed
-          setTimeout(() => {
+          // Track the timer so disconnectVoice can cancel it. Without this,
+          // user clicks Switch-to-Text while a reconnect is queued → setTimeout
+          // fires after disconnect → ghost WebSocket + ghost AC = doubled Lex.
+          reconnectTimerRef.current = setTimeout(() => {
+            reconnectTimerRef.current = null;
             connectVoice(true); // isReconnect=true: reuse signed URL, don't spawn new agent
           }, delay);
           return;
