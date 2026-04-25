@@ -46,6 +46,85 @@ interface UseVoiceConnectionReturn {
 
 const MAX_RECONNECT_ATTEMPTS = 3;
 
+/**
+ * AudioWorklet processor that runs on the audio thread (separate from the main JS
+ * thread). Replaces ScriptProcessorNode, which is deprecated AND has a documented
+ * history of silently not firing on iOS browsers — that's the bug Devin hit on
+ * iOS Chrome cellular on April 25 (mic audio never reached ElevenLabs, EL kept
+ * closing the connection, agent kept restarting greeting from scratch).
+ *
+ * Architecture:
+ *   mediaStream -> MediaStreamSource -> AudioWorkletNode (this processor) -> port -> main thread -> WebSocket
+ *
+ * The processor accumulates audio samples until it has a 4096-sample chunk
+ * (matching the previous SPN buffer size for behavior parity), then resamples
+ * from the AudioContext's native sample rate (typically 48 kHz on iOS) down to
+ * 16 kHz (what ElevenLabs Convai expects), converts float32 -> int16, and
+ * posts the buffer back to the main thread for WebSocket transmission.
+ *
+ * State (mute, speaking-for-echo-suppression) is synced from main thread via
+ * postMessage — the worklet thread can't read React state directly.
+ */
+const VOICE_WORKLET_CODE = `
+class VoiceProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.bufferTarget = 4096;
+    this.targetSampleRate = 16000;
+    this.isMuted = false;
+    this.isSpeaking = false;
+    this.accumulator = [];
+    this.accumulatorLen = 0;
+    this.port.onmessage = (e) => {
+      const d = e.data;
+      if (!d) return;
+      if (d.type === 'mute') this.isMuted = !!d.value;
+      if (d.type === 'speaking') this.isSpeaking = !!d.value;
+    };
+  }
+  process(inputs) {
+    const input = inputs[0];
+    if (!input || !input[0] || this.isMuted) return true;
+    const samples = input[0];
+    // Copy because the input buffer is reused across process() calls
+    this.accumulator.push(new Float32Array(samples));
+    this.accumulatorLen += samples.length;
+    while (this.accumulatorLen >= this.bufferTarget) {
+      const out = new Float32Array(this.bufferTarget);
+      let pos = 0;
+      while (pos < this.bufferTarget) {
+        const next = this.accumulator[0];
+        const need = this.bufferTarget - pos;
+        if (next.length <= need) {
+          out.set(next, pos);
+          pos += next.length;
+          this.accumulator.shift();
+        } else {
+          out.set(next.subarray(0, need), pos);
+          this.accumulator[0] = next.subarray(need);
+          pos = this.bufferTarget;
+        }
+      }
+      this.accumulatorLen -= this.bufferTarget;
+      // Echo suppression: reduce mic gain while Lex is speaking so the speaker
+      // output isn't picked up by the mic and looped back as user speech.
+      const gain = this.isSpeaking ? 0.08 : 1.0;
+      const ratio = sampleRate / this.targetSampleRate;
+      const outputLen = Math.floor(out.length / ratio);
+      const pcm16 = new Int16Array(outputLen);
+      for (let i = 0; i < outputLen; i++) {
+        const idx = Math.floor(i * ratio);
+        const s = out[idx] * gain;
+        pcm16[i] = Math.max(-32768, Math.min(32767, s * 32768));
+      }
+      this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
+    }
+    return true;
+  }
+}
+registerProcessor('voice-processor', VoiceProcessor);
+`;
+
 export function useVoiceConnection({
   assessmentId,
   activeAssessment,
@@ -84,6 +163,9 @@ export function useVoiceConnection({
   // switched modes, navigated away). Lets ws.onclose distinguish intentional closes
   // from unexpected drops so we don't show an error UI for user-initiated exits.
   const userInitiatedDisconnectRef = useRef<boolean>(false);
+  // AudioWorkletNode used for mic capture (preferred over deprecated ScriptProcessor).
+  // Held in a ref so state-sync useEffects (mute, speaking) can postMessage to it.
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null);
 
   // Voice quality metrics
   const sessionStartTimeRef = useRef<number | null>(null);
@@ -100,8 +182,17 @@ export function useVoiceConnection({
   const onVoiceFallbackRef = useRef(onVoiceFallback);
 
   // ── Sync refs to latest values ─────────────────────────────────────
-  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
-  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
+  // Also forward mute / speaking state to the AudioWorklet (if active) since
+  // the worklet thread can't read React state directly. The SPN fallback path
+  // continues to read isMutedRef / isSpeakingRef inline.
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+    workletNodeRef.current?.port.postMessage({ type: "mute", value: isMuted });
+  }, [isMuted]);
+  useEffect(() => {
+    isSpeakingRef.current = isSpeaking;
+    workletNodeRef.current?.port.postMessage({ type: "speaking", value: isSpeaking });
+  }, [isSpeaking]);
   useEffect(() => { assessmentIdRef.current = assessmentId; }, [assessmentId]);
   useEffect(() => { activeAssessmentRef.current = activeAssessment; }, [activeAssessment]);
   useEffect(() => { userRef.current = user; }, [user]);
@@ -216,6 +307,11 @@ export function useVoiceConnection({
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (workletNodeRef.current) {
+      try { workletNodeRef.current.disconnect(); } catch { /* already disconnected */ }
+      try { workletNodeRef.current.port.close(); } catch { /* already closed */ }
+      workletNodeRef.current = null;
+    }
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(t => t.stop());
       mediaStreamRef.current = null;
@@ -292,6 +388,14 @@ export function useVoiceConnection({
       if (stale.readyState === WebSocket.OPEN || stale.readyState === WebSocket.CONNECTING) {
         stale.close();
       }
+    }
+    // Tear down any stale AudioWorkletNode from a prior session — leaving it
+    // connected would mean two processors writing to the same WebSocket buffer
+    // path on the next connect.
+    if (workletNodeRef.current) {
+      try { workletNodeRef.current.disconnect(); } catch { /* already disconnected */ }
+      try { workletNodeRef.current.port.close(); } catch { /* already closed */ }
+      workletNodeRef.current = null;
     }
     // Reset voice metrics for a fresh session (not reconnects)
     if (!isReconnect) {
@@ -413,7 +517,7 @@ export function useVoiceConnection({
       let firstAudioProcessSeen = false;
       let audioChunkCount = 0;
 
-      ws.onopen = () => {
+      ws.onopen = async () => {
         clearInterval(timer);
         connectTimerRef.current = null;
         setVoiceConnecting(false);
@@ -528,17 +632,12 @@ export function useVoiceConnection({
         const ratio = nativeSampleRate / targetSampleRate;
 
         const audioRecorder = ctx.createMediaStreamSource(stream);
-        const processor = ctx.createScriptProcessor(4096, 1, 1);
-        audioRecorder.connect(processor);
-        processor.connect(ctx.destination);
 
-        processor.onaudioprocess = (e) => {
-          if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
-
-          // DIAGNOSTIC: prove whether audio is actually flowing on iOS.
-          // ScriptProcessorNode is deprecated and has a history of silently
-          // not firing on iOS Safari. If EL closes with 1002 and we never
-          // see this breadcrumb, that's our smoking gun.
+        // Helper: encode an Int16 ArrayBuffer of PCM samples and send via WebSocket.
+        // Used by both the AudioWorklet path (port.onmessage) and the ScriptProcessor
+        // fallback (processor.onaudioprocess) so both paths produce identical wire output.
+        const sendAudioChunk = (pcm16Buffer: ArrayBuffer) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
           if (!firstAudioProcessSeen) {
             firstAudioProcessSeen = true;
             try {
@@ -554,32 +653,14 @@ export function useVoiceConnection({
               });
             } catch { /* breadcrumb */ }
           }
-
-          const inputData = e.inputBuffer.getChannelData(0);
-
-          // Echo suppression: reduce mic gain while Lex is speaking.
-          // This prevents the speaker output from being picked up by the mic
-          // and misinterpreted as user speech, which causes echo/interruption loops.
-          const gain = isSpeakingRef.current ? 0.08 : 1.0;
-
-          const outputLength = Math.floor(inputData.length / ratio);
-          const pcm16 = new Int16Array(outputLength);
-          for (let i = 0; i < outputLength; i++) {
-            const srcIndex = Math.floor(i * ratio);
-            const sample = inputData[srcIndex] * gain;
-            pcm16[i] = Math.max(-32768, Math.min(32767, sample * 32768));
-          }
-
-          const bytes = new Uint8Array(pcm16.buffer);
-          let base64 = "";
+          const bytes = new Uint8Array(pcm16Buffer);
+          let binary = "";
           const chunkSize = 8192;
           for (let i = 0; i < bytes.length; i += chunkSize) {
-            base64 += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
+            binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)));
           }
-          ws.send(JSON.stringify({ user_audio_chunk: btoa(base64) }));
+          ws.send(JSON.stringify({ user_audio_chunk: btoa(binary) }));
           audioChunkCount++;
-          // Milestone breadcrumbs (not per-chunk — would flood Sentry).
-          // 50 chunks ≈ 4s of audio, 500 ≈ 40s, 5000 ≈ 6–7min.
           if (audioChunkCount === 50 || audioChunkCount === 500 || audioChunkCount === 5000) {
             try {
               Sentry.addBreadcrumb({
@@ -590,6 +671,145 @@ export function useVoiceConnection({
             } catch { /* breadcrumb */ }
           }
         };
+
+        // Prefer AudioWorkletNode. ScriptProcessorNode is deprecated and has a
+        // documented pattern of silently not firing on iOS Chrome (Devin Apr 25
+        // case: WS opens, Lex audio plays, user mic never reaches EL → EL closes
+        // → reconnect → infinite loop). AWN runs in the audio thread (not main
+        // thread) and is the modern API. We keep an SPN fallback for any edge
+        // case where AWN fails to initialize.
+        let captureMode: "worklet" | "spn";
+
+        const trySetupWorklet = async (): Promise<boolean> => {
+          if (!ctx.audioWorklet || typeof AudioWorkletNode === "undefined") {
+            return false;
+          }
+          // Race guard: AC may have been closed during the addModule await if user
+          // disconnected mid-connect. Don't try to construct a node on a dead AC.
+          if ((ctx.state as string) === "closed") return false;
+          try {
+            const blob = new Blob([VOICE_WORKLET_CODE], { type: "application/javascript" });
+            const url = URL.createObjectURL(blob);
+            try {
+              await ctx.audioWorklet.addModule(url);
+            } finally {
+              URL.revokeObjectURL(url);
+            }
+            // Recheck after the await — disconnect may have closed AC during it
+            if ((ctx.state as string) === "closed") return false;
+            const node = new AudioWorkletNode(ctx, "voice-processor");
+            workletNodeRef.current = node;
+
+            // Sync initial state — useEffects only fire on subsequent state changes.
+            node.port.postMessage({ type: "mute", value: isMutedRef.current });
+            node.port.postMessage({ type: "speaking", value: isSpeakingRef.current });
+
+            node.port.onmessage = (event) => {
+              const buf = event.data as ArrayBuffer;
+              if (buf instanceof ArrayBuffer) sendAudioChunk(buf);
+            };
+            node.onprocessorerror = () => {
+              try {
+                Sentry.captureMessage("AudioWorklet processor error", {
+                  level: "error",
+                  tags: { component: "voice", action: "worklet-error" },
+                });
+              } catch { /* breadcrumb */ }
+            };
+
+            audioRecorder.connect(node);
+            // NOTE: Do NOT connect node to ctx.destination. SPN required that for
+            // legacy reasons (it wouldn't fire onaudioprocess otherwise). AWN does
+            // not need it, and connecting would echo Lex's mic capture back to the
+            // speakers, creating a feedback loop.
+
+            return true;
+          } catch (err: any) {
+            try {
+              Sentry.captureMessage("AudioWorklet setup failed, falling back to ScriptProcessor", {
+                level: "warning",
+                tags: { component: "voice", action: "worklet-fallback" },
+                extra: { error: err?.message || String(err) },
+              });
+            } catch { /* breadcrumb */ }
+            return false;
+          }
+        };
+
+        const setupSpnFallback = (): boolean => {
+          // Legacy path: ScriptProcessorNode. Kept for safety in case AWN fails.
+          // Has the iOS-silent-fire bug — if we land here on iOS, expect that
+          // mic audio may not reach EL reliably.
+          // Race guard: same as trySetupWorklet — AC may have been closed by a
+          // disconnect that happened during the AWN await before we landed here.
+          if ((ctx.state as string) === "closed") return false;
+          const processor = ctx.createScriptProcessor(4096, 1, 1);
+          audioRecorder.connect(processor);
+          processor.connect(ctx.destination); // SPN requires this to fire
+
+          processor.onaudioprocess = (e) => {
+            if (isMutedRef.current || ws.readyState !== WebSocket.OPEN) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            const gain = isSpeakingRef.current ? 0.08 : 1.0;
+            const outputLength = Math.floor(inputData.length / ratio);
+            const pcm16 = new Int16Array(outputLength);
+            for (let i = 0; i < outputLength; i++) {
+              const srcIndex = Math.floor(i * ratio);
+              const sample = inputData[srcIndex] * gain;
+              pcm16[i] = Math.max(-32768, Math.min(32767, sample * 32768));
+            }
+            sendAudioChunk(pcm16.buffer);
+          };
+          return true;
+        };
+
+        // Both paths can throw on a closed-mid-connect AC. Catch at this level so
+        // we don't propagate an unhandled rejection out of the async ws.onopen
+        // (which has no parent error handler — see Rex finding from Apr 25).
+        try {
+          const usingWorklet = await trySetupWorklet();
+          if (usingWorklet) {
+            captureMode = "worklet";
+          } else if (setupSpnFallback()) {
+            captureMode = "spn";
+          } else {
+            // Both paths bailed (typically AC closed during connect). Nothing more
+            // to do — the disconnect that closed the AC will handle UI cleanup.
+            try {
+              Sentry.addBreadcrumb({
+                category: "voice",
+                message: "Audio setup skipped (AC closed mid-connect)",
+                level: "warning",
+              });
+            } catch { /* breadcrumb */ }
+            return;
+          }
+        } catch (audioErr: any) {
+          try {
+            Sentry.captureException(audioErr, {
+              tags: { component: "voice", action: "audio-setup-failed" },
+              extra: { acState: ctx.state, isReconnect },
+            });
+          } catch { /* breadcrumb */ }
+          // The ws will close naturally — onclose handles fallback UI
+          return;
+        }
+
+        // Tag the Sentry scope so future events from this session show which
+        // capture path was used. Helps correlate SPN fallback events.
+        try {
+          Sentry.setTag("voice_capture_mode", captureMode);
+          Sentry.addBreadcrumb({
+            category: "voice",
+            message: `Audio capture mode: ${captureMode}`,
+            level: "info",
+            data: {
+              nativeSampleRate,
+              hasAudioWorklet: !!ctx.audioWorklet,
+              hasAudioWorkletNode: typeof AudioWorkletNode !== "undefined",
+            },
+          });
+        } catch { /* breadcrumb */ }
       };
 
       ws.onmessage = (event) => {
@@ -828,6 +1048,15 @@ export function useVoiceConnection({
       connectingLockRef.current = false;
       setVoiceConnecting(false);
 
+      // Note: TS narrowing struggles inside this catch block — using a typed
+      // local var sidesteps the issue. AudioContext.close() below also kills
+      // the worklet, so this is belt-and-suspenders cleanup.
+      const stWorklet = workletNodeRef.current as AudioWorkletNode | null;
+      if (stWorklet) {
+        try { stWorklet.disconnect(); } catch { /* already disconnected */ }
+        try { stWorklet.port.close(); } catch { /* already closed */ }
+      }
+      workletNodeRef.current = null;
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach(t => t.stop());
         mediaStreamRef.current = null;
