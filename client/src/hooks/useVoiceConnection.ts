@@ -718,10 +718,14 @@ export function useVoiceConnection({
             };
 
             audioRecorder.connect(node);
-            // NOTE: Do NOT connect node to ctx.destination. SPN required that for
-            // legacy reasons (it wouldn't fire onaudioprocess otherwise). AWN does
-            // not need it, and connecting would echo Lex's mic capture back to the
-            // speakers, creating a feedback loop.
+            // CRITICAL: AudioWorkletNode requires connection to ctx.destination
+            // for the browser to render its process() callback. Without this the
+            // node is "dangling" — present in memory, receiving input, but never
+            // invoked. (April 25 2026 prod incident: shipped without this; mic
+            // audio never reached ElevenLabs; agent kept restarting greeting.)
+            // The worklet's process() doesn't write to outputs[0], so this sends
+            // silence to speakers — no echo, no perceptible side-effect.
+            node.connect(ctx.destination);
 
             return true;
           } catch (err: any) {
