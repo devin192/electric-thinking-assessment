@@ -20,6 +20,18 @@ import rateLimit from "express-rate-limit";
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: { message: "Too many attempts, please try again later" } });
 
+// Per-user voice-token limiter. A stuck client hammering /api/assessment/voice-token
+// burns ElevenLabs ConvAI quota fast — exactly how we exhausted Devin's Creator plan
+// on Apr 24. Keyed by session userId so corporate cohorts behind one NAT aren't
+// rate-limited against each other. 12/min is generous for legitimate retry but
+// blocks runaway loops cold.
+const voiceTokenLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 12,
+  keyGenerator: (req: Request) => String(req.session?.userId ?? req.ip),
+  message: { message: "Voice token rate limit exceeded. Switching to text mode." },
+});
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
@@ -2791,7 +2803,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/assessment/voice-token", requireAuth, async (req, res) => {
+  app.get("/api/assessment/voice-token", voiceTokenLimiter, requireAuth, async (req, res) => {
     try {
       const userId = req.session.userId;
       const activeAssessment = userId ? await storage.getActiveAssessment(userId) : undefined;

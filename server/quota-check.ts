@@ -93,10 +93,80 @@ async function checkElevenLabsQuota(): Promise<QuotaStatus> {
 }
 
 /**
+ * Synthetic ConvAI health check: actually attempt to fetch a signed URL.
+ *
+ * The /v1/user/subscription endpoint reports TTS character usage, which is
+ * NOT how ConvAI minutes are billed. Yesterday's bug exhausted the ConvAI
+ * minute quota while character_count looked fine. The only reliable way to
+ * detect "ConvAI is dead for me" is to ask ElevenLabs for a signed URL and
+ * see if they'll give it. If they refuse with a quota-shaped error, alert.
+ *
+ * Cost: one HTTP call per day. Getting a signed URL doesn't start a session
+ * or consume ConvAI minutes — that only happens when a WebSocket connects.
+ *
+ * Rex flagged 2026-04-25: the original character-only check was theatre for
+ * the actual failure mode. This catches it.
+ */
+async function checkElevenLabsConvAISynthetic(): Promise<QuotaStatus> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    return {
+      service: "ElevenLabs ConvAI",
+      level: "error",
+      usagePct: null,
+      message: "ELEVENLABS_API_KEY not set — cannot synthetic-check ConvAI.",
+    };
+  }
+  try {
+    const agentId = await storage.getSystemConfig("elevenlabs_agent_id");
+    if (!agentId) {
+      return {
+        service: "ElevenLabs ConvAI",
+        level: "error",
+        usagePct: null,
+        message: "elevenlabs_agent_id not configured in system_config.",
+      };
+    }
+    const res = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
+      { method: "GET", headers: { "xi-api-key": apiKey } },
+    );
+    if (res.ok) {
+      return {
+        service: "ElevenLabs ConvAI",
+        level: "ok",
+        usagePct: null,
+        message: "Synthetic signed-URL fetch succeeded.",
+      };
+    }
+    const body = await res.text().catch(() => "");
+    const lower = body.toLowerCase();
+    const looksLikeQuota =
+      lower.includes("quota") || lower.includes("exceeds") || lower.includes("limit");
+    return {
+      service: "ElevenLabs ConvAI",
+      level: looksLikeQuota ? "exhausted" : "error",
+      usagePct: looksLikeQuota ? 1 : null,
+      message: `Signed-URL fetch failed: ${res.status} ${res.statusText}. Body: ${body.slice(0, 200)}`,
+    };
+  } catch (e: any) {
+    return {
+      service: "ElevenLabs ConvAI",
+      level: "error",
+      usagePct: null,
+      message: `ConvAI synthetic check failed: ${e?.message || String(e)}`,
+    };
+  }
+}
+
+/**
  * Run all configured quota checks and return the consolidated status.
  */
 export async function runQuotaChecks(): Promise<QuotaStatus[]> {
-  return Promise.all([checkElevenLabsQuota()]);
+  return Promise.all([
+    checkElevenLabsQuota(),          // TTS character usage (subscription endpoint)
+    checkElevenLabsConvAISynthetic(), // ConvAI reachability (catches yesterday's bug)
+  ]);
 }
 
 /**

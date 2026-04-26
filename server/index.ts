@@ -40,6 +40,19 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Paths whose response bodies must NEVER be logged. They contain PII
+// (names, emails, role, orgId, unsubscribe tokens) or auth secrets (signed
+// ElevenLabs URLs that double as credentials for the duration of the convo).
+// Sage flagged this 2026-04-25 pre-ABC-launch — corporate IT will ask why
+// employee names appear in plaintext in our Railway logs.
+const NO_BODY_LOG_PATTERNS: RegExp[] = [
+  /^\/api\/auth\//,
+  /^\/api\/admin\//,
+  /^\/api\/manager\//,
+  /^\/api\/assessment\/voice-token/,
+  /^\/api\/users\b/,
+];
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -55,10 +68,10 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      const isSensitivePath = NO_BODY_LOG_PATTERNS.some((re) => re.test(path));
+      if (capturedJsonResponse && !isSensitivePath) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
