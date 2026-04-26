@@ -1137,19 +1137,31 @@ export function useVoiceConnection({
       };
 
       ws.onerror = (_event) => {
-        Sentry.captureException(new Error("WebSocket connection error"), {
-          tags: { component: "useVoiceConnection", action: "ws.onerror" },
-          extra: {
-            wsReadyState: ws.readyState,
-            audioContextState: audioContextRef.current?.state || "none",
-            connectionType: (navigator as any).connection?.effectiveType || "unknown",
-            visibility: document.visibilityState,
-            userAgent: navigator.userAgent,
-            isReconnect,
-            audioChunkCount,
-            firstAudioProcessSeen,
-          },
-        });
+        // iOS-backgrounding noise filter: when the user puts the tab in the
+        // background or locks the phone, iOS interrupts the AudioContext and
+        // tears down the WebSocket. AC state goes "interrupted" and document
+        // visibility is "hidden". That's not a fault — it's the user leaving.
+        // Skip the Sentry capture for those; still run the fallback flow.
+        const acState = (audioContextRef.current?.state as string) || "none";
+        const visibility = document.visibilityState;
+        const isUserBackgrounded =
+          (acState === "interrupted" || acState === "closed") &&
+          visibility === "hidden";
+        if (!isUserBackgrounded) {
+          Sentry.captureException(new Error("WebSocket connection error"), {
+            tags: { component: "useVoiceConnection", action: "ws.onerror" },
+            extra: {
+              wsReadyState: ws.readyState,
+              audioContextState: acState,
+              connectionType: (navigator as any).connection?.effectiveType || "unknown",
+              visibility,
+              userAgent: navigator.userAgent,
+              isReconnect,
+              audioChunkCount,
+              firstAudioProcessSeen,
+            },
+          });
+        }
         clearInterval(timer);
         reconnectAttemptsRef.current = MAX_RECONNECT_ATTEMPTS; // prevent onclose from reconnecting
         signedUrlRef.current = null;

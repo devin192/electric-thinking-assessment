@@ -12,6 +12,7 @@ import {
   sendAbandonedAssessmentEmail,
 } from "./email";
 import { postNudgeToSlack } from "./slack";
+import { runDailyQuotaCheck } from "./quota-check";
 
 const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
@@ -39,6 +40,14 @@ export function startCronJobs() {
   cron.schedule("0 10 * * *", async () => {
     console.log(`${new Date().toLocaleTimeString()} [cron] Running daily checks...`);
     await runDailyChecks();
+    // Third-party quota health (ElevenLabs, etc). Posts to Slack on any issue.
+    // Added 2026-04-25 after EL ConvAI quota silently exhausted and broke voice
+    // for 24+ hours before we noticed.
+    try {
+      await runDailyQuotaCheck();
+    } catch (e: any) {
+      console.error(`${new Date().toLocaleTimeString()} [cron] Quota check error:`, e?.message || e);
+    }
   });
 
   console.log(`${new Date().toLocaleTimeString()} [cron] Cron jobs started: nudges (Tue/Fri 9am), daily checks (10am)`);
