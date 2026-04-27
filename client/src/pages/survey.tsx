@@ -37,8 +37,8 @@ const SURVEY_QUESTIONS = [
   { skillName: "What Wasn't Possible Before", text: "I've built AI systems that do things that weren't possible before, not just faster versions of old work.", level: 3 },
 ];
 
-type Answer = 0 | 1 | 2; // 0=Not yet, 1=Sometimes, 2=Regularly
-const COLUMN_LABELS = ["Not yet", "Sometimes", "Regularly"];
+type Answer = 0 | 1 | 2; // 0=No, 1=Sometimes, 2=Regularly
+const COLUMN_LABELS = ["No", "Sometimes", "Regularly"];
 
 // Adaptive cutoff: after completing a level's 5 questions, check if we should continue.
 // If the user scored low on this level, they've found their growth edge — stop.
@@ -78,7 +78,7 @@ function buildSurveySummary(answers: Record<string, number>): string {
     lines.push(`${levelNames[lvl]} (${score}/10):`);
     if (strong.length > 0) lines.push(`  Regularly: ${strong.join(", ")}`);
     if (sometimes.length > 0) lines.push(`  Sometimes: ${sometimes.join(", ")}`);
-    if (never.length > 0) lines.push(`  Not yet: ${never.join(", ")}`);
+    if (never.length > 0) lines.push(`  No: ${never.join(", ")}`);
   }
   return lines.join("\n");
 }

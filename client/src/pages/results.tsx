@@ -401,7 +401,7 @@ export default function ResultsPage() {
                       <div className="flex items-center gap-4 text-xs text-muted-foreground pb-2 border-b border-border/50">
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> Strong</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Developing</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> Not yet</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" /> No</span>
                       </div>
                       {skillsByLevel.map(({ level, skills }) => (
                         <div key={level.id}>

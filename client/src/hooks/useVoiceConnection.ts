@@ -592,7 +592,7 @@ export function useVoiceConnection({
               `Approximate level: ${levelNames[surveyLevel]} (Level ${surveyLevel + 1} of 4)`,
               strong.length > 0 ? `Regularly does: ${strong.join(", ")}` : "",
               sometimes.length > 0 ? `Sometimes does: ${sometimes.join(", ")}` : "",
-              never.length > 0 ? `Not yet doing: ${never.join(", ")}` : "",
+              never.length > 0 ? `Not doing: ${never.join(", ")}` : "",
             ].filter(Boolean).join(". ");
 
             ws.send(JSON.stringify({
