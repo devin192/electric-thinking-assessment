@@ -1137,17 +1137,21 @@ export function useVoiceConnection({
       };
 
       ws.onerror = (_event) => {
-        // iOS-backgrounding noise filter: when the user puts the tab in the
-        // background or locks the phone, iOS interrupts the AudioContext and
-        // tears down the WebSocket. AC state goes "interrupted" and document
-        // visibility is "hidden". That's not a fault — it's the user leaving.
-        // Skip the Sentry capture for those; still run the fallback flow.
+        // Noise filters: skip Sentry capture when the WS error is the natural
+        // consequence of user behavior, not a fault.
+        //   (1) iOS-backgrounded: user put tab in background / locked phone.
+        //       AC state goes "interrupted"/"closed" and visibility is "hidden".
+        //   (2) User-initiated end: user clicked End Conversation, disconnectVoice
+        //       set userInitiatedDisconnectRef=true and cleared the AC. iOS Safari
+        //       then fires ws.onerror just before ws.onclose. Common false positive
+        //       on every clean completion (Apr 29 ABC user 147 was the canary).
         const acState = (audioContextRef.current?.state as string) || "none";
         const visibility = document.visibilityState;
         const isUserBackgrounded =
           (acState === "interrupted" || acState === "closed") &&
           visibility === "hidden";
-        if (!isUserBackgrounded) {
+        const isUserEndedConversation = userInitiatedDisconnectRef.current === true;
+        if (!isUserBackgrounded && !isUserEndedConversation) {
           Sentry.captureException(new Error("WebSocket connection error"), {
             tags: { component: "useVoiceConnection", action: "ws.onerror" },
             extra: {
