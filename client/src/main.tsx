@@ -10,11 +10,13 @@ if (sentryDsn) {
     environment: import.meta.env.MODE,
     integrations: [
       Sentry.browserTracingIntegration(),
-      // Record 1-in-4 sessions (plus 100% of errored sessions) so we can see what
+      // Record 1-in-10 sessions (plus 100% of errored sessions) so we can see what
       // users actually experienced. Our bugs often manifest without throwing
-      // (greeting loops, UI flickering, state races). Sentry Team tier = 50 replays
-      // baseline + pay-as-you-go. At ~30 users/day, 25% sampling ≈ 225/mo, overage
-      // is typically <$2/mo. Bump the rate temporarily when actively chasing a bug.
+      // (greeting loops, UI flickering, state races). Sentry Developer tier = 50
+      // replays/mo hard cap, no PAYG by default — 25% sampling burned 80% of the
+      // budget in 13 days during the ABC ramp. 10% projects to ~37/mo with
+      // headroom. Bump back to 0.25 or 1.0 temporarily when actively chasing a bug,
+      // then drop it. Errors are always captured at 100%.
       Sentry.replayIntegration({
         // Mask ALL text by default. Transcripts contain real customer/company
         // info (Jamie's session referenced specific show names + exec titles).
@@ -25,7 +27,7 @@ if (sentryDsn) {
       }),
     ],
     tracesSampleRate: 1.0,
-    replaysSessionSampleRate: 0.25,
+    replaysSessionSampleRate: 0.10,
     replaysOnErrorSampleRate: 1.0,
   });
 }
