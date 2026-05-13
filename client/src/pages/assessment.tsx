@@ -304,6 +304,14 @@ export default function AssessmentPage() {
       return;
     }
 
+    // Disconnect FIRST, before any awaits. disconnectVoice() synchronously sets
+    // userInitiatedDisconnectRef so ws.onerror's noise filter can suppress the
+    // capture. Previously the transcript-save await opened a 300ms window where
+    // ws.onerror would fire (iOS Safari closes WS the moment audio stops flowing)
+    // before the flag was set, producing a false-positive Sentry alert on every
+    // clean completion. Issue ELECTRIC-THINKING-ASSESSMENT-C (May 12 2026).
+    disconnectVoice();
+
     if (voiceMode === "full-duplex" && messages.length > 0) {
       try {
         await apiRequest("POST", `/api/assessment/${assessmentId}/message`, {
@@ -313,7 +321,6 @@ export default function AssessmentPage() {
       } catch (err) { console.warn("Transcript save error:", err); }
     }
 
-    disconnectVoice();
     setScoringPhase(0);
 
     const phaseTimers: ReturnType<typeof setTimeout>[] = [];
