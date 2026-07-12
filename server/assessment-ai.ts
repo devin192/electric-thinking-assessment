@@ -28,7 +28,7 @@ export async function getAssessmentResponse(
   const fullSystemPrompt = `${systemPrompt}\n\nUser context:\n${contextInfo}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     max_tokens: 800,
     system: fullSystemPrompt,
     messages: messages.map(m => ({
@@ -163,7 +163,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-5",
         max_tokens: 4000,
         messages: [{ role: "user", content: scoringPrompt }],
       });
@@ -304,7 +304,7 @@ Respond in this exact JSON format (no markdown, just raw JSON):
 If there are no mismatches, return: { "corrections": [] }`;
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     max_tokens: 1500,
     messages: [{ role: "user", content: prompt }],
   });
